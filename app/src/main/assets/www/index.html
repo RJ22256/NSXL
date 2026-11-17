@@ -17,6 +17,7 @@
 </script>
 <style>
 @property --a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@font-face { font-family: "Montserrat"; src: url("fonts/Montserrat.ttf") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
 
 :root {
   --u: min(1vw, 1.7778vh);               /* 1% of a 16:9 stage */
@@ -26,7 +27,7 @@
   --gap: calc(var(--u) * 1.25);
   --side: calc(var(--u) * 8.3);
   --r: calc(var(--u) * 1);
-  --font: "Roboto", "Noto Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font: "Montserrat", "Roboto", "Noto Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
   --ring: conic-gradient(from var(--a), #3ec5ff 0deg, #4d7dff 70deg, #9b7bff 130deg, #4d7dff 190deg, #3ec5ff 250deg, #c9f4ff 292deg, #ffffff 310deg, #b5efff 328deg, #3ec5ff 360deg);
   --glow: rgba(120, 132, 255, .45);
 }
@@ -117,10 +118,15 @@ body.full #home { visibility: hidden; }
 #home.enter { animation: enter .32s cubic-bezier(.2,.8,.2,1); }
 @keyframes enter { from { opacity: 0; transform: scale(1.025); } to { opacity: 1; transform: none; } }
 #gameTitle {
-  position: absolute; left: 0; top: calc(var(--oy) + var(--u) * 12.1);
-  font-size: calc(var(--u) * 2.15); font-weight: 500; color: var(--accent);
+  position: absolute; left: 0; top: calc(var(--oy) + var(--u) * 12);
+  width: var(--tile); overflow: hidden;
+  font-size: calc(var(--u) * 2.05); font-weight: 600; color: var(--accent); line-height: 1.25;
   white-space: nowrap; opacity: 0; transition: opacity .12s; pointer-events: none;
 }
+#gameTitle span { display: inline-block; white-space: nowrap; }
+#gameTitle.marquee { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 3%, #000 93%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 3%, #000 93%, transparent 100%); }
+#gameTitle.marquee span { animation: marquee var(--dur, 6s) ease-in-out infinite alternate; }
+@keyframes marquee { 0%, 18% { transform: translateX(0); } 82%, 100% { transform: translateX(var(--shift, 0px)); } }
 #rowWrap {
   position: absolute; left: 0; right: 0; top: calc(var(--oy) + var(--u) * 13.5);
   height: calc(var(--tile) + var(--u) * 4);
@@ -902,17 +908,32 @@ function updateTitle() {
   const t = $('#gameTitle'), it = Hm.items[Hm.idx];
   if (topOverlay() || Hm.zone !== 'row' || !it) { t.style.opacity = 0; return; }
   const txt = it.type === 'all' ? 'All Software' : (BY[it.pkg] ? BY[it.pkg].label : '');
-  const changed = t.textContent !== txt || t.style.opacity === '0';
-  t.textContent = txt;
+  const changed = t.dataset.txt !== txt || t.style.opacity === '0';
+  if (t.dataset.txt !== txt) { t.dataset.txt = txt; t.innerHTML = '<span>' + esc(txt) + '</span>'; }
   positionTitle(); t.style.opacity = 1;
-  if (changed) retrigger(t, 'swap');
+  if (changed) { retrigger(t, 'swap'); fitTitle(); }
 }
 function positionTitle() {
   const it = Hm.items[Hm.idx]; if (!it) return;
   const t = $('#gameTitle');
-  const x = it.el.getBoundingClientRect().left;
-  const maxX = window.innerWidth - t.offsetWidth - 12;
-  t.style.transform = `translateX(${Math.max(8, Math.min(x, maxX))}px)`;
+  // Layout position (ignores animations), so the title always sits exactly over its tile.
+  const wrap = $('#rowWrap');
+  const x = wrap.getBoundingClientRect().left + it.el.offsetLeft - wrap.scrollLeft;
+  t.style.width = it.el.offsetWidth + 'px';
+  t.style.transform = `translateX(${x}px)`;
+}
+/* Long names scroll back and forth inside the tile's width. */
+function fitTitle() {
+  const t = $('#gameTitle'), span = t.firstElementChild; if (!span) return;
+  t.classList.remove('marquee');
+  requestAnimationFrame(() => {
+    const over = span.scrollWidth - t.clientWidth;
+    if (over > 2) {
+      t.style.setProperty('--shift', -(over + 6) + 'px');
+      t.style.setProperty('--dur', Math.max(2.5, over / 70 + 2).toFixed(1) + 's');
+      t.classList.add('marquee');
+    }
+  });
 }
 function updateDockLabel() {
   const s = $('#dockLabel span');
@@ -1733,7 +1754,8 @@ function boot() {
   setInterval(updateClock, 1000);
   setInterval(updateStatus, 15000);
   $('#rowWrap').addEventListener('scroll', () => requestAnimationFrame(positionTitle), { passive: true });
-  window.addEventListener('resize', () => { refreshSel(); ensureRowVisible(false); });
+  window.addEventListener('resize', () => { refreshSel(); ensureRowVisible(false); fitTitle(); });
+  if (document.fonts) document.fonts.ready.then(() => { refreshSel(); fitTitle(); });
   document.body.classList.add('intro');
   requestAnimationFrame(() => { document.body.classList.add('ready'); refreshSel(); });
   setTimeout(() => document.body.classList.remove('intro'), 1400);

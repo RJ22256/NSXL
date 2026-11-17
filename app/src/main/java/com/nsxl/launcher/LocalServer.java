@@ -207,6 +207,8 @@ final class LocalServer {
         if (p.endsWith(".webp")) return "image/webp";
         if (p.endsWith(".json")) return "application/json";
         if (p.endsWith(".woff2")) return "font/woff2";
+        if (p.endsWith(".ttf")) return "font/ttf";
+        if (p.endsWith(".txt")) return "text/plain";
         if (p.endsWith(".mp3")) return "audio/mpeg";
         return "application/octet-stream";
     }
