@@ -234,6 +234,58 @@ img.flip { animation: flip .5s cubic-bezier(.2,.8,.2,1); }
 #themeWipe { position: fixed; z-index: 50; pointer-events: none; border-radius: 50%; width: 10px; height: 10px; transform: translate(-50%, -50%) scale(0); animation: wipe .6s cubic-bezier(.4,0,.2,1) forwards; }
 @keyframes wipe { 60% { opacity: .9; } to { transform: translate(-50%, -50%) scale(400); opacity: 0; } }
 
+/* ---- even more motion ---- */
+/* art lives in a clipping layer so it can drift and shine without spilling out */
+.clip { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
+.clip::after { content: ''; position: absolute; inset: 0; pointer-events: none; transform: translateX(-130%);
+  background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.5) 50%, transparent 65%); }
+.sel > .clip::after { animation: shine .9s .12s ease-out; }
+@keyframes shine { to { transform: translateX(130%); } }
+.sel > .clip img { animation: kenburns 10s ease-in-out infinite alternate; }
+@keyframes kenburns { from { transform: scale(1); } to { transform: scale(1.08) translate(-1.5%, -1%); } }
+/* selected tile lifts a little */
+.tile { transition: transform .28s cubic-bezier(.2,.8,.2,1), box-shadow .28s; }
+.tile.g.sel:not(.more) { transform: translateY(calc(var(--u) * -.35)); animation: tileSel .32s cubic-bezier(.3,1.6,.5,1);
+  box-shadow: 0 0 0 calc(var(--u) * .2) var(--gapRing), 0 calc(var(--u) * 1.1) calc(var(--u) * 2) calc(var(--u) * -.6) rgba(0,0,0,.28); }
+@keyframes tileSel { 0% { transform: translateY(0) scale(.975); } 100% { transform: translateY(calc(var(--u) * -.35)); } }
+/* dock icon hops when selected, then breathes */
+.dk.sel svg { animation: hop .45s cubic-bezier(.3,1.6,.5,1), bob 1.8s .45s ease-in-out infinite; }
+@keyframes hop { 40% { transform: translateY(calc(var(--u) * -.55)) scale(1.12); } 100% { transform: none; } }
+/* touch ripple */
+.rip { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; z-index: 5; }
+.rip i { position: absolute; border-radius: 50%; transform: translate(-50%, -50%) scale(0);
+  background: radial-gradient(circle, rgba(120,160,255,.42), rgba(120,160,255,0) 70%); animation: rip .6s ease-out forwards; }
+@keyframes rip { to { transform: translate(-50%, -50%) scale(1); opacity: 0; } }
+/* drifting background glow */
+#bgfx { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
+#bgfx i { position: absolute; width: 60vmax; height: 60vmax; border-radius: 50%; animation: drift 26s ease-in-out infinite alternate; }
+#bgfx i:nth-child(1) { left: -20vmax; top: -25vmax; background: radial-gradient(circle, var(--blob1), transparent 65%); }
+#bgfx i:nth-child(2) { right: -22vmax; top: 10vh; background: radial-gradient(circle, var(--blob2), transparent 65%); animation-delay: -9s; animation-duration: 31s; }
+#bgfx i:nth-child(3) { left: 20vw; bottom: -35vmax; background: radial-gradient(circle, var(--blob3), transparent 65%); animation-delay: -17s; animation-duration: 35s; }
+@keyframes drift { 0% { transform: translate(0, 0) scale(1); } 50% { transform: translate(8vw, 5vh) scale(1.15); } 100% { transform: translate(-4vw, 9vh) scale(.95); } }
+html[data-theme=white] { --blob1: rgba(150,185,255,.38); --blob2: rgba(230,180,255,.32); --blob3: rgba(160,230,255,.34); --flash: #ffffff; }
+html[data-theme=black] { --blob1: rgba(30,70,170,.32); --blob2: rgba(110,40,150,.26); --blob3: rgba(10,110,130,.26); --flash: #000000; }
+html[data-theme=video] #bgfx, html.nobg #bgfx { display: none; }
+html[data-theme=video] { --flash: #000000; }
+/* clock colon breathes */
+#hm .col { animation: colon 2s ease-in-out infinite; padding: 0 .03em; }
+@keyframes colon { 50% { opacity: .3; } }
+/* launch: screen flashes to the theme colour like the console */
+body.leaving::after { content: ''; position: fixed; inset: 0; z-index: 60; background: var(--flash, #fff); animation: flashIn .3s .06s both; pointer-events: none; }
+@keyframes flashIn { from { opacity: 0; } to { opacity: 1; } }
+/* sliding category marker in settings */
+.navBar { position: absolute; left: calc(var(--u) * -.6); width: calc(var(--u) * .3); border-radius: 2px; background: var(--accent);
+  transition: top .32s cubic-bezier(.3,1.4,.5,1), height .32s; }
+/* wifi bars and battery wake up */
+#net svg path, #net svg circle { animation: barIn .5s both; }
+#net svg path:nth-of-type(2) { animation-delay: .08s; } #net svg path:nth-of-type(1) { animation-delay: .16s; }
+@keyframes barIn { from { opacity: 0; transform: translateY(2px); } }
+#avatar { animation: breatheShadow 4s ease-in-out infinite; }
+@keyframes breatheShadow { 50% { box-shadow: 0 0 0 calc(var(--u) * .28) var(--gapRing), 0 calc(var(--u) * .5) calc(var(--u) * 1.4) var(--shadow); } }
+/* reduce motion */
+html.calm *, html.calm *::before, html.calm *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .001s !important; }
+html.calm #bgfx { display: none; }
+
 /* ---------- the animated selection ring ---------- */
 .g.sel { box-shadow: 0 0 0 calc(var(--u) * .2) var(--gapRing); }
 .g.sel::after {
@@ -365,7 +417,7 @@ img.flip { animation: flip .5s cubic-bezier(.2,.8,.2,1); }
   border-radius: calc(var(--u) * .7); cursor: pointer; isolation: isolate; --rr: calc(var(--u) * .7);
 }
 .navItem.cur { color: var(--accent); }
-.navItem.cur::before { content: ''; position: absolute; left: calc(var(--u) * -.6); top: 18%; bottom: 18%; width: calc(var(--u) * .3); border-radius: 2px; background: var(--accent); }
+
 .navItem.sel { background: var(--selBg); }
 .setPane {
   position: absolute; top: calc(var(--u) * 11.6); bottom: calc(var(--u) * 8); left: calc(var(--u) * 31); right: calc(var(--u) * 4);
@@ -488,6 +540,7 @@ html[data-theme=white] .dbtn.sel { background: #fff; }
 </style>
 </head>
 <body>
+<div id="bgfx" aria-hidden="true"><i></i><i></i><i></i></div>
 <div id="fakeVideo"></div>
 <div id="dim"></div>
 
@@ -533,7 +586,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false,
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true,
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => store.set('cfg', cfg);
@@ -599,6 +652,14 @@ new MutationObserver(list => list.forEach(m => { if (m.target.classList && m.tar
   .observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'] });
 const retrigger = (node, cls) => { if (!node) return; node.classList.remove(cls); void node.offsetWidth; node.classList.add(cls); };
 const pressFx = node => retrigger(node, 'press');
+function ripple(node, e) {
+  if (cfg.calm) return;
+  const r = node.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2.4;
+  const host = document.createElement('span'); host.className = 'rip';
+  const dot = document.createElement('i');
+  dot.style.cssText = `left:${e.clientX - r.left}px;top:${e.clientY - r.top}px;width:${d}px;height:${d}px`;
+  host.appendChild(dot); node.appendChild(host); setTimeout(() => host.remove(), 650);
+}
 
 /* =========================================================
    Native bridge (or a mock for previewing in a browser)
@@ -801,15 +862,16 @@ function artUrl(pkg, size) {
 function artBox(pkg, size, box) {
   const a = BY[pkg] || { label: '?' };
   const hue = hash(pkg) % 360;
+  const clip = el('div', 'clip'); box.appendChild(clip);
   const fb = el('div', 'fb', esc((a.label || '?').trim().charAt(0).toUpperCase()));
   fb.style.background = `linear-gradient(135deg, hsl(${hue},62%,56%), hsl(${(hue + 40) % 360},60%,42%))`;
-  box.appendChild(fb);
+  clip.appendChild(fb);
   const img = el('img'); img.alt = ''; img.decoding = 'async';
   img.dataset.pkg = pkg; img.dataset.s = size;
   img.onload = () => { fb.style.visibility = 'hidden'; };
   img.onerror = () => { img.style.visibility = 'hidden'; fb.style.visibility = 'visible'; };
   img.src = artUrl(pkg, size);
-  box.appendChild(img);
+  clip.appendChild(img);
 }
 
 /* =========================================================
@@ -820,6 +882,7 @@ function onPress(node, tap, long) {
   const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
   node.addEventListener('pointerdown', e => {
     fired = false; sx = e.clientX; sy = e.clientY; Snd.unlock();
+    if (node.classList.contains('g') || node.classList.contains('tile')) ripple(node, e);
     if (long) timer = setTimeout(() => { timer = null; fired = true; buzz('long'); long(e); }, 480);
   });
   node.addEventListener('pointermove', e => { if (Math.abs(e.clientX - sx) > 12 || Math.abs(e.clientY - sy) > 12) cancel(); });
@@ -1416,6 +1479,8 @@ const hasVideo = () => !!nb('hasVideo');
 function applyTheme() {
   const t = cfg.theme === 'video' && !hasVideo() ? 'black' : cfg.theme;
   document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.classList.toggle('calm', !!cfg.calm);
+  document.documentElement.classList.toggle('nobg', !cfg.bgfx);
   document.documentElement.style.setProperty('--dim', cfg.dim);
   nb('setMode', t === 'white' ? 'light' : t);
   if (t === 'video') nb('setVideoBlur', cfg.blur | 0);
@@ -1459,6 +1524,8 @@ const SETTINGS = [
     { type: 'choice', label: 'Clock', key: 'clock', options: [['system', 'System'], ['12', '12-hour'], ['24', '24-hour']], after: updateClock },
     { type: 'toggle', label: 'Show battery percentage', key: 'batPct', after: updateStatus },
     { type: 'toggle', label: 'Start software with one tap', desc: 'Off: the first tap selects (so you can see its name), the second tap starts it.', key: 'oneTap' },
+    { type: 'toggle', label: 'Moving background glow', desc: 'Soft colours drift behind Basic White and Basic Black.', key: 'bgfx', after: applyTheme },
+    { type: 'toggle', label: 'Reduce motion', desc: 'Turns off most animations.', key: 'calm', after: applyTheme },
     { type: 'action', label: 'Profile picture', value: () => 'Change', run: avatarMenu },
     { type: 'action', label: 'Restore removed games', value: () => Object.keys(store.get('hidden', {})).length + ' hidden',
       run: () => { store.set('hidden', {}); renderRow(); toast('Removed games restored'); } },
@@ -1500,6 +1567,7 @@ function openSettings(startCat) {
   let cat = startCat || 0, focus = 'nav', row = 0, rows = [], rowEls = [];
   let tIdx = Math.max(0, THEMES.findIndex(t => t[0] === cfg.theme));
 
+  const navBar = el('i', 'navBar'); nav.appendChild(navBar);
   const navEls = SETTINGS.map((s, i) => {
     const e = el('div', 'navItem g', esc(s.name));
     e.style.setProperty('--i', i);
@@ -1584,6 +1652,7 @@ function openSettings(startCat) {
   }
   function paint() {
     navEls.forEach((e, i) => { e.classList.toggle('cur', i === cat); e.classList.toggle('sel', focus === 'nav' && i === cat); });
+    const ce = navEls[cat]; if (ce) { navBar.style.top = (ce.offsetTop + ce.offsetHeight * .2) + 'px'; navBar.style.height = (ce.offsetHeight * .6) + 'px'; }
     rowEls.forEach((e, i) => e.classList.toggle('sel', focus === 'pane' && i === row && rows[i].type !== 'themes'));
     rowEls.forEach((e, i) => {
       if (rows[i].type !== 'themes') return;
@@ -1635,7 +1704,11 @@ function updateClock() {
   if (use24) { txt = h + ':' + m; $('#ampm').textContent = ''; }
   else { $('#ampm').textContent = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; txt = h + ':' + m; }
   const hm = $('#hm');
-  if (hm.textContent !== txt) { const first = hm.textContent === '--:--'; hm.textContent = txt; if (!first) retrigger(hm, 'swap'); }
+  if (hm.textContent !== txt) {
+    const first = hm.textContent === '--:--', [a, b] = txt.split(':');
+    hm.innerHTML = esc(a) + '<span class="col">:</span>' + esc(b);
+    if (!first) retrigger(hm, 'swap');
+  }
 }
 function updateStatus() {
   let st = {};
@@ -1688,7 +1761,8 @@ window.onResumeApp = () => {
     if (!topOverlay()) { Hm.idx = 0; Hm.zone = Hm.items.length ? 'row' : 'dock'; }
     $('#rowWrap').scrollLeft = 0;
     refreshSel();
-    const home = $('#home'); home.classList.remove('enter'); void home.offsetWidth; home.classList.add('enter');
+    document.body.classList.remove('intro'); void document.body.offsetWidth; document.body.classList.add('intro');
+    clearTimeout(window.__introT); window.__introT = setTimeout(() => document.body.classList.remove('intro'), 1400);
   }
 };
 window.onHome = () => {
@@ -1775,7 +1849,17 @@ function boot() {
   updateStatus();
   setInterval(updateClock, 1000);
   setInterval(updateStatus, 15000);
-  $('#rowWrap').addEventListener('scroll', () => requestAnimationFrame(positionTitle), { passive: true });
+  let lastSL = 0, tilt = 0, tiltRaf = 0;
+  const tiltLoop = () => {
+    tilt *= 0.86; const row = $('#row');
+    if (Math.abs(tilt) > 0.05 && !cfg.calm) { row.style.transform = `skewX(${(-tilt).toFixed(2)}deg)`; tiltRaf = requestAnimationFrame(tiltLoop); }
+    else { row.style.transform = ''; tiltRaf = 0; }
+  };
+  $('#rowWrap').addEventListener('scroll', () => {
+    const w = $('#rowWrap'), d = w.scrollLeft - lastSL; lastSL = w.scrollLeft;
+    tilt = clamp(tilt + d * 0.035, -3.5, 3.5); if (!tiltRaf) tiltRaf = requestAnimationFrame(tiltLoop);
+    requestAnimationFrame(positionTitle);
+  }, { passive: true });
   window.addEventListener('resize', () => { refreshSel(); ensureRowVisible(false); fitTitle(); });
   if (document.fonts) document.fonts.ready.then(() => { refreshSel(); fitTitle(); });
   document.body.classList.add('intro');
