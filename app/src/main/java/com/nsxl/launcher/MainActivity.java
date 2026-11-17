@@ -64,7 +64,9 @@ public class MainActivity extends Activity {
     WebView web;
     LocalServer server;
     LauncherBridge bridge;
-    private BroadcastReceiver packageReceiver;
+    private BroadcastReceiver packageReceiver, screenReceiver;
+    private boolean resumed, sleptWhileShowing;
+    private long pausedAt;
 
     String mode = "light";
     boolean videoEnabled;
@@ -120,6 +122,7 @@ public class MainActivity extends Activity {
         applySystemBars();
         setMode(mode);
         registerPackageReceiver();
+        registerScreenReceiver();
         if (prefs.getBoolean("overlay", false) && android.provider.Settings.canDrawOverlays(this)) {
             try { OverlayService.start(this, null); } catch (Exception ignored) { }
         }
@@ -135,6 +138,11 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         OverlayService.setLauncherVisible(true);
+        resumed = true;
+        if (sleptWhileShowing) {          // screen came back on with NSXL showing: play the wake animation
+            sleptWhileShowing = false;
+            js("window.onWake&&window.onWake()");
+        }
         applySystemBars();
         js("window.onResumeApp&&window.onResumeApp()");
     }
@@ -143,6 +151,8 @@ public class MainActivity extends Activity {
     protected void onPause() {
         js("window.onPauseApp&&window.onPauseApp()");   // stop the music when a game opens
         OverlayService.setLauncherVisible(false);
+        resumed = false;
+        pausedAt = android.os.SystemClock.uptimeMillis();
         super.onPause();
     }
 
@@ -158,6 +168,7 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         if (current == this) current = null;
         try { unregisterReceiver(packageReceiver); } catch (Exception ignored) { }
+        try { unregisterReceiver(screenReceiver); } catch (Exception ignored) { }
         video.stop();
         if (web != null) web.destroy();
         super.onDestroy();
@@ -463,6 +474,21 @@ public class MainActivity extends Activity {
         f.addDataScheme("package");
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(packageReceiver, f, Context.RECEIVER_EXPORTED);
         else registerReceiver(packageReceiver, f);
+    }
+
+    private void registerScreenReceiver() {
+        screenReceiver = new BroadcastReceiver() {
+            @Override public void onReceive(Context c, Intent intent) {
+                if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                    // Remember if NSXL was on screen when it went to sleep (onPause may already have run).
+                    if (resumed || android.os.SystemClock.uptimeMillis() - pausedAt < 1500) sleptWhileShowing = true;
+                    js("window.onScreenOff&&window.onScreenOff()");
+                }
+            }
+        };
+        IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenReceiver, f, Context.RECEIVER_NOT_EXPORTED);
+        else registerReceiver(screenReceiver, f);
     }
 
     // ------------------------------------------------------------------ pickers (video, cover art, avatar)

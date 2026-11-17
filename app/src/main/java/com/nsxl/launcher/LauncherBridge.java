@@ -481,6 +481,30 @@ final class LauncherBridge {
         }, "cloud").start();
     }
 
+    // ---------------------------------------------------------------- start-up / sleep
+
+    private static boolean loadedOnce;
+
+    /** True only the first time the page loads in this app process, so the start-up logo plays once. */
+    @JavascriptInterface
+    public boolean firstLoad() {
+        synchronized (LauncherBridge.class) {
+            boolean first = !loadedOnce;
+            loadedOnce = true;
+            return first;
+        }
+    }
+
+    @JavascriptInterface
+    public boolean canSleep() {
+        return ShortcutService.instance != null && Build.VERSION.SDK_INT >= 28;
+    }
+
+    @JavascriptInterface
+    public void sleepNow() {
+        a.runOnUiThread(ShortcutService::sleep);
+    }
+
     @JavascriptInterface
     public boolean shortcutEnabled() {
         return ShortcutService.instance != null;

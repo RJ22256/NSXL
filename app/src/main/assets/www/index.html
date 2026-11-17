@@ -337,6 +337,36 @@ body.full #modeTabs { opacity: 0; pointer-events: none; }
 .tdet .dbtn { flex: 0 1 auto; }
 .tdet .src { font-size: calc(var(--u) * 1.05); color: var(--fg2); }
 
+/* ---- start-up, wake and sleep ---- */
+#bootFx { position: fixed; inset: 0; z-index: 100; display: none; place-items: center; background: var(--bootBg, #000); color: var(--bootFg, #fff); cursor: pointer; }
+html[data-theme=white] { --bootBg: #ffffff; --bootFg: #1d1d1d; }
+#bootFx.on { display: grid; animation: bootOut .55s 2.05s cubic-bezier(.5,0,.8,.4) forwards; }
+#bootFx.skip { animation: bootOut .3s forwards !important; }
+@keyframes bootOut { to { opacity: 0; visibility: hidden; transform: scale(1.04); } }
+.bootLogo { display: flex; align-items: center; gap: calc(var(--u) * 2.4); }
+.bootRing { position: relative; width: calc(var(--u) * 9); height: calc(var(--u) * 9); border-radius: 50%; overflow: hidden;
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 56%); mask: radial-gradient(circle, transparent 54%, #000 56%);
+  animation: bootRing .8s cubic-bezier(.3,1.5,.5,1) .1s both; filter: drop-shadow(0 0 calc(var(--u) * 1.2) rgba(110,140,255,.6)); }
+.bootRing::before { content: ''; position: absolute; inset: -20%; background: conic-gradient(#2f6dff, #3d7bff, #8fb3ff, #c6a6ff, #ffbfe8, #ffe2f4, #bdeeff, #63a0ff, #2f6dff); animation: ringSpin 1.4s linear infinite; transform-origin: 50% 50%; }
+@keyframes bootRing { 0% { transform: scale(0) rotate(-120deg); opacity: 0; } 100% { transform: none; opacity: 1; } }
+.bootWord { display: flex; font-size: calc(var(--u) * 8); font-weight: 800; letter-spacing: .04em; line-height: 1; }
+.bootWord span { display: inline-block; animation: letterIn .55s cubic-bezier(.3,1.5,.5,1) both; animation-delay: calc(.45s + var(--k) * .09s); }
+@keyframes letterIn { from { opacity: 0; transform: translateY(calc(var(--u) * 3)) scale(.8); filter: blur(4px); } to { opacity: 1; transform: none; filter: none; } }
+.bootTag { position: absolute; bottom: calc(var(--u) * 7); font-size: calc(var(--u) * 1.4); letter-spacing: .35em; opacity: 0; animation: tagIn .6s 1.1s forwards; }
+@keyframes tagIn { to { opacity: .55; } }
+body.waking #home, body.waking #top, body.waking #foot, body.waking #bgfx { animation: wakeIn .75s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes wakeIn { from { opacity: 0; filter: brightness(.35) blur(10px); transform: scale(.97); } to { opacity: 1; filter: none; transform: none; } }
+#wakeRing { position: fixed; left: 50%; top: 50%; z-index: 90; width: calc(var(--u) * 10); height: calc(var(--u) * 10); margin: calc(var(--u) * -5) 0 0 calc(var(--u) * -5); border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 calc(var(--u) * .4) rgba(130,160,255,.9), 0 0 calc(var(--u) * 4) rgba(110,140,255,.7); opacity: 0; }
+body.waking #wakeRing { animation: wakeRing .8s cubic-bezier(.2,.8,.2,1); }
+@keyframes wakeRing { 0% { opacity: .9; transform: scale(.2); } 100% { opacity: 0; transform: scale(3.2); } }
+#sleepFx { position: fixed; inset: 0; z-index: 110; display: none; place-items: center; background: #000; }
+#sleepFx.on { display: grid; animation: sleepIn .55s ease-in both; }
+@keyframes sleepIn { from { background: rgba(0,0,0,0); } to { background: #000; } }
+#sleepFx i { width: calc(var(--u) * 9); height: calc(var(--u) * 9); border-radius: 50%; background: conic-gradient(#2f6dff, #8fb3ff, #c6a6ff, #ffbfe8, #bdeeff, #2f6dff);
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 56%); mask: radial-gradient(circle, transparent 54%, #000 56%); animation: sleepRing .9s cubic-bezier(.6,0,.8,.6) both; }
+@keyframes sleepRing { 0% { transform: scale(1) rotate(0); opacity: 1; } 70% { opacity: 1; } 100% { transform: scale(.05) rotate(240deg); opacity: 0; } }
+
 /* reduce motion */
 html.calm *, html.calm *::before, html.calm *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .001s !important; }
 html.calm #bgfx { display: none; }
@@ -597,6 +627,9 @@ html[data-theme=white] .dbtn.sel { background: #fff; }
 </style>
 </head>
 <body>
+<div id="bootFx" aria-hidden="true"><div class="bootLogo"><i class="bootRing"></i><div class="bootWord"><span style="--k:0">N</span><span style="--k:1">S</span><span style="--k:2">X</span><span style="--k:3">L</span></div></div><div class="bootTag">GAME LAUNCHER</div></div>
+<div id="wakeRing" aria-hidden="true"></div>
+<div id="sleepFx" aria-hidden="true"><i></i></div>
 <div id="bgfx" aria-hidden="true"><i></i><i></i><i></i></div>
 <div id="fakeVideo"></div>
 <div id="dim"></div>
@@ -643,7 +676,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '',
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true,
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => { store.set('cfg', cfg); queueMicrotask(() => cloudSnap()); };
@@ -760,6 +793,9 @@ const Snd = {
   select() { this.tone(988, 988, 0.05, 0.06); this.tone(1480, 1480, 0.08, 0.06, 'sine', 0.045); },
   back()   { this.tone(1180, 760, 0.07, 0.05); },
   launch() { [784, 1047, 1568].forEach((f, i) => this.tone(f, f, 0.1, 0.06, 'sine', i * 0.055)); },
+  boot()   { [523, 659, 784, 1047, 1568].forEach((f, i) => this.tone(f, f * 1.002, 0.55 - i * 0.05, 0.05, i < 4 ? 'sine' : 'triangle', 0.45 + i * 0.09)); this.tone(262, 262, 1.4, 0.035, 'sine', 0.45); },
+  wake()   { this.tone(1047, 1047, 0.18, 0.05); this.tone(1568, 1568, 0.3, 0.05, 'sine', 0.08); },
+  sleep()  { [1047, 784, 523].forEach((f, i) => this.tone(f, f * 0.98, 0.25, 0.05, 'sine', i * 0.09)); },
 };
 const buzz = kind => { if (cfg.haptics) nb('haptic', kind || 'tick'); };
 
@@ -1411,6 +1447,36 @@ function sgdbAll(pkgs, what) {
   });
 }
 
+/* ---------- start-up, wake and sleep ---------- */
+function playBoot(done) {
+  const fx = $('#bootFx');
+  if (!cfg.bootAnim || cfg.calm) { done(); return; }
+  fx.classList.add('on');
+  setTimeout(() => Snd.boot(), 50);
+  let finished = false;
+  const finish = () => { if (finished) return; finished = true; fx.classList.add('skip'); setTimeout(() => { fx.classList.remove('on', 'skip'); }, 320); done(); };
+  fx.addEventListener('click', finish, { once: true });
+  window.__bootSkip = finish;
+  setTimeout(finish, 2350);
+}
+window.onWake = () => {
+  if (!cfg.wakeAnim || cfg.calm || topOverlay()) return;
+  document.body.classList.remove('waking'); void document.body.offsetWidth; document.body.classList.add('waking');
+  Snd.wake(); setTimeout(() => document.body.classList.remove('waking'), 900);
+};
+function sleepNow() {
+  if (!nb('canSleep')) {
+    openDialog('Sleep needs controller shortcut access', 'Android only lets NSXL turn the screen off through its accessibility service. Turn on “Controller shortcut access” in Settings › In-Game Menu.',
+      [{ label: 'Not now', cancel: true }, { label: 'Open settings', primary: true, run: () => openSettings(SETTINGS.findIndex(c => c.name === 'In-Game Menu')) }]);
+    return;
+  }
+  const fx = $('#sleepFx'); fx.classList.remove('on'); void fx.offsetWidth; fx.classList.add('on');
+  Snd.sleep(); Music.pause();
+  setTimeout(() => nb('sleepNow'), 950);
+  setTimeout(() => fx.classList.remove('on'), 2500);
+}
+window.onScreenOff = () => { $('#sleepFx').classList.remove('on'); };
+
 /* ---------- NSXL Cloud (backup server on this device) ---------- */
 // What a backup carries: API keys, theme and music settings. Files (music, optional wallpaper) are added natively.
 const CLOUD_KEYS = ['theme', 'dim', 'blur', 'scale', 'bgfx', 'calm', 'clock', 'batPct', 'sounds', 'haptics', 'music', 'musicVol', 'musicSrc', 'tmdbKey', 'sgdbKey', 'region'];
@@ -1786,6 +1852,7 @@ function openAll(opts) {
 /* ---------- power ---------- */
 function openPower() {
   openMenu('Power', [
+    { label: 'Sleep', run: sleepNow },
     { label: 'Choose Home app…', run: () => nb('openSettings', 'home') },
     { label: 'Android settings', run: () => nb('openSettings', 'system') },
     { label: 'Battery', run: () => nb('openSettings', 'battery') },
@@ -1867,6 +1934,8 @@ const SETTINGS = [
     { type: 'choice', label: 'Clock', key: 'clock', options: [['system', 'System'], ['12', '12-hour'], ['24', '24-hour']], after: updateClock },
     { type: 'toggle', label: 'Show battery percentage', key: 'batPct', after: updateStatus },
     { type: 'toggle', label: 'Start software with one tap', desc: 'Off: the first tap selects (so you can see its name), the second tap starts it.', key: 'oneTap' },
+    { type: 'toggle', label: 'Start-up animation', desc: 'The NSXL logo and chime when the launcher starts.', key: 'bootAnim' },
+    { type: 'toggle', label: 'Wake animation', desc: 'Plays when you turn the screen back on.', key: 'wakeAnim' },
     { type: 'toggle', label: 'Moving background glow', desc: 'Soft colours drift behind Basic White and Basic Black.', key: 'bgfx', after: applyTheme },
     { type: 'toggle', label: 'Reduce motion', desc: 'Turns off most animations.', key: 'calm', after: applyTheme },
     { type: 'action', label: 'Profile picture', value: () => 'Change', run: avatarMenu },
@@ -2140,6 +2209,7 @@ window.toast = toast;
    ========================================================= */
 let lastPad = { b: '', t: 0 };
 window.onPad = (b, repeat, fromTouch) => {
+  if ($('#bootFx').classList.contains('on') && window.__bootSkip) { window.__bootSkip(); return; }
   const now = performance.now();
   if (!repeat && !fromTouch && b === lastPad.b && now - lastPad.t < 70) return;  // drop duplicate d-pad events
   lastPad = { b, t: now };
@@ -2209,6 +2279,7 @@ function makeMock() {
     isDefaultHome: () => false,
     sdk: () => 34,
     region: () => 'GB',
+    canSleep: () => true, sleepNow: () => toast('(the screen would turn off now)'), firstLoad: () => true,
     cloudHostState: () => JSON.stringify({ running: true, address: '192.168.1.20:8765', pin: '482913', stored: [{ name: 'x.zip', device: 'Retroid Pocket 5', time: Date.now() - 3600e3 }] }),
     overlayState: () => JSON.stringify({ permission: true, enabled: false, running: false }),
     copyText: () => {},
@@ -2277,10 +2348,14 @@ function boot() {
   }, { passive: true });
   window.addEventListener('resize', () => { refreshSel(); ensureRowVisible(false); fitTitle(); });
   if (document.fonts) document.fonts.ready.then(() => { refreshSel(); fitTitle(); });
-  document.body.classList.add('intro');
+  const firstStart = NATIVE ? !!nb('firstLoad') : true;
+  const startHome = () => {
+    document.body.classList.add('intro');
+    setTimeout(() => document.body.classList.remove('intro'), 1400);
+    Music.start();
+  };
   requestAnimationFrame(() => { document.body.classList.add('ready'); refreshSel(); });
-  setTimeout(() => document.body.classList.remove('intro'), 1400);
-  Music.start();
+  if (firstStart) playBoot(startHome); else startHome();
 
   if (NATIVE && !store.get('askedHome') && !nb('isDefaultHome')) {
     setTimeout(() => openDialog('Make this your Home screen?',
