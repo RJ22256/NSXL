@@ -56,6 +56,12 @@ final class LocalServer {
             if (path.startsWith("/icon/")) {
                 return image(icon(path.substring(6), size(uri, 192)), "image/png");
             }
+            if (path.equals("/music")) {
+                File f = Storage.musicFile(ctx);
+                if (!f.exists()) return notFound();
+                String type = ctx.getSharedPreferences("launcher", Context.MODE_PRIVATE).getString("musicMime", "audio/mpeg");
+                return new WebResourceResponse(type, null, 200, "OK", headers(), new java.io.FileInputStream(f));
+            }
             if (path.equals("/avatar")) {
                 File f = Storage.avatarFile(ctx);
                 return f.exists() ? image(readAll(new FileInputStream(f)), "image/jpeg") : notFound();

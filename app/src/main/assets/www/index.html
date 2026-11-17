@@ -27,7 +27,7 @@
   --side: calc(var(--u) * 8.3);
   --r: calc(var(--u) * 1);
   --font: "Roboto", "Noto Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --ring: conic-gradient(from var(--a), #5fd8ff, #7b8cff, #c79cff, #ffb3e6, #8fe6ff, #5fd8ff);
+  --ring: conic-gradient(from var(--a), #3ec5ff 0deg, #4d7dff 70deg, #9b7bff 130deg, #4d7dff 190deg, #3ec5ff 250deg, #c9f4ff 292deg, #ffffff 310deg, #b5efff 328deg, #3ec5ff 360deg);
   --glow: rgba(120, 132, 255, .45);
 }
 html[data-theme=white] {
@@ -143,11 +143,33 @@ body.full #home { visibility: hidden; }
 .tile.allTile { display: grid; place-items: center; color: var(--fg2); }
 .tile.allTile svg { width: calc(var(--u) * 5.5); height: calc(var(--u) * 5.5); }
 .tile.allTile span { position: absolute; bottom: calc(var(--u) * 1.6); font-size: calc(var(--u) * 1.6); }
+.tile.sel, .dk.sel, .cell .art.sel, .tprev.sel { animation: selPop .3s cubic-bezier(.3,1.7,.5,1); }
+@keyframes selPop { 0% { transform: scale(.955); } 100% { transform: scale(1); } }
 .tile.pop { animation: pop .28s ease; }
 @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(.95); } 100% { transform: scale(1); } }
 .nudgeL { animation: nudgeL .22s ease; } .nudgeR { animation: nudgeR .22s ease; }
 @keyframes nudgeL { 50% { transform: translateX(calc(var(--u) * -.7)); } }
 @keyframes nudgeR { 50% { transform: translateX(calc(var(--u) * .7)); } }
+
+/* ---------- Switch-style motion ---------- */
+body.intro #top { animation: fadeDown .55s cubic-bezier(.2,.8,.2,1) both; }
+body.intro #row .tile { animation: tileIn .6s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 55ms + 90ms); }
+body.intro #dock { animation: rise .6s cubic-bezier(.2,.8,.2,1) .28s both; }
+body.intro #foot { animation: fadeUp .5s .4s both; }
+@keyframes tileIn { from { opacity: 0; transform: translateX(calc(var(--u) * 7)) scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes rise { from { opacity: 0; transform: translateY(calc(var(--u) * 3)) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes fadeDown { from { opacity: 0; transform: translateY(calc(var(--u) * -1.5)); } to { opacity: 1; transform: none; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(calc(var(--u) * 1.5)); } to { opacity: 1; transform: none; } }
+body.leaving #home, body.leaving .ov { animation: leave .28s cubic-bezier(.5,0,.9,.5) both; }
+body.leaving #top, body.leaving #foot { animation: fadeOut .2s both; }
+@keyframes leave { to { opacity: 0; transform: scale(1.07); } }
+@keyframes fadeOut { to { opacity: 0; } }
+.tile.launching, .art.launching { z-index: 3; animation: launchTile .28s cubic-bezier(.5,0,.9,.5) both; }
+@keyframes launchTile { 40% { transform: scale(.96); } 100% { transform: scale(1.14); } }
+.ov.full.show .cell { animation: cellIn .42s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(min(var(--i, 0), 20) * 16ms); }
+@keyframes cellIn { from { opacity: 0; transform: translateY(calc(var(--u) * 2)) scale(.96); } to { opacity: 1; transform: none; } }
+.hint:active { transform: scale(.94); }
+.dk:active, .tile:active { transform: scale(.96); }
 
 /* ---------- the animated selection ring ---------- */
 .g.sel { box-shadow: 0 0 0 calc(var(--u) * .32) var(--gapRing); }
@@ -159,7 +181,7 @@ body.full #home { visibility: hidden; }
   padding: calc(var(--u) * .46); background: var(--ring);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
-  animation: spin 3.2s linear infinite;
+  animation: spin 2.4s linear infinite;
 }
 .g.sel::after {
   z-index: -1; box-shadow: 0 0 calc(var(--u) * 1.6) calc(var(--u) * .2) var(--glow);
@@ -214,7 +236,8 @@ body.full #home { visibility: hidden; }
 /* ---------- overlays ---------- */
 .ov { position: fixed; inset: 0; opacity: 0; transition: opacity .18s; }
 .ov.show { opacity: 1; }
-.ov.full { z-index: 20; background: var(--ovBg); }
+.ov.full { z-index: 20; background: var(--ovBg); transform: translateY(calc(var(--u) * 2)); transition: opacity .2s, transform .32s cubic-bezier(.2,.8,.2,1); }
+.ov.full.show { transform: none; }
 .ovTitle {
   position: absolute; top: calc(var(--u) * 3.6); left: calc(var(--u) * 4); height: calc(var(--u) * 5);
   display: flex; align-items: center; gap: calc(var(--u) * 1.2);
@@ -357,6 +380,16 @@ html[data-theme=white] .menuItem.sel { background: #fff; }
 .dbtn.sel { background: var(--selBg); }
 html[data-theme=white] .dbtn.sel { background: #fff; }
 
+.field {
+  display: block; width: 100%; font: inherit; font-size: calc(var(--u) * 2); color: var(--fg);
+  padding: calc(var(--u) * 1.4) calc(var(--u) * 1.8); border-radius: calc(var(--u) * 1);
+  border: 2px solid var(--line); background: var(--selBg); outline: none; margin: 0 0 calc(var(--u) * 2.4);
+  user-select: text; -webkit-user-select: text; text-align: left;
+}
+.field:focus { border-color: var(--accent); }
+.dialog p a { color: var(--accent); }
+.cell .art .src { position: absolute; z-index: 2; left: calc(var(--u) * .6); bottom: calc(var(--u) * .6); font-size: calc(var(--u) * 1.1); background: rgba(0,0,0,.55); color: #fff; padding: 2px 6px; border-radius: 4px; }
+
 /* toast */
 #toast {
   position: fixed; z-index: 40; left: 50%; bottom: calc(var(--u) * 8.5);
@@ -423,7 +456,8 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: false, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: true };
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: true,
+                   music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => store.set('cfg', cfg);
 
@@ -491,16 +525,20 @@ function nb(name, ...args) {
    ========================================================= */
 const Snd = {
   ctx: null,
-  unlock() {
-    if (!cfg.sounds) return;
+  ensure() {
     try {
       if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       if (this.ctx.state === 'suspended') this.ctx.resume();
     } catch (e) {}
+    return this.ctx;
+  },
+  unlock() {
+    if (cfg.sounds || cfg.music) this.ensure();
+    if (typeof Music !== 'undefined' && cfg.music && !Music.on && !Music.paused) Music.start();
   },
   tone(f1, f2, dur, gain, type = 'sine', delay = 0) {
     if (!cfg.sounds) return;
-    this.unlock(); const c = this.ctx; if (!c) return;
+    const c = this.ensure(); if (!c) return;
     const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
     o.type = type; o.frequency.setValueAtTime(f1, t);
     if (f2 !== f1) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
@@ -518,15 +556,131 @@ const Snd = {
 const buzz = kind => { if (cfg.haptics) nb('haptic', kind || 'tick'); };
 
 /* =========================================================
+   Ambient music: generated on the fly (soft chords + bells),
+   or your own music file. Pauses while a game is running.
+   ========================================================= */
+const hasMusic = () => !!nb('hasMusic');
+const Music = {
+  on: false, paused: false, waiting: false, bus: null, input: null, timer: 0, audio: null,
+  CHORDS: [[53, 57, 60, 64, 67], [52, 55, 59, 62, 67], [50, 53, 57, 60, 64], [48, 55, 59, 62, 64]],
+  BELLS: [72, 74, 76, 79, 81, 84, 86],
+  hz: m => 440 * Math.pow(2, (m - 69) / 12),
+  level: () => 0.24 * cfg.musicVol,
+  start() {
+    if (this.on || this.paused || !cfg.music) return;
+    if (cfg.musicSrc === 'custom' && hasMusic()) return this.startFile();
+    const c = Snd.ensure(); if (!c) return;
+    if (c.state !== 'running') {
+      if (!this.waiting) { this.waiting = true; c.resume().then(() => { this.waiting = false; this.start(); }).catch(() => { this.waiting = false; }); }
+      return;
+    }
+    this.on = true;
+    const bus = c.createGain(); bus.gain.setValueAtTime(0, c.currentTime); bus.gain.linearRampToValueAtTime(this.level(), c.currentTime + 4);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1700; lp.Q.value = 0.3;
+    const verb = c.createConvolver(); verb.buffer = this.impulse(c, 3.4);
+    const wet = c.createGain(); wet.gain.value = 0.6;
+    const dry = c.createGain(); dry.gain.value = 0.55;
+    lp.connect(dry); lp.connect(verb); verb.connect(wet); dry.connect(bus); wet.connect(bus); bus.connect(c.destination);
+    this.bus = bus; this.input = lp; this.step = 0; this.next = c.currentTime + 0.1; this.bellNext = c.currentTime + 2.5;
+    this.tick();
+  },
+  impulse(c, secs) {
+    const len = Math.floor(c.sampleRate * secs), buf = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
+    return buf;
+  },
+  tick() {
+    if (!this.on || !this.input) return;
+    const c = Snd.ctx, ahead = c.currentTime + 1.6;
+    while (this.next < ahead) { this.chord(this.CHORDS[this.step % this.CHORDS.length], this.next, 8); this.step++; this.next += 8; }
+    while (this.bellNext < ahead) { this.bell(this.BELLS[Math.floor(Math.random() * this.BELLS.length)], this.bellNext); this.bellNext += 1.3 + Math.random() * 2.8; }
+    this.timer = setTimeout(() => this.tick(), 500);
+  },
+  chord(notes, t, dur) {
+    const c = Snd.ctx, input = this.input;
+    notes.forEach((m, i) => [-5, 5].forEach(det => {
+      const o = c.createOscillator(), g = c.createGain(), peak = i === 0 ? 0.14 : 0.06;
+      o.type = i === 0 ? 'sine' : 'triangle'; o.frequency.value = this.hz(m); o.detune.value = det;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 2.8);
+      g.gain.setValueAtTime(peak, t + dur - 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 2.6);
+      o.connect(g); g.connect(input); o.start(t); o.stop(t + dur + 2.8);
+    }));
+  },
+  bell(m, t) {
+    const c = Snd.ctx, o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(), g2 = c.createGain();
+    o.frequency.value = this.hz(m); o2.frequency.value = this.hz(m) * 2.01; g2.gain.value = 0.22;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6);
+    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(this.input);
+    o.start(t); o2.start(t); o.stop(t + 2.7); o2.stop(t + 2.7);
+  },
+  startFile() {
+    this.on = true;
+    if (!this.audio) { this.audio = new Audio(); this.audio.loop = true; }
+    const src = '/music?v=' + store.get('musicV', 0);
+    if (!this.audio.src.endsWith(src)) this.audio.src = src;
+    this.audio.volume = clamp(cfg.musicVol * 0.7, 0, 1);
+    this.audio.play().catch(() => { this.on = false; });
+  },
+  stop() {
+    this.on = false; clearTimeout(this.timer);
+    if (this.audio) this.audio.pause();
+    if (this.bus) {
+      const b = this.bus, c = Snd.ctx;
+      try { b.gain.cancelScheduledValues(c.currentTime); b.gain.setValueAtTime(b.gain.value, c.currentTime); b.gain.linearRampToValueAtTime(0, c.currentTime + 0.5); } catch (e) {}
+      setTimeout(() => { try { b.disconnect(); } catch (e) {} }, 700);
+      this.bus = null; this.input = null;
+    }
+  },
+  setVol() {
+    if (this.audio) this.audio.volume = clamp(cfg.musicVol * 0.7, 0, 1);
+    if (this.bus) this.bus.gain.setTargetAtTime(this.level(), Snd.ctx.currentTime, 0.2);
+  },
+  restart() { this.stop(); if (this.audio) this.audio.removeAttribute('src'); if (cfg.music && !this.paused) setTimeout(() => this.start(), 600); },
+  pause() { this.paused = true; this.stop(); },
+  resume() { this.paused = false; if (cfg.music) this.start(); },
+};
+window.onMusicPicked = (ok, msg) => {
+  if (ok) { store.set('musicV', Date.now()); cfg.musicSrc = 'custom'; cfg.music = true; saveCfg(); Music.restart(); showToast('Music set', 2200); refreshOverlays(); }
+  else if (msg) showToast(msg, 2600); else hideToast();
+};
+
+/* =========================================================
+   Async native calls (SteamGridDB) as promises
+   ========================================================= */
+const pending = {}; let reqN = 0;
+function nbAsync(method, ...args) {
+  return new Promise((resolve, reject) => {
+    const id = 'r' + (++reqN); pending[id] = { resolve, reject };
+    nb(method, id, ...args);
+    setTimeout(() => { if (pending[id]) { delete pending[id]; reject('Timed out. Check your connection.'); } }, 45000);
+  });
+}
+window.onAsync = (id, ok, data) => {
+  const p = pending[id]; if (!p) return; delete pending[id];
+  ok ? p.resolve(data) : p.reject(data);
+};
+
+/* =========================================================
    Apps
    ========================================================= */
 let APPS = [], BY = {};
 function loadApps() {
   let list = [];
   try { list = JSON.parse(nb('getApps') || '[]'); } catch (e) {}
+  const names = store.get('names', {});
+  list.forEach(a => { a.orig = a.label; if (names[a.pkg]) a.label = names[a.pkg]; });
   list.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
   APPS = list; BY = {};
   list.forEach(a => { BY[a.pkg] = a; });
+}
+function reloadApps() { loadApps(); renderRow(); refreshOverlays(); refreshSel(); }
+function renameApp(pkg) {
+  const a = BY[pkg]; if (!a) return;
+  openPrompt('Rename', a.label, 'Name', v => {
+    const n = store.get('names', {}); v = v.trim();
+    if (!v || v === a.orig) delete n[pkg]; else n[pkg] = v;
+    store.set('names', n); reloadApps(); toast('Renamed to ' + (v || a.orig));
+  });
 }
 const isGameish = a => a.game || !!store.get('added', {})[a.pkg];
 
@@ -644,6 +798,7 @@ function renderRow() {
   Hm.items = [];
   shown.forEach(pkg => {
     const t = el('div', 'tile g'); artBox(pkg, 512, t);
+    t.style.setProperty('--i', Hm.items.length);
     row.appendChild(t); Hm.items.push({ type: 'app', pkg, el: t });
   });
   if (all.length > MAX_HOME) {
@@ -652,7 +807,7 @@ function renderRow() {
   }
   Hm.items.forEach((it, i) => onPress(it.el, () => tapRow(i), () => { selectRow(i); rowOptions(); }));
   for (let i = Hm.items.length; i < 6; i++) {
-    const s = el('div', 'tile slot'); onPress(s, () => { Snd.select(); openAll({ mode: 'add', title: 'Add software to Home' }); });
+    const s = el('div', 'tile slot'); s.style.setProperty('--i', i); onPress(s, () => { Snd.select(); openAll({ mode: 'add', title: 'Add software to Home' }); });
     row.appendChild(s);
   }
   Hm.idx = clamp(Hm.idx, 0, Math.max(0, Hm.items.length - 1));
@@ -730,8 +885,14 @@ function launch(pkg, node) {
   const played = store.get('played', {}); played[pkg] = Date.now(); store.set('played', played);
   Hm.launched = true;
   let r = { left: 0, top: 0, width: 0, height: 0 };
-  if (node) { node.classList.remove('pop'); void node.offsetWidth; node.classList.add('pop'); r = node.getBoundingClientRect(); }
-  setTimeout(() => nb('launch', pkg, r.left, r.top, r.width, r.height), 150);
+  if (node) { r = node.getBoundingClientRect(); node.classList.add('launching'); }
+  Music.pause();
+  document.body.classList.add('leaving');
+  setTimeout(() => nb('launch', pkg, r.left, r.top, r.width, r.height), 230);
+  setTimeout(() => {   // if the app never opened, come back
+    document.body.classList.remove('leaving');
+    $$('.launching').forEach(n => n.classList.remove('launching'));
+  }, 2500);
 }
 
 function homePad(b) {
@@ -851,6 +1012,139 @@ function openDialog(title, text, buttons) {
   paint();
 }
 
+/* ---------- text prompt ---------- */
+function openPrompt(title, value, placeholder, onOk, noteHtml) {
+  const back = el('div', 'ov back'), d = el('div', 'dialog');
+  d.innerHTML = `<h2>${esc(title)}</h2>${noteHtml ? `<p>${noteHtml}</p>` : ''}
+    <input class="field" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="${esc(placeholder)}" placeholder="${esc(placeholder)}">`;
+  const input = $('input', d); input.value = value || '';
+  const row = el('div', 'dbtns'); d.appendChild(row); back.appendChild(d);
+  let sel = 1;
+  const done = ok => { popOverlay(ok); if (ok) { Snd.select(); onOk(input.value); } };
+  const btns = [['Cancel', false], ['OK', true]].map(([l, ok], i) => {
+    const e = el('div', 'dbtn g' + (ok ? ' primary' : ''), l);
+    onPress(e, () => done(ok)); row.appendChild(e); return e;
+  });
+  const paint = () => btns.forEach((e, i) => e.classList.toggle('sel', i === sel));
+  input.addEventListener('focus', () => nb('setTyping', true));
+  input.addEventListener('blur', () => nb('setTyping', false));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); done(true); } else if (e.key === 'Escape') { e.preventDefault(); done(false); } });
+  pushOverlay({
+    el: back,
+    pad(b) {
+      if (b === 'left' || b === 'right') { sel = b === 'left' ? 0 : 1; Snd.tick(); paint(); }
+      else if (b === 'up') input.focus();
+      else if (b === 'down') input.blur();
+      else if (b === 'a') done(btns[sel] && sel === 1);
+      else if (b === 'b') done(false);
+    },
+    hints: () => [['b', 'Cancel'], ['a', 'OK']],
+    onClose: () => { input.blur(); nb('setTyping', false); },
+  });
+  paint();
+  setTimeout(() => { input.focus(); input.select(); }, 260);
+}
+
+/* ---------- SteamGridDB cover art ---------- */
+const SGDB_NOTE = 'Covers come from <b>SteamGridDB</b>. Make a free account at steamgriddb.com, then copy your API key from <b>Preferences › API</b> and paste it here.';
+function needKey(then) {
+  if (cfg.sgdbKey) return then();
+  openPrompt('SteamGridDB API key', '', 'Paste your API key', v => {
+    cfg.sgdbKey = v.trim(); saveCfg(); refreshOverlays();
+    if (cfg.sgdbKey) then();
+  }, SGDB_NOTE);
+}
+function sgdbError(e) {
+  const msg = String(e || 'Something went wrong');
+  if (/key|401|403/i.test(msg)) {
+    openDialog('SteamGridDB key problem', msg + ' Check the key in Settings › Cover Art.', [{ label: 'OK', primary: true }]);
+  } else showToast(msg, 3000);
+}
+function sgdbFind(pkg, term) {
+  const a = BY[pkg]; if (!a) return;
+  term = term || a.label;
+  needKey(async () => {
+    showToast('Searching SteamGridDB…', 15000);
+    try {
+      const games = await nbAsync('sgdbSearch', cfg.sgdbKey, term);
+      hideToast();
+      const searchOther = { label: 'Search a different name…', run: () => openPrompt('Search SteamGridDB', term, 'Game name', v => v.trim() && sgdbFind(pkg, v.trim())) };
+      if (!games.length) { openMenu('No matches for “' + term + '”', [searchOther]); return; }
+      openMenu('Which game is “' + a.label + '”?', games.slice(0, 8).map(g => ({
+        label: g.name + (g.year ? '  (' + g.year + ')' : ''), run: () => sgdbPick(pkg, g),
+      })).concat([searchOther]));
+    } catch (e) { hideToast(); sgdbError(e); }
+  });
+}
+async function sgdbPick(pkg, game) {
+  showToast('Loading covers…', 15000);
+  try {
+    const grids = await nbAsync('sgdbGrids', cfg.sgdbKey, game.id);
+    hideToast();
+    if (!grids.length) { toast('No covers for ' + game.name + ' yet'); return; }
+    openCoverPicker(pkg, game.name, grids);
+  } catch (e) { hideToast(); sgdbError(e); }
+}
+async function sgdbApply(pkg, url) {
+  showToast('Downloading cover…', 20000);
+  try {
+    await nbAsync('sgdbApply', pkg, url);
+    if (BY[pkg]) BY[pkg].cover = true; bumpCover(pkg); showToast('Cover art updated', 2000);
+  } catch (e) { hideToast(); sgdbError(e); }
+}
+function openCoverPicker(pkg, name, grids) {
+  const ov = el('section', 'ov full');
+  ov.innerHTML = `<div class="ovTitle">${svg('album')}<span>${esc(name)}</span></div><div class="ovRule"></div>
+    <div class="tabs"><span class="t on">SteamGridDB covers</span></div><div class="grid"></div>`;
+  const grid = $('.grid', ov);
+  let sel = 0;
+  const cells = grids.map((g, i) => {
+    const c = el('div', 'cell'), art = el('div', 'art g');
+    c.style.setProperty('--i', i);
+    const img = el('img'); img.alt = ''; img.loading = 'lazy'; img.src = g.thumb || g.url; art.appendChild(img);
+    if (g.width && g.height) art.appendChild(el('span', 'src', g.width + '×' + g.height));
+    c.appendChild(art); c.appendChild(el('div', 'nm', esc(g.style ? g.style.replace(/_/g, ' ') : 'Cover ' + (i + 1))));
+    onPress(c, () => { sel = i; paint(); act(); });
+    grid.appendChild(c); return c;
+  });
+  const paint = () => { cells.forEach((c, i) => { c.classList.toggle('sel', i === sel); c.firstChild.classList.toggle('sel', i === sel); }); const c = cells[sel]; c && c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
+  const cols = () => { if (cells.length < 2) return 1; const t0 = cells[0].offsetTop; let n = 0; for (const c of cells) { if (c.offsetTop !== t0) break; n++; } return n; };
+  const move = d => { const n = sel + d; if (n < 0 || n >= cells.length) { Snd.bump(); return; } sel = n; Snd.tick(); buzz(); paint(); };
+  const act = () => { const g = grids[sel]; if (!g) return; Snd.select(); popOverlay(true); sgdbApply(pkg, g.url); };
+  pushOverlay({
+    el: ov, full: true,
+    pad(b) {
+      if (b === 'left') move(-1); else if (b === 'right') move(1);
+      else if (b === 'up') move(-cols()); else if (b === 'down') move(cols());
+      else if (b === 'a') act(); else if (b === 'b') popOverlay();
+    },
+    hints: () => [['b', 'Back'], ['a', 'Use this cover']],
+  });
+  paint();
+}
+function sgdbAll() {
+  needKey(async () => {
+    const list = homeList().filter(p => BY[p] && !BY[p].cover);
+    if (!list.length) { toast('Every game on Home already has cover art'); return; }
+    let got = 0;
+    for (let i = 0; i < list.length; i++) {
+      const pkg = list[i];
+      showToast(`Fetching covers… ${i + 1} of ${list.length}`, 30000);
+      try {
+        const games = await nbAsync('sgdbSearch', cfg.sgdbKey, BY[pkg].label);
+        if (!games.length) continue;
+        const grids = await nbAsync('sgdbGrids', cfg.sgdbKey, games[0].id);
+        if (!grids.length) continue;
+        await nbAsync('sgdbApply', pkg, grids[0].url);
+        BY[pkg].cover = true; bumpCover(pkg); got++;
+      } catch (e) {
+        if (/key|401|403/i.test(String(e))) { hideToast(); sgdbError(e); return; }
+      }
+    }
+    showToast(`Found covers for ${got} of ${list.length} games`, 3200);
+  });
+}
+
 /* ---------- app options ---------- */
 function appOptions(pkg) {
   const a = BY[pkg]; if (!a) return;
@@ -859,7 +1153,10 @@ function appOptions(pkg) {
     { label: 'Start', run: () => launch(pkg, null) },
     onHome ? { label: 'Remove from Home', run: () => { setOnHome(pkg, false); toast('Removed from Home'); } }
            : { label: 'Add to Home', run: () => { setOnHome(pkg, true); toast('Added to Home'); } },
-    { label: 'Change cover art…', run: () => nb('pickCover', pkg) },
+    { label: 'Rename…', run: () => renameApp(pkg) },
+    a.label !== a.orig ? { label: 'Use original name', run: () => { const n = store.get('names', {}); delete n[pkg]; store.set('names', n); reloadApps(); } } : null,
+    { label: 'Find cover on SteamGridDB…', run: () => sgdbFind(pkg) },
+    { label: 'Use a picture as cover…', run: () => nb('pickCover', pkg) },
     a.cover ? { label: 'Reset cover art', run: () => { nb('removeCover', pkg); a.cover = false; bumpCover(pkg); } } : null,
     { label: 'App info', run: () => nb('appInfo', pkg) },
     { label: 'Uninstall', danger: true, run: () => nb('uninstall', pkg) },
@@ -884,6 +1181,7 @@ function openAll(opts) {
     grid.innerHTML = '';
     cells = list.map((a, i) => {
       const c = el('div', 'cell'), art = el('div', 'art g');
+      c.style.setProperty('--i', i);
       artBox(a.pkg, 256, art);
       if (onHome.has(a.pkg)) art.appendChild(el('span', 'pin', svg('home')));
       c.appendChild(art); c.appendChild(el('div', 'nm', esc(a.label)));
@@ -1034,7 +1332,19 @@ const SETTINGS = [
     { type: 'toggle', label: 'Swap A and B buttons', desc: 'Use this if confirm/back feel reversed on your controller.', key: 'swapAB', after: () => nb('setSwapAB', cfg.swapAB) },
     { type: 'action', label: 'Pair a controller', value: () => 'Bluetooth', run: () => nb('openSettings', 'bluetooth') },
   ] },
+  { name: 'Cover Art', rows: () => [
+    { type: 'action', label: 'SteamGridDB API key', desc: 'Free from steamgriddb.com › Preferences › API.',
+      value: () => cfg.sgdbKey ? 'Set ✓' : 'Add key', run: () => openPrompt('SteamGridDB API key', cfg.sgdbKey, 'Paste your API key', v => { cfg.sgdbKey = v.trim(); saveCfg(); refreshOverlays(); }, SGDB_NOTE) },
+    { type: 'action', label: 'Fetch covers for my games', desc: 'Finds art for every game on Home that has none yet.', value: () => '', run: sgdbAll },
+    { type: 'info', label: 'Tip', value: () => 'Press + on any game for more cover options' },
+  ] },
   { name: 'Sound', rows: () => [
+    { type: 'toggle', label: 'Ambient music', key: 'music', after: () => (cfg.music ? Music.resume() : Music.stop()) },
+    { type: 'slider', label: 'Music volume', min: 0, max: 1, step: 0.05, get: () => cfg.musicVol,
+      set: v => { cfg.musicVol = v; saveCfg(); Music.setVol(); }, fmt: v => Math.round(v * 100) + '%' },
+    { type: 'choice', label: 'Music', key: 'musicSrc', options: [['builtin', 'Built-in ambient'], ['custom', 'Your music file']],
+      after: () => { if (cfg.musicSrc === 'custom' && !hasMusic()) nb('pickMusic'); else Music.restart(); } },
+    { type: 'action', label: 'Choose a music file', desc: 'Any song or loop; it plays quietly on repeat.', value: () => hasMusic() ? 'Change' : 'Choose', run: () => nb('pickMusic') },
     { type: 'toggle', label: 'Sound effects', key: 'sounds' },
     { type: 'toggle', label: 'Vibration', key: 'haptics' },
   ] },
@@ -1225,8 +1535,12 @@ window.onPad = (b, repeat, fromTouch) => {
   const top = topOverlay();
   if (top) top.pad(b, repeat); else homePad(b, repeat);
 };
+window.onPauseApp = () => Music.pause();
 window.onResumeApp = () => {
   updateStatus();
+  document.body.classList.remove('leaving');
+  $$('.launching').forEach(n => n.classList.remove('launching'));
+  Music.resume();
   if (Hm.launched) {
     Hm.launched = false;
     renderRow();
@@ -1246,7 +1560,7 @@ window.onAppsChanged = () => { loadApps(); renderRow(); refreshOverlays(); };
 if (!NATIVE) {  // keyboard controls for the browser preview
   const K = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', ' ': 'a',
               Escape: 'b', Backspace: 'b', '+': 'plus', '=': 'plus', '-': 'minus', x: 'x', y: 'y', q: 'l', e: 'r' };
-  document.addEventListener('keydown', ev => { const b = K[ev.key]; if (b) { ev.preventDefault(); window.onPad(b, ev.repeat); } });
+  document.addEventListener('keydown', ev => { if (ev.target && ev.target.tagName === 'INPUT') return; const b = K[ev.key]; if (b) { ev.preventDefault(); window.onPad(b, ev.repeat); } });
 }
 
 /* =========================================================
@@ -1278,6 +1592,11 @@ function makeMock() {
     pickAvatar: () => toast('Opens the image picker'),
     appInfo: () => toast('Opens App info'),
     uninstall: () => toast('Opens the uninstall prompt'),
+    hasMusic: () => false,
+    pickMusic: () => toast('Opens the file picker'),
+    sgdbSearch: (id, key, term) => setTimeout(() => window.onAsync(id, true, [{ id: 1, name: term, year: 2024 }, { id: 2, name: term + ' Deluxe', year: 2025 }]), 300),
+    sgdbGrids: (id) => setTimeout(() => window.onAsync(id, true, apps.filter(a => a.art).map((a, i) => ({ url: mockArt(a.pkg), thumb: mockArt(a.pkg), width: 1024, height: 1024, style: ['alternate', 'material', 'blurred', 'white_logo'][i % 4] }))), 300),
+    sgdbApply: (id) => setTimeout(() => window.onAsync(id, true, true), 300),
   };
 }
 function mockArt(pkg) {
@@ -1317,7 +1636,10 @@ function boot() {
   setInterval(updateStatus, 15000);
   $('#rowWrap').addEventListener('scroll', () => requestAnimationFrame(positionTitle), { passive: true });
   window.addEventListener('resize', () => { refreshSel(); ensureRowVisible(false); });
+  document.body.classList.add('intro');
   requestAnimationFrame(() => { document.body.classList.add('ready'); refreshSel(); });
+  setTimeout(() => document.body.classList.remove('intro'), 1400);
+  Music.start();
 
   if (NATIVE && !store.get('askedHome') && !nb('isDefaultHome')) {
     setTimeout(() => openDialog('Make this your Home screen?',

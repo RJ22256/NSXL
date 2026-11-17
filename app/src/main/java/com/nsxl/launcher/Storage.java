@@ -24,6 +24,10 @@ final class Storage {
         return new File(c.getFilesDir(), "wallpaper.mp4");
     }
 
+    static File musicFile(Context c) {
+        return new File(c.getFilesDir(), "music.bin");
+    }
+
     static File avatarFile(Context c) {
         return new File(c.getFilesDir(), "avatar.jpg");
     }

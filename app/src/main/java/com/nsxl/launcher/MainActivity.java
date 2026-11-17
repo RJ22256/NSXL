@@ -54,7 +54,7 @@ import java.io.OutputStream;
 public class MainActivity extends Activity {
 
     static final String ORIGIN = "https://launcher.local/";
-    static final int REQ_VIDEO = 41, REQ_COVER = 42, REQ_AVATAR = 43;
+    static final int REQ_VIDEO = 41, REQ_COVER = 42, REQ_AVATAR = 43, REQ_MUSIC = 44;
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
 
     final Handler ui = new Handler(Looper.getMainLooper());
@@ -69,6 +69,7 @@ public class MainActivity extends Activity {
     String mode = "light";
     boolean videoEnabled;
     volatile boolean swapAB;
+    volatile boolean typing;
     boolean immersive = true;
     String pendingCoverPkg;
     private String stickDir;
@@ -116,6 +117,12 @@ public class MainActivity extends Activity {
         super.onResume();
         applySystemBars();
         js("window.onResumeApp&&window.onResumeApp()");
+    }
+
+    @Override
+    protected void onPause() {
+        js("window.onPauseApp&&window.onPauseApp()");   // stop the music when a game opens
+        super.onPause();
     }
 
     @Override
@@ -222,6 +229,18 @@ public class MainActivity extends Activity {
         });
     }
 
+    /** Resolves a promise made by nbAsync() in the page. {@code jsonLiteral} must be valid JSON. */
+    void asyncResult(String id, String jsonLiteral) {
+        js("window.onAsync&&window.onAsync(" + JSONObject.quote(id) + ",true," + jsonLiteral + ")");
+    }
+
+    void asyncError(String id, Exception e) {
+        String msg = e.getMessage();
+        if (e instanceof java.net.UnknownHostException) msg = "No internet connection";
+        if (msg == null || msg.isEmpty()) msg = "Something went wrong";
+        js("window.onAsync&&window.onAsync(" + JSONObject.quote(id) + ",false," + JSONObject.quote(msg) + ")");
+    }
+
     void jsToast(String msg) {
         js("window.toast&&window.toast(" + JSONObject.quote(msg) + ")");
     }
@@ -317,6 +336,7 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
+        if (typing && !KeyEvent.isGamepadButton(e.getKeyCode())) return super.dispatchKeyEvent(e);
         String b = mapKey(e.getKeyCode());
         if (b == null) return super.dispatchKeyEvent(e);
         if (e.getAction() == KeyEvent.ACTION_DOWN) sendPad(b, e.getRepeatCount() > 0);
@@ -443,6 +463,7 @@ public class MainActivity extends Activity {
         if (requestCode == REQ_VIDEO) importVideo(uri);
         else if (requestCode == REQ_COVER) importImage(uri, "cover", pendingCoverPkg);
         else if (requestCode == REQ_AVATAR) importImage(uri, "avatar", "");
+        else if (requestCode == REQ_MUSIC) importMusic(uri);
     }
 
     /** Copies the chosen video into private storage so it keeps working even if the original moves. */
@@ -491,6 +512,36 @@ public class MainActivity extends Activity {
                 js("window.onVideoPicked&&window.onVideoPicked(true,'')");
             });
         }, "video-import").start();
+    }
+
+    private void importMusic(final Uri uri) {
+        if (uri == null) {
+            js("window.onMusicPicked&&window.onMusicPicked(false,'')");
+            return;
+        }
+        String type = getContentResolver().getType(uri);
+        jsToast("Importing music…");
+        new Thread(() -> {
+            File out = Storage.musicFile(this);
+            File tmp = new File(out.getParentFile(), "music.tmp");
+            try (InputStream in = getContentResolver().openInputStream(uri);
+                 OutputStream os = new FileOutputStream(tmp)) {
+                if (in == null) throw new IOException("Can't open file");
+                byte[] buf = new byte[256 * 1024];
+                int n;
+                while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+            } catch (Exception e) {
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
+                js("window.onMusicPicked&&window.onMusicPicked(false," + JSONObject.quote("Couldn't import that file") + ")");
+                return;
+            }
+            //noinspection ResultOfMethodCallIgnored
+            out.delete();
+            boolean ok = tmp.renameTo(out);
+            prefs.edit().putString("musicMime", type != null && type.startsWith("audio/") ? type : "audio/mpeg").apply();
+            js("window.onMusicPicked&&window.onMusicPicked(" + ok + ",'')");
+        }, "music-import").start();
     }
 
     private void importImage(final Uri uri, final String kind, final String pkg) {

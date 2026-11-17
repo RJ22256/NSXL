@@ -184,6 +184,66 @@ final class LauncherBridge {
     }
 
     @JavascriptInterface
+    public boolean hasMusic() {
+        return Storage.musicFile(a).exists();
+    }
+
+    @JavascriptInterface
+    public void pickMusic() {
+        a.runOnUiThread(() -> a.pickContent("audio/*", MainActivity.REQ_MUSIC));
+    }
+
+    /** While a text box has focus, keyboard keys go to it instead of being treated as controller input. */
+    @JavascriptInterface
+    public void setTyping(boolean on) {
+        a.typing = on;
+    }
+
+    // ---------------------------------------------------------------- SteamGridDB (async: answers via window.onAsync)
+
+    @JavascriptInterface
+    public void sgdbSearch(final String id, final String key, final String term) {
+        new Thread(() -> {
+            try {
+                a.asyncResult(id, SteamGridDB.search(key, term));
+            } catch (Exception e) {
+                a.asyncError(id, e);
+            }
+        }, "sgdb").start();
+    }
+
+    @JavascriptInterface
+    public void sgdbGrids(final String id, final String key, final double gameId) {
+        new Thread(() -> {
+            try {
+                a.asyncResult(id, SteamGridDB.grids(key, (long) gameId));
+            } catch (Exception e) {
+                a.asyncError(id, e);
+            }
+        }, "sgdb").start();
+    }
+
+    @JavascriptInterface
+    public void sgdbApply(final String id, final String pkg, final String url) {
+        new Thread(() -> {
+            java.io.File tmp = new java.io.File(a.getCacheDir(), "sgdb-download");
+            try {
+                if (!url.startsWith("https://")) throw new java.io.IOException("Bad image address");
+                SteamGridDB.download(url, tmp);
+                boolean ok = Storage.saveSquareImage(a, Uri.fromFile(tmp), Storage.coverFile(a, pkg), 720);
+                if (!ok) throw new java.io.IOException("Couldn't read that image");
+                a.server.invalidate(pkg);
+                a.asyncResult(id, "true");
+            } catch (Exception e) {
+                a.asyncError(id, e);
+            } finally {
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
+            }
+        }, "sgdb").start();
+    }
+
+    @JavascriptInterface
     public void setVideoBlur(final int radius) {
         a.runOnUiThread(() -> a.video.setBlur(radius));
     }
