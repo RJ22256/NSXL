@@ -12,6 +12,7 @@
     var t = c.theme || 'white';
     if (t === 'video' && window.Android && !Android.hasVideo()) t = 'black';
     document.documentElement.setAttribute('data-theme', t);
+    if (c.scale) document.documentElement.style.setProperty('--scale', c.scale);
   } catch (e) {}
 })();
 </script>
@@ -20,7 +21,8 @@
 @font-face { font-family: "Montserrat"; src: url("fonts/Montserrat.ttf") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
 
 :root {
-  --u: min(1vw, 1.7778vh);               /* 1% of a 16:9 stage */
+  --scale: 1;
+  --u: calc(min(1vw, 1.7778vh) * var(--scale));   /* 1% of a 16:9 stage, times the Interface size setting */
   --H: calc(var(--u) * 56.25);
   --oy: calc((100vh - var(--H)) / 2);    /* vertical offset of the stage */
   --tile: calc(var(--u) * 20);
@@ -235,12 +237,8 @@ img.flip { animation: flip .5s cubic-bezier(.2,.8,.2,1); }
 @keyframes wipe { 60% { opacity: .9; } to { transform: translate(-50%, -50%) scale(400); opacity: 0; } }
 
 /* ---- even more motion ---- */
-/* art lives in a clipping layer so it can drift and shine without spilling out */
+/* art lives in a clipping layer so it can drift without spilling out */
 .clip { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
-.clip::after { content: ''; position: absolute; inset: 0; pointer-events: none; transform: translateX(-130%);
-  background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.5) 50%, transparent 65%); }
-.sel > .clip::after { animation: shine .9s .12s ease-out; }
-@keyframes shine { to { transform: translateX(130%); } }
 .sel > .clip img { animation: kenburns 10s ease-in-out infinite alternate; }
 @keyframes kenburns { from { transform: scale(1); } to { transform: scale(1.08) translate(-1.5%, -1%); } }
 /* selected tile lifts a little */
@@ -282,6 +280,31 @@ body.leaving::after { content: ''; position: fixed; inset: 0; z-index: 60; backg
 @keyframes barIn { from { opacity: 0; transform: translateY(2px); } }
 #avatar { animation: breatheShadow 4s ease-in-out infinite; }
 @keyframes breatheShadow { 50% { box-shadow: 0 0 0 calc(var(--u) * .28) var(--gapRing), 0 calc(var(--u) * .5) calc(var(--u) * 1.4) var(--shadow); } }
+/* neighbours ease apart from the selected tile */
+.tile.nbL { transform: translateX(calc(var(--u) * -.35)); }
+.tile.nbR { transform: translateX(calc(var(--u) * .35)); }
+/* title card icon pops in */
+#gameTitle.swap .tIcon { animation: popIn .35s cubic-bezier(.3,1.7,.5,1) both; }
+/* menus spring open from where you are */
+.ov.back .menu, .ov.back .dialog { transition: transform .34s cubic-bezier(.3,1.5,.5,1), opacity .2s; transform: scale(.88) translateY(calc(var(--u) * 1.5)); }
+.ov.back.show .menu, .ov.back.show .dialog { transform: none; }
+/* charging: the battery fills and empties */
+#bat.chg .lvl { animation: charge 2.4s ease-in-out infinite; transform-box: fill-box; transform-origin: left center; }
+@keyframes charge { 0% { transform: scaleX(.35); } 70%, 100% { transform: scaleX(1); } }
+/* toggles squish */
+.sw.on i { animation: squish .32s ease; }
+@keyframes squish { 40% { width: calc(var(--u) * 2.9); } }
+/* tab change slides the grid in from that side */
+.grid.fromL .cell { animation: fromL .38s cubic-bezier(.2,.8,.2,1) both !important; animation-delay: calc(min(var(--i, 0), 20) * 12ms) !important; }
+.grid.fromR .cell { animation: fromR .38s cubic-bezier(.2,.8,.2,1) both !important; animation-delay: calc(min(var(--i, 0), 20) * 12ms) !important; }
+@keyframes fromL { from { opacity: 0; transform: translateX(calc(var(--u) * -4)); } }
+@keyframes fromR { from { opacity: 0; transform: translateX(calc(var(--u) * 4)); } }
+/* avatar wiggles when tapped */
+#avatar.wiggle { animation: wiggle .5s ease; }
+@keyframes wiggle { 20% { transform: rotate(-10deg) scale(1.06); } 45% { transform: rotate(8deg); } 70% { transform: rotate(-4deg); } 100% { transform: none; } }
+/* options/start hints nudge when the selection changes */
+#hints.swap .btn { animation: popIn .32s cubic-bezier(.3,1.7,.5,1) both; }
+
 /* reduce motion */
 html.calm *, html.calm *::before, html.calm *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; animation-delay: 0s !important; transition-duration: .001s !important; }
 html.calm #bgfx { display: none; }
@@ -386,19 +409,18 @@ html.calm #bgfx { display: none; }
   position: absolute; top: calc(var(--u) * 16.4); bottom: calc(var(--u) * 7.4); left: 0; right: 0;
   overflow-y: auto; scrollbar-width: none;
   padding: calc(var(--u) * 1.6) var(--side) calc(var(--u) * 3);
-  display: grid; grid-template-columns: repeat(auto-fill, calc(var(--u) * 10.6));
-  gap: calc(var(--u) * 1.4) calc(var(--u) * 1.2); align-content: start; justify-content: center;
+  display: grid; grid-template-columns: repeat(auto-fill, calc(var(--u) * 9.2));
+  gap: calc(var(--u) * 1.6) calc(var(--u) * 1.4); align-content: start; justify-content: center;
 }
 .grid::-webkit-scrollbar { display: none; }
-.cell { width: calc(var(--u) * 10.6); cursor: pointer; position: relative; }
+.grid { -webkit-mask-image: linear-gradient(#000 calc(100% - var(--u) * 3), transparent); mask-image: linear-gradient(#000 calc(100% - var(--u) * 3), transparent); }
+.cell { width: calc(var(--u) * 9.2); cursor: pointer; position: relative; }
 .cell .art { width: 100%; aspect-ratio: 1; border-radius: var(--r); position: relative; background: var(--slot); isolation: isolate; }
 .cell .nm {
-  display: none; position: absolute; z-index: 8; left: 50%; top: calc(100% - var(--u) * 1.4); transform: translateX(-50%);
-  max-width: calc(var(--u) * 24); padding: calc(var(--u) * .55) calc(var(--u) * 1.3); border-radius: calc(var(--u) * .5);
-  background: var(--panel); color: var(--fg); font-size: calc(var(--u) * 1.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  box-shadow: 0 calc(var(--u) * .3) calc(var(--u) * 1.2) rgba(0,0,0,.22);
+  margin-top: calc(var(--u) * .75); font-size: calc(var(--u) * 1.3); line-height: 1.25; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg2); transition: color .2s;
 }
-.cell.sel .nm { display: block; animation: swapIn .22s cubic-bezier(.2,.8,.2,1); }
+.cell.sel .nm { color: var(--accent); font-weight: 600; }
 .cell .pin {
   position: absolute; z-index: 2; top: calc(var(--u) * .6); right: calc(var(--u) * .6);
   width: calc(var(--u) * 2); height: calc(var(--u) * 2); border-radius: 50%;
@@ -530,7 +552,7 @@ html[data-theme=white] .dbtn.sel { background: #fff; }
 
 /* portrait fallback */
 @media (orientation: portrait) {
-  :root { --u: 1.42vw; --tile: calc(var(--u) * 30); --H: 100vh; --oy: 0px; }
+  :root { --u: calc(1.42vw * var(--scale)); --tile: calc(var(--u) * 30); --H: 100vh; --oy: 0px; }
   #gameTitle { top: calc(30vh - var(--u) * 1.4); }
   #rowWrap { top: 30vh; }
   #dockWrap { top: calc(30vh + var(--tile) + var(--u) * 10); }
@@ -586,7 +608,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true,
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1,
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => store.set('cfg', cfg);
@@ -977,7 +999,12 @@ function renderRow() {
 
 function refreshSel() {
   const ov = !!topOverlay();
-  Hm.items.forEach((it, i) => it.el.classList.toggle('sel', !ov && Hm.zone === 'row' && i === Hm.idx));
+  Hm.items.forEach((it, i) => {
+    const on = !ov && Hm.zone === 'row';
+    it.el.classList.toggle('sel', on && i === Hm.idx);
+    it.el.classList.toggle('nbL', on && i === Hm.idx - 1);
+    it.el.classList.toggle('nbR', on && i === Hm.idx + 1);
+  });
   dockEls.forEach((b, i) => b.classList.toggle('sel', !ov && Hm.zone === 'dock' && i === Hm.dockIdx));
   updateTitle(); updateDockLabel(); updateHints();
 }
@@ -1420,7 +1447,11 @@ function openAll(opts) {
     else if (opts.mode === 'add') { Snd.select(); popOverlay(true); setOnHome(a.pkg, true); toast('Added ' + a.label + ' to Home'); }
     else launch(a.pkg, cells[sel].firstChild);
   }
-  function switchTab(t) { if (t === tab) { Snd.bump(); return; } tab = t; sel = 0; Snd.tick(); build(); grid.scrollTop = 0; }
+  function switchTab(t) {
+    if (t === tab) { Snd.bump(); return; }
+    grid.classList.remove('fromL', 'fromR'); grid.classList.add(t === 'all' ? 'fromR' : 'fromL');
+    tab = t; sel = 0; Snd.tick(); build(); grid.scrollTop = 0;
+  }
   $$('.t', ov).forEach(t => onPress(t, () => switchTab(t.dataset.t)));
 
   pushOverlay({
@@ -1482,6 +1513,7 @@ function applyTheme() {
   document.documentElement.classList.toggle('calm', !!cfg.calm);
   document.documentElement.classList.toggle('nobg', !cfg.bgfx);
   document.documentElement.style.setProperty('--dim', cfg.dim);
+  document.documentElement.style.setProperty('--scale', cfg.scale || 1);
   nb('setMode', t === 'white' ? 'light' : t);
   if (t === 'video') nb('setVideoBlur', cfg.blur | 0);
   if (!NATIVE) $('#fakeVideo').style.display = t === 'video' ? 'block' : 'none';
@@ -1521,6 +1553,9 @@ const SETTINGS = [
       set: v => { cfg.blur = v; saveCfg(); applyTheme(); }, fmt: v => v ? String(v) : 'Off' } : null,
   ] },
   { name: 'Home Screen', rows: () => [
+    { type: 'slider', label: 'Interface size', desc: 'Makes everything bigger or smaller to suit your screen.', min: 0.7, max: 1.3, step: 0.05,
+      get: () => cfg.scale || 1, set: v => { cfg.scale = v; saveCfg(); applyTheme(); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); },
+      fmt: v => Math.round(v * 100) + '%' },
     { type: 'choice', label: 'Clock', key: 'clock', options: [['system', 'System'], ['12', '12-hour'], ['24', '24-hour']], after: updateClock },
     { type: 'toggle', label: 'Show battery percentage', key: 'batPct', after: updateStatus },
     { type: 'toggle', label: 'Start software with one tap', desc: 'Off: the first tap selects (so you can see its name), the second tap starts it.', key: 'oneTap' },
@@ -1839,7 +1874,7 @@ function mockArt(pkg) {
    ========================================================= */
 function boot() {
   $('#padInd .padIcon').innerHTML = svg('pad');
-  onPress($('#avatar'), () => { Snd.select(); avatarMenu(); });
+  onPress($('#avatar'), () => { Snd.select(); retrigger($('#avatar'), 'wiggle'); setTimeout(avatarMenu, 220); });
   loadApps();
   renderDock();
   renderRow();
