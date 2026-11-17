@@ -12,6 +12,7 @@
     var t = c.theme || 'white';
     if (t === 'video' && window.Android && !Android.hasVideo()) t = 'black';
     document.documentElement.setAttribute('data-theme', t);
+    if (c.scale) document.documentElement.style.setProperty('--scale', c.scale);
   } catch (e) {}
 })();
 </script>
@@ -20,7 +21,8 @@
 @font-face { font-family: "Montserrat"; src: url("fonts/Montserrat.ttf") format("truetype"); font-weight: 100 900; font-style: normal; font-display: swap; }
 
 :root {
-  --u: min(1vw, 1.7778vh);               /* 1% of a 16:9 stage */
+  --scale: 1;
+  --u: calc(min(1vw, 1.7778vh) * var(--scale));   /* 1% of a 16:9 stage, times the Interface size setting */
   --H: calc(var(--u) * 56.25);
   --oy: calc((100vh - var(--H)) / 2);    /* vertical offset of the stage */
   --tile: calc(var(--u) * 20);
@@ -407,19 +409,18 @@ html.calm #bgfx { display: none; }
   position: absolute; top: calc(var(--u) * 16.4); bottom: calc(var(--u) * 7.4); left: 0; right: 0;
   overflow-y: auto; scrollbar-width: none;
   padding: calc(var(--u) * 1.6) var(--side) calc(var(--u) * 3);
-  display: grid; grid-template-columns: repeat(auto-fill, calc(var(--u) * 10.6));
-  gap: calc(var(--u) * 1.4) calc(var(--u) * 1.2); align-content: start; justify-content: center;
+  display: grid; grid-template-columns: repeat(auto-fill, calc(var(--u) * 9.2));
+  gap: calc(var(--u) * 1.6) calc(var(--u) * 1.4); align-content: start; justify-content: center;
 }
 .grid::-webkit-scrollbar { display: none; }
-.cell { width: calc(var(--u) * 10.6); cursor: pointer; position: relative; }
+.grid { -webkit-mask-image: linear-gradient(#000 calc(100% - var(--u) * 3), transparent); mask-image: linear-gradient(#000 calc(100% - var(--u) * 3), transparent); }
+.cell { width: calc(var(--u) * 9.2); cursor: pointer; position: relative; }
 .cell .art { width: 100%; aspect-ratio: 1; border-radius: var(--r); position: relative; background: var(--slot); isolation: isolate; }
 .cell .nm {
-  display: none; position: absolute; z-index: 8; left: 50%; top: calc(100% - var(--u) * 1.4); transform: translateX(-50%);
-  max-width: calc(var(--u) * 24); padding: calc(var(--u) * .55) calc(var(--u) * 1.3); border-radius: calc(var(--u) * .5);
-  background: var(--panel); color: var(--fg); font-size: calc(var(--u) * 1.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  box-shadow: 0 calc(var(--u) * .3) calc(var(--u) * 1.2) rgba(0,0,0,.22);
+  margin-top: calc(var(--u) * .75); font-size: calc(var(--u) * 1.3); line-height: 1.25; text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg2); transition: color .2s;
 }
-.cell.sel .nm { display: block; animation: swapIn .22s cubic-bezier(.2,.8,.2,1); }
+.cell.sel .nm { color: var(--accent); font-weight: 600; }
 .cell .pin {
   position: absolute; z-index: 2; top: calc(var(--u) * .6); right: calc(var(--u) * .6);
   width: calc(var(--u) * 2); height: calc(var(--u) * 2); border-radius: 50%;
@@ -551,7 +552,7 @@ html[data-theme=white] .dbtn.sel { background: #fff; }
 
 /* portrait fallback */
 @media (orientation: portrait) {
-  :root { --u: 1.42vw; --tile: calc(var(--u) * 30); --H: 100vh; --oy: 0px; }
+  :root { --u: calc(1.42vw * var(--scale)); --tile: calc(var(--u) * 30); --H: 100vh; --oy: 0px; }
   #gameTitle { top: calc(30vh - var(--u) * 1.4); }
   #rowWrap { top: 30vh; }
   #dockWrap { top: calc(30vh + var(--tile) + var(--u) * 10); }
@@ -607,7 +608,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true,
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1,
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => store.set('cfg', cfg);
@@ -1512,6 +1513,7 @@ function applyTheme() {
   document.documentElement.classList.toggle('calm', !!cfg.calm);
   document.documentElement.classList.toggle('nobg', !cfg.bgfx);
   document.documentElement.style.setProperty('--dim', cfg.dim);
+  document.documentElement.style.setProperty('--scale', cfg.scale || 1);
   nb('setMode', t === 'white' ? 'light' : t);
   if (t === 'video') nb('setVideoBlur', cfg.blur | 0);
   if (!NATIVE) $('#fakeVideo').style.display = t === 'video' ? 'block' : 'none';
@@ -1551,6 +1553,9 @@ const SETTINGS = [
       set: v => { cfg.blur = v; saveCfg(); applyTheme(); }, fmt: v => v ? String(v) : 'Off' } : null,
   ] },
   { name: 'Home Screen', rows: () => [
+    { type: 'slider', label: 'Interface size', desc: 'Makes everything bigger or smaller to suit your screen.', min: 0.7, max: 1.3, step: 0.05,
+      get: () => cfg.scale || 1, set: v => { cfg.scale = v; saveCfg(); applyTheme(); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); },
+      fmt: v => Math.round(v * 100) + '%' },
     { type: 'choice', label: 'Clock', key: 'clock', options: [['system', 'System'], ['12', '12-hour'], ['24', '24-hour']], after: updateClock },
     { type: 'toggle', label: 'Show battery percentage', key: 'batPct', after: updateStatus },
     { type: 'toggle', label: 'Start software with one tap', desc: 'Off: the first tap selects (so you can see its name), the second tap starts it.', key: 'oneTap' },
