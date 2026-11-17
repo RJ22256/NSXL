@@ -398,6 +398,89 @@ final class LauncherBridge {
         OverlayService.refreshHandle();
     }
 
+    // ---------------------------------------------------------------- NSXL Cloud
+
+    /** The page keeps NSXL's backup-worthy settings here so the server can hand them out without the page. */
+    @JavascriptInterface
+    public void cloudSnapshot(String json) {
+        a.prefs.edit().putString("cloudSettings", json).apply();
+    }
+
+    @JavascriptInterface
+    public String cloudHostState() {
+        JSONObject o = new JSONObject();
+        try {
+            CloudServer s = CloudServer.instance;
+            o.put("running", s != null);
+            if (s != null) {
+                String ip = CloudServer.localAddress(a);
+                o.put("address", ip == null ? "" : ip + ":" + CloudServer.PORT);
+                o.put("pin", s.pin);
+            }
+            o.put("stored", CloudServer.listStored(a));
+        } catch (Exception ignored) { }
+        return o.toString();
+    }
+
+    @JavascriptInterface
+    public String cloudHost(boolean on) {
+        if (!on) { CloudServer.stop(); return cloudHostState(); }
+        try { CloudServer.start(a); } catch (Exception e) { a.jsToast("Couldn't start NSXL Cloud: " + e.getMessage()); }
+        return cloudHostState();
+    }
+
+    @JavascriptInterface
+    public String cloudPending() {
+        return a.prefs.getString("pendingRestore", "");
+    }
+
+    @JavascriptInterface
+    public void cloudClearPending() {
+        a.prefs.edit().remove("pendingRestore").apply();
+    }
+
+    @JavascriptInterface
+    public void cloudPush(final String id, final String address, final String pin, final boolean video) {
+        new Thread(() -> {
+            try { CloudClient.push(a, address, pin, video); a.asyncResult(id, "true"); }
+            catch (Exception e) { a.asyncError(id, e); }
+        }, "cloud").start();
+    }
+
+    @JavascriptInterface
+    public void cloudList(final String id, final String address, final String pin) {
+        new Thread(() -> {
+            try { a.asyncResult(id, CloudClient.list(address, pin)); }
+            catch (Exception e) { a.asyncError(id, e); }
+        }, "cloud").start();
+    }
+
+    /** name: a stored backup's file name, or "" for the other device's current setup. */
+    @JavascriptInterface
+    public void cloudPull(final String id, final String address, final String pin, final String name) {
+        new Thread(() -> {
+            try {
+                String json = CloudClient.pull(a, address, pin, name == null || name.isEmpty() ? null : name);
+                MainActivity.notifyRestored(json);
+                a.asyncResult(id, "true");
+            } catch (Exception e) { a.asyncError(id, e); }
+        }, "cloud").start();
+    }
+
+    /** Restore one of the backups other devices stored on this one. */
+    @JavascriptInterface
+    public void cloudRestoreLocal(final String id, final String name) {
+        new Thread(() -> {
+            try {
+                String n = CloudServer.safeName(name);
+                if (n == null) throw new java.io.IOException("Not found");
+                String json = CloudBackup.restore(a, new java.io.File(CloudServer.storeDir(a), n));
+                MainActivity.notifyRestored(json);
+                a.asyncResult(id, "true");
+            } catch (Exception e) { a.asyncError(id, e); }
+        }, "cloud").start();
+    }
+
     @JavascriptInterface
     public boolean shortcutEnabled() {
         return ShortcutService.instance != null;

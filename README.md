@@ -30,6 +30,7 @@ Big game tiles, a round-button dock, a glowing selection ring, ambient music and
 - **Switch-style motion.** Tiles slide in on start-up, selections pop, games zoom out of their tile when you launch them, and the selection ring sweeps a highlight round the selected item.
 - **Entertainment mode.** Press the film button on the dock (or **R**) and the Home row becomes your streaming apps. Pick one to see up to 50 of the most popular films and shows on that service in your region, with All / Movies / TV tabs, ratings and summaries, plus buttons to open the app or search for the title in it. Data from TMDB.
 - **In-game quick menu.** A PS5-style menu you can open over any game: Home, Switch Game, Music, Sound, Brightness, Accessories, Network and Power, in the NSXL style. Open it from a small glowing tab on the screen edge, the **NSXL Menu** Quick Settings tile, or the NSXL notification.
+- **NSXL Cloud.** Your device can host its own backup server on your Wi-Fi. Other NSXL devices back up their API keys, theme and music to it and restore from it, and any browser can open it to download or upload backups. PIN-protected.
 - **Cover art from SteamGridDB.** Search for any game and pick from hundreds of community covers, or fetch art for every game at once. You can also use any picture from your phone.
 - **Rename anything.** Give apps the name you want shown on their tile.
 - **Ambient music.** A calm built-in soundtrack that's generated on your device, or any music file you choose. It pauses while you play.
@@ -82,6 +83,16 @@ Open the menu from your controller instead of the screen:
 2. Choose **Controller shortcut access → Turn on**, find **NSXL controller shortcut** in Android's Accessibility settings and switch it on. If the switch is greyed out, open NSXL's **App info → ⋮ → Allow restricted settings** first (Android 13+ asks this for apps installed outside the Play Store).
 
 This uses an accessibility service, because that's the only way Android lets an app see controller buttons while a game is open. It only watches controller buttons and can't read your screen. Your game still receives every button, except the Guide button when you use the Guide-button shortcut. With it on, the quick menu also gets **Take screenshot** and **Sleep**.
+
+## NSXL Cloud (backups on your own Wi-Fi)
+
+NSXL can run a small backup server on the device itself: no accounts, nothing leaves your network.
+
+1. On the device that should keep the backups, open **Settings → Cloud Save** and turn on **Host NSXL Cloud**. It shows an **address** (like `192.168.1.20:8765`) and a **PIN**.
+2. On another NSXL device, choose **Back up to another device** or **Restore from another device** and enter that address and PIN.
+3. Or open `http://<address>` in any browser on the same Wi-Fi to download this device's backup, see stored backups, or upload one.
+
+A backup holds your SteamGridDB and TMDB keys, theme settings and music (file and settings), plus the live wallpaper video if you turn that on. The server runs while NSXL is open and uses plain HTTP on your local network, protected by the PIN, so only use it on networks you trust.
 
 ## Entertainment with TMDB
 

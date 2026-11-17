@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NSXL Cloud</title>
+<style>
+@font-face { font-family: "Montserrat"; src: url("/fonts/Montserrat.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+:root { --bg: #ebebeb; --card: #fbfbfb; --fg: #232323; --fg2: #5e5e5e; --accent: #1f5fd6; --line: #d9d9d9; --danger: #c4302b; }
+@media (prefers-color-scheme: dark) { :root { --bg: #000; --card: #161618; --fg: #f2f2f2; --fg2: #a8a8a8; --accent: #4fd2ff; --line: #2c2c2c; --danger: #ff6b6b; } }
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Montserrat, system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+main { max-width: 760px; margin: 0 auto; padding: 40px 20px 60px; }
+header { display: flex; align-items: center; gap: 14px; margin-bottom: 8px; }
+header i { width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(#2f6dff, #8fb3ff, #c6a6ff, #ffbfe8, #bdeeff, #2f6dff); animation: spin 3s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+h1 { margin: 0; font-size: 28px; font-weight: 700; }
+.sub { color: var(--fg2); margin: 0 0 28px; font-size: 15px; }
+section { background: var(--card); border-radius: 16px; padding: 22px; margin-bottom: 18px; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+h2 { margin: 0 0 6px; font-size: 18px; font-weight: 600; }
+p { margin: 0 0 14px; color: var(--fg2); font-size: 14px; line-height: 1.5; }
+label { display: block; font-size: 14px; font-weight: 600; margin-bottom: 8px; }
+input[type=password], input[type=text] { width: 100%; max-width: 260px; font: inherit; font-size: 22px; letter-spacing: .3em; padding: 10px 14px; border-radius: 10px; border: 2px solid var(--line); background: transparent; color: var(--fg); outline: none; }
+input:focus { border-color: var(--accent); }
+button, .file { font: inherit; font-size: 15px; font-weight: 600; border: 0; border-radius: 999px; padding: 12px 22px; cursor: pointer; background: var(--accent); color: #fff; display: inline-block; }
+button.ghost, .file { background: transparent; color: var(--accent); box-shadow: inset 0 0 0 2px var(--accent); }
+button.del { background: transparent; color: var(--danger); padding: 8px 12px; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+ul { list-style: none; margin: 0; padding: 0; }
+li { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); }
+li:first-child { border-top: 0; }
+li .who { flex: 1; min-width: 0; }
+li .who b { display: block; font-size: 15px; }
+li .who span { color: var(--fg2); font-size: 13px; }
+li a { color: var(--accent); font-weight: 600; text-decoration: none; font-size: 14px; }
+#msg { min-height: 22px; font-size: 14px; font-weight: 600; color: var(--accent); margin-top: 12px; }
+.locked { opacity: .45; pointer-events: none; }
+input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <header><i></i><h1>NSXL Cloud</h1></header>
+  <p class="sub" id="dev">Backups of NSXL's API keys, theme and music.</p>
+
+  <section>
+    <label for="pin">PIN</label>
+    <div class="row"><input id="pin" type="password" inputmode="numeric" autocomplete="off" maxlength="6" placeholder="••••••"><button id="unlock">Unlock</button></div>
+    <p style="margin:10px 0 0">It's shown on the device in NSXL › Settings › Cloud Save.</p>
+    <div id="msg" role="status"></div>
+  </section>
+
+  <div id="rest" class="locked">
+    <section>
+      <h2>This device's setup</h2>
+      <p>Download a backup of this device's NSXL settings, API keys and music.</p>
+      <div class="row"><button id="dl">Download backup</button><label class="row" style="margin:0;font-weight:500"><input type="checkbox" id="vid" style="display:inline"> Include live wallpaper video</label></div>
+    </section>
+
+    <section>
+      <h2>Stored backups</h2>
+      <p>Backups other devices have saved here.</p>
+      <ul id="list"><li><span class="who"><span>Nothing stored yet.</span></span></li></ul>
+    </section>
+
+    <section>
+      <h2>Add or restore a backup</h2>
+      <p>Store a backup file here, or put one straight onto this device (replaces its API keys, theme and music).</p>
+      <div class="row">
+        <label class="file">Store a backup<input type="file" id="store" accept=".zip"></label>
+        <label class="file">Restore onto this device<input type="file" id="restore" accept=".zip"></label>
+      </div>
+    </section>
+  </div>
+</main>
+<script>
+const $ = s => document.querySelector(s);
+let pin = sessionStorage.getItem('pin') || '';
+const say = (t, bad) => { $('#msg').textContent = t; $('#msg').style.color = bad ? 'var(--danger)' : 'var(--accent)'; };
+const api = (path, opts = {}) => fetch(path, { ...opts, headers: { 'X-NSXL-PIN': pin, ...(opts.headers || {}) } });
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const size = b => b > 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB';
+
+fetch('/api/info').then(r => r.json()).then(i => { $('#dev').textContent = 'Running on ' + i.device + '. Backups of NSXL’s API keys, theme and music.'; }).catch(() => {});
+
+async function unlock() {
+  pin = $('#pin').value.trim() || pin;
+  const r = await api('/api/backups');
+  if (r.status === 401) { say('Wrong PIN', true); $('#rest').classList.add('locked'); return; }
+  sessionStorage.setItem('pin', pin); say('Unlocked'); $('#rest').classList.remove('locked');
+  render(await r.json());
+}
+function render(items) {
+  const ul = $('#list');
+  if (!items.length) { ul.innerHTML = '<li><span class="who"><span>Nothing stored yet.</span></span></li>'; return; }
+  ul.innerHTML = items.map(b => `<li><span class="who"><b>${esc(b.device)}</b><span>${new Date(b.time).toLocaleString()} · ${size(b.size)}</span></span>
+    <a href="/api/backups/${encodeURIComponent(b.name)}?pin=${encodeURIComponent(pin)}" download>Download</a>
+    <button class="del" data-n="${esc(b.name)}">Delete</button></li>`).join('');
+  ul.querySelectorAll('.del').forEach(btn => btn.onclick = async () => {
+    if (!confirm('Delete this backup?')) return;
+    await api('/api/backups/' + encodeURIComponent(btn.dataset.n), { method: 'DELETE' }); unlock();
+  });
+}
+$('#unlock').onclick = unlock;
+$('#pin').addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
+$('#dl').onclick = () => { location.href = '/api/backup?pin=' + encodeURIComponent(pin) + ($('#vid').checked ? '&video=1' : ''); };
+async function upload(file, path, done) {
+  if (!file) return;
+  say('Uploading ' + file.name + '…');
+  const r = await api(path, { method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: file });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) { say(j.error || 'That didn’t work', true); return; }
+  say(done); unlock();
+}
+$('#store').onchange = e => upload(e.target.files[0], '/api/backups?device=' + encodeURIComponent('Uploaded from browser'), 'Stored');
+$('#restore').onchange = e => { if (confirm('Replace this device’s API keys, theme and music?')) upload(e.target.files[0], '/api/restore', 'Restored onto this device'); };
+if (pin) { $('#pin').value = pin; unlock(); }
+</script>
+</body>
+</html>
