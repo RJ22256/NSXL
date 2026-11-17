@@ -213,6 +213,18 @@ final class LauncherBridge {
         a.typing = on;
     }
 
+    // ---------------------------------------------------------------- Play time
+
+    @JavascriptInterface
+    public String playStats() {
+        return Play.stats(a);
+    }
+
+    @JavascriptInterface
+    public void playReset(String pkg) {
+        Play.reset(a, pkg);
+    }
+
     // ---------------------------------------------------------------- Controllers (Bluetooth pairing)
 
     @JavascriptInterface
