@@ -142,6 +142,7 @@ public class MainActivity extends Activity {
         super.onResume();
         OverlayService.setLauncherVisible(true);
         resumed = true;
+        Play.finish(this);
         if (sleptWhileShowing) {          // screen came back on with NSXL showing: play the wake animation
             sleptWhileShowing = false;
             js("window.onWake&&window.onWake()");
@@ -372,6 +373,7 @@ public class MainActivity extends Activity {
         }
         try {
             startActivity(i, opts);
+            Play.start(this, pkg);
         } catch (Exception e) {
             jsToast("Can't open this app");
         }
@@ -500,7 +502,9 @@ public class MainActivity extends Activity {
     private void registerScreenReceiver() {
         screenReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context c, Intent intent) {
+                if (Intent.ACTION_SCREEN_ON.equals(intent.getAction())) { Play.screenOn(MainActivity.this); return; }
                 if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+                    if (!resumed) Play.screenOff(MainActivity.this);
                     // Remember if NSXL was on screen when it went to sleep (onPause may already have run).
                     if (resumed || android.os.SystemClock.uptimeMillis() - pausedAt < 1500) sleptWhileShowing = true;
                     js("window.onScreenOff&&window.onScreenOff()");
@@ -508,6 +512,7 @@ public class MainActivity extends Activity {
             }
         };
         IntentFilter f = new IntentFilter(Intent.ACTION_SCREEN_OFF);
+        f.addAction(Intent.ACTION_SCREEN_ON);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(screenReceiver, f, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(screenReceiver, f);
     }

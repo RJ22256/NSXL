@@ -315,6 +315,48 @@ html[data-theme=video] { --flash: #000000; }
 body.full #modeTabs { opacity: 0; pointer-events: none; }
 #row.slideL .tile { animation: fromR .42s cubic-bezier(.2,.8,.2,1) both !important; animation-delay: calc(var(--i, 0) * 40ms) !important; }
 #row.slideR .tile { animation: fromL .42s cubic-bezier(.2,.8,.2,1) both !important; animation-delay: calc(var(--i, 0) * 40ms) !important; }
+/* user page */
+.ovTitle .miniAv { width: calc(var(--u) * 3.6); height: calc(var(--u) * 3.6); border-radius: 50%; overflow: hidden; position: relative; background: var(--selBg); flex: none; }
+.miniAv .avDef, .pAvaImg .avDef { position: absolute; inset: 0; display: grid; place-items: center; color: var(--grey); }
+.miniAv .avDef svg { width: 64%; height: 64%; }
+.miniAv img, .pAvaImg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; }
+.miniAv img.ok, .pAvaImg img.ok { opacity: 1; }
+.prof { display: flex; gap: calc(var(--u) * 3); align-items: flex-start; padding: calc(var(--u) * 1.2) calc(var(--u) * 1); }
+.pAva { position: relative; flex: none; width: calc(var(--u) * 17); height: calc(var(--u) * 17); border-radius: calc(var(--u) * 1); cursor: pointer; isolation: isolate; --rr: calc(var(--u) * 1); }
+.pAvaImg { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; background: var(--selBg); }
+.pAvaImg .avDef svg { width: 60%; height: 60%; }
+.pEdit { display: grid; place-items: center; color: var(--fg2); }
+.pEdit .ic { width: calc(var(--u) * 2.2); height: calc(var(--u) * 2.2); }
+.pAva .pEdit { position: absolute; right: calc(var(--u) * .7); bottom: calc(var(--u) * .7); z-index: 2; width: calc(var(--u) * 3.2); height: calc(var(--u) * 3.2); border-radius: 50%; background: var(--panel); box-shadow: 0 2px 8px var(--shadow); }
+.pInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(var(--u) * 2.4); }
+.pName { position: relative; isolation: isolate; --rr: calc(var(--u) * .7); display: flex; align-items: center; justify-content: space-between; gap: calc(var(--u) * 1.4); cursor: pointer;
+  padding: calc(var(--u) * 1.3) calc(var(--u) * 1.8); border-radius: calc(var(--u) * .7); border-bottom: 1px solid var(--line); font-size: calc(var(--u) * 2.4); font-weight: 500; }
+.pName.sel { background: var(--selBg); border-bottom-color: transparent; }
+.pStats, .swPlay { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--u) * 1.2); }
+.pStat { display: flex; flex-direction: column; gap: calc(var(--u) * .4); padding: calc(var(--u) * 1.4) calc(var(--u) * 1.6); border-radius: calc(var(--u) * .9); background: var(--slot); min-width: 0; }
+.pStat b { font-size: calc(var(--u) * 2); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pStat span { font-size: calc(var(--u) * 1.3); color: var(--fg2); }
+.playRow { flex-wrap: wrap; padding-bottom: calc(var(--u) * 1.4); }
+.playArt { position: relative; flex: none; width: calc(var(--u) * 5.2); height: calc(var(--u) * 5.2); border-radius: calc(var(--u) * .7); overflow: hidden; background: var(--slot); }
+.playArt img { width: 100%; height: 100%; object-fit: cover; }
+.playBar { position: absolute; left: calc(var(--u) * 2); bottom: calc(var(--u) * .6); height: calc(var(--u) * .35); border-radius: 999px; background: var(--accent); opacity: .75; max-width: calc(100% - var(--u) * 4); }
+.setRow.danger .lbl { color: var(--c-red); }
+.paneEmpty { padding-top: calc(var(--u) * 5); }
+.paneNote { font-size: calc(var(--u) * 1.35); line-height: 1.5; color: var(--fg2); padding: calc(var(--u) * 1.6) calc(var(--u) * 2); }
+/* software menu (+ on a game) */
+.swMenu { position: absolute; left: 50%; top: calc(var(--u) * 10.4); bottom: calc(var(--u) * 7.6); width: min(86vw, calc(var(--u) * 100)); transform: translate(-50%, 2%) scale(.97); opacity: 0;
+  transition: transform .26s cubic-bezier(.2,.8,.2,1), opacity .2s; background: var(--panel); border-radius: calc(var(--u) * 1.2); box-shadow: 0 calc(var(--u) * 2) calc(var(--u) * 6) rgba(0,0,0,.35); overflow: hidden; }
+.ov.show .swMenu { transform: translate(-50%, 0); opacity: 1; }
+.swHead { position: absolute; left: calc(var(--u) * 3); right: calc(var(--u) * 3); top: calc(var(--u) * 2.2); height: calc(var(--u) * 8); display: flex; align-items: center; gap: calc(var(--u) * 2.2); }
+.swArt { position: relative; flex: none; width: calc(var(--u) * 8); height: calc(var(--u) * 8); border-radius: calc(var(--u) * .7); overflow: hidden; background: var(--slot); }
+.swArt img { width: 100%; height: 100%; object-fit: cover; }
+.swT { min-width: 0; display: flex; flex-direction: column; gap: calc(var(--u) * .4); }
+.swT h2 { margin: 0; font-size: calc(var(--u) * 2.6); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.swT span { font-size: calc(var(--u) * 1.35); color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.swRule { position: absolute; left: calc(var(--u) * 2.4); right: calc(var(--u) * 2.4); top: calc(var(--u) * 11.6); height: 1px; background: var(--line); }
+.swMenu .setNav { top: calc(var(--u) * 13.4); bottom: calc(var(--u) * 2); left: calc(var(--u) * 3); width: calc(var(--u) * 26); }
+.swMenu .setPane { top: calc(var(--u) * 12.6); bottom: calc(var(--u) * 1); left: calc(var(--u) * 31); right: calc(var(--u) * 2.4); }
+.swMenu .swPlay { padding: calc(var(--u) * 1) calc(var(--u) * 1) calc(var(--u) * 1.6); }
 /* button icons */
 .btn .gs { width: 78%; height: 78%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .btn.wide { width: auto; min-width: calc(var(--u) * 2.25); padding: 0 calc(var(--u) * .55); border-radius: calc(var(--u) * .6); font-size: calc(var(--u) * 1.05); letter-spacing: .02em; box-sizing: border-box; }
@@ -745,7 +787,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true, entTab: true, launchFx: 'zoom', glyphs: 'auto', touchHide: true, newsSrc: null, newsCustom: [],
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true, entTab: true, launchFx: 'zoom', userName: '', glyphs: 'auto', touchHide: true, newsSrc: null, newsCustom: [],
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => { store.set('cfg', cfg); queueMicrotask(() => cloudSnap()); };
@@ -780,6 +822,7 @@ const ICONS = {
   film:   '<rect x="3.5" y="5" width="17" height="14" rx="2.6"/><path d="M10.2 9.3v5.4l4.5-2.7z" fill="currentColor"/>',
   paper:  '<path d="M5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v12.5a1.5 1.5 0 0 0 3 0V9h-3"/><path d="M5 4.5v14a1.5 1.5 0 0 0 1.5 1.5h12.5"/><path d="M8 8.5h6M8 12h6M8 15.5h4"/>',
   bt:     '<path d="M7.5 8l9 8-4.5 4V4l4.5 4-9 8"/>',
+  pen:    '<path d="M14.5 5.5l4 4L8.5 19.5H4.5v-4z"/><path d="M12.5 7.5l4 4"/>',
   person: '<circle cx="12" cy="9.2" r="3.7"/><path d="M5 20a7 7 0 0 1 14 0"/>',
 };
 const svg = (name, cls = 'ic') => `<svg viewBox="0 0 24 24" class="${cls}">${ICONS[name]}</svg>`;
@@ -1642,7 +1685,7 @@ window.onScreenOff = () => { $('#sleepFx').classList.remove('on'); };
 
 /* ---------- NSXL Cloud (backup server on this device) ---------- */
 // What a backup carries: API keys, theme and music settings. Files (music, optional wallpaper) are added natively.
-const CLOUD_KEYS = ['theme', 'dim', 'blur', 'scale', 'bgfx', 'calm', 'clock', 'batPct', 'sounds', 'haptics', 'music', 'musicVol', 'musicSrc', 'tmdbKey', 'sgdbKey', 'region', 'newsSrc', 'newsCustom', 'entTab', 'launchFx', 'glyphs', 'touchHide', 'swapAB'];
+const CLOUD_KEYS = ['theme', 'dim', 'blur', 'scale', 'bgfx', 'calm', 'clock', 'batPct', 'sounds', 'haptics', 'music', 'musicVol', 'musicSrc', 'tmdbKey', 'sgdbKey', 'region', 'newsSrc', 'newsCustom', 'entTab', 'launchFx', 'glyphs', 'touchHide', 'swapAB', 'userName'];
 function cloudSnap() {
   const out = {}; CLOUD_KEYS.forEach(k => { out[k] = cfg[k]; });
   nb('cloudSnapshot', JSON.stringify(out));
@@ -1890,6 +1933,197 @@ function openTitle(sv, x) {
   });
   paint();
 }
+/* =========================================================
+   Two-pane pages (user page, software menu): categories on the
+   left, their contents on the right, like System Settings.
+   ========================================================= */
+function openPaneSheet(o) {
+  const ov = el('section', o.modal ? 'ov back' : 'ov full');
+  const box = o.modal ? el('div', 'swMenu') : ov;
+  box.innerHTML = o.head + '<nav class="setNav psNav"></nav><div class="setPane psPane"></div>';
+  if (o.modal) ov.appendChild(box);
+  const nav = $('.psNav', box), pane = $('.psPane', box);
+  let cat = Math.max(0, o.cats.findIndex(c => c.name === o.start)), focus = o.focusPane ? 'pane' : 'nav', items = [], sel = 0;
+  const navBar = el('i', 'navBar'); nav.appendChild(navBar);
+  const navEls = o.cats.map((c, i) => {
+    const e = el('div', 'navItem g', esc(c.name)); e.style.setProperty('--i', i);
+    onPress(e, () => { if (cat !== i) { cat = i; sel = 0; render(); } focus = 'nav'; Snd.tick(); paint(); });
+    nav.appendChild(e); return e;
+  });
+  function render() {
+    pane.innerHTML = ''; pane.scrollTop = 0;
+    items = (o.cats[cat].build(pane) || []).filter(Boolean);
+    items.forEach((it, i) => onPress(it.el, () => { focus = 'pane'; sel = i; paint(); if (it.run) { Snd.select(); pressFx(it.el); it.run(); } }));
+    sel = clamp(sel, 0, Math.max(0, items.length - 1));
+    if (!items.length) focus = 'nav';
+    paint(true);
+  }
+  function paint(noScroll) {
+    navEls.forEach((e, i) => { e.classList.toggle('cur', i === cat); e.classList.toggle('sel', focus === 'nav' && i === cat); });
+    const ne = navEls[cat]; navBar.style.top = ne.offsetTop + 'px'; navBar.style.height = ne.offsetHeight + 'px';
+    items.forEach((it, i) => it.el.classList.toggle('sel', focus === 'pane' && i === sel));
+    if (!noScroll && focus === 'pane' && items[sel]) items[sel].el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  const api = { refresh: () => { render(); }, close: () => popOverlay(true) };
+  if (o.modal) onPress(ov, ev => { if (ev.target === ov) popOverlay(); });
+  pushOverlay({
+    el: ov, full: !o.modal,
+    pad(b) {
+      if (focus === 'nav') {
+        if (b === 'up' || b === 'down') { const n = cat + (b === 'up' ? -1 : 1); if (n < 0 || n >= o.cats.length) { Snd.bump(); return; } cat = n; sel = 0; Snd.tick(); buzz(); render(); }
+        else if (b === 'right' || b === 'a') { if (items.length) { focus = 'pane'; Snd.tick(); paint(); } else Snd.bump(); }
+        else if (b === 'b') popOverlay();
+        else Snd.bump();
+      } else {
+        if (b === 'up' || b === 'down') { const n = sel + (b === 'up' ? -1 : 1); if (n < 0 || n >= items.length) { Snd.bump(); return; } sel = n; Snd.tick(); buzz(); paint(); }
+        else if (b === 'left' || b === 'b') { focus = 'nav'; b === 'b' ? Snd.back() : Snd.tick(); paint(); }
+        else if (b === 'a') { const it = items[sel]; if (it && it.run) { Snd.select(); pressFx(it.el); it.run(); } else Snd.bump(); }
+        else Snd.bump();
+      }
+    },
+    hints: () => [['b', 'Back'], ['a', 'OK']],
+  });
+  render();
+  return api;
+}
+// A plain row: label (and optional description) with a value on the right.
+function paneRow(pane, label, opts) {
+  opts = opts || {};
+  const e = el('div', 'setRow g' + (opts.danger ? ' danger' : '') + (opts.cls ? ' ' + opts.cls : ''));
+  e.innerHTML = `<span class="lbl">${opts.lead || ''}<span>${esc(label)}${opts.desc ? `<span class="desc">${esc(opts.desc)}</span>` : ''}</span></span><span class="val">${opts.val || ''}</span>`;
+  pane.appendChild(e);
+  return { el: e, run: opts.run };
+}
+
+/* =========================================================
+   Play time
+   ========================================================= */
+const playStats = () => { try { return JSON.parse(nb('playStats') || '{}'); } catch (e) { return {}; } };
+function fmtPlay(ms) {
+  const m = Math.round((ms || 0) / 60000);
+  if (m < 1) return 'Less than a minute';
+  if (m < 60) return m + (m === 1 ? ' minute' : ' minutes');
+  const h = Math.floor(m / 60), r = m % 60;
+  return h + (h === 1 ? ' hour' : ' hours') + (r ? ' ' + r + ' min' : '');
+}
+const fmtPlayShort = ms => { const m = Math.round((ms || 0) / 60000); return m < 60 ? Math.max(1, m) + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; };
+const userName = () => (cfg.userName || '').trim() || 'Player';
+function avatarHtml(cls) {
+  const v = store.get('avatarV', 0);
+  return `<span class="${cls}"><span class="avDef">${svg('person')}</span>${NATIVE ? `<img alt="" src="/avatar?v=${v}" onload="this.classList.add('ok')" onerror="this.remove()">` : ''}</span>`;
+}
+function renameUser(after) {
+  openPrompt('Your name', cfg.userName || '', 'Up to 20 characters', v => {
+    cfg.userName = v.trim().slice(0, 20); saveCfg(); toast(cfg.userName ? 'Hi, ' + cfg.userName + '!' : 'Name cleared'); after && after();
+  });
+}
+
+/* =========================================================
+   User page: tap your picture on the Home screen
+   ========================================================= */
+function openUserPage() {
+  let sheet;
+  const head = () => `<div class="ovTitle userTitle">${avatarHtml('miniAv')}<span>${esc(userName())}'s Page</span></div><div class="ovRule"></div><div class="ovRule bottom"></div>`;
+  const redraw = () => { const t = $('.userTitle', sheet.el); if (t) t.outerHTML = head().split('<div class="ovRule">')[0]; sheet.refresh(); setAvatar(); };
+  const pictureMenu = () => openMenu('Profile picture', [
+    { label: 'Choose a picture…', run: () => nb('pickAvatar') },
+    { label: 'Remove picture', run: () => { nb('removeAvatar'); store.set('avatarV', Date.now()); setAvatar(); redraw(); } },
+  ]);
+  window.__userRedraw = redraw;
+  const games = () => { const st = playStats(); return Object.keys(st).filter(p => BY[p]).map(p => ({ pkg: p, ...st[p] })).sort((a, b) => b.ms - a.ms); };
+  sheet = openPaneSheet({
+    head: head(),
+    cats: [
+      { name: 'Profile', build(pane) {
+        const g = games(), total = g.reduce((s, x) => s + x.ms, 0);
+        const wrap = el('div', 'prof');
+        wrap.innerHTML = `<div class="pAva g">${avatarHtml('pAvaImg')}<span class="pEdit">${svg('pen')}</span></div>
+          <div class="pInfo"><div class="pName g"><span>${esc(userName())}</span><span class="pEdit">${svg('pen')}</span></div>
+          <div class="pStats">
+            <div class="pStat"><b>${total ? esc(fmtPlayShort(total)) : '—'}</b><span>Total play time</span></div>
+            <div class="pStat"><b>${g.length}</b><span>${g.length === 1 ? 'Game played' : 'Games played'}</span></div>
+            <div class="pStat"><b>${g[0] ? esc(BY[g[0].pkg].label) : '—'}</b><span>Most played</span></div>
+          </div></div>`;
+        pane.appendChild(wrap);
+        return [{ el: $('.pAva', wrap), run: pictureMenu }, { el: $('.pName', wrap), run: () => renameUser(redraw) }];
+      } },
+      { name: 'Play Activity', build(pane) {
+        const g = games(), top = g[0] ? g[0].ms : 1;
+        if (!g.length) { pane.appendChild(el('div', 'empty paneEmpty', 'No play time yet.<br><span class="ghint">Start a game from NSXL and how long you play shows up here.</span>')); return []; }
+        return g.map(x => {
+          const lead = el('span', 'playArt'); artBox(x.pkg, 128, lead);
+          const r = paneRow(pane, BY[x.pkg].label, { cls: 'playRow', desc: 'Last played ' + (/ago|now/i.test(ago(x.last)) ? ago(x.last).toLowerCase() : 'on ' + ago(x.last)) + (x.n ? ' · played ' + x.n + (x.n === 1 ? ' time' : ' times') : ''), val: esc(fmtPlayShort(x.ms)),
+            run: () => appOptions(x.pkg, 'Play Activity') });
+          $('.lbl', r.el).prepend(lead);
+          const bar = el('i', 'playBar'); bar.style.width = Math.max(3, x.ms / top * 100) + '%'; r.el.appendChild(bar);
+          return r;
+        });
+      } },
+      { name: 'User Settings', build(pane) {
+        return [
+          paneRow(pane, 'Change name', { val: esc(userName()), run: () => renameUser(redraw) }),
+          paneRow(pane, 'Change picture', { val: 'Choose', run: () => nb('pickAvatar') }),
+          paneRow(pane, 'Remove picture', { run: () => { nb('removeAvatar'); store.set('avatarV', Date.now()); setAvatar(); redraw(); } }),
+          paneRow(pane, 'Reset play activity', { desc: 'Clears the play time for every game.', danger: true, run: () => openDialog('Reset play activity?', 'Play time for every game will be cleared. This can\'t be undone.', [
+            { label: 'Cancel', run: () => {} }, { label: 'Reset', primary: true, run: () => { nb('playReset', ''); toast('Play activity cleared'); sheet.refresh(); } }]) }),
+        ];
+      } },
+    ],
+  });
+  sheet.el = $$('.ov.full').slice(-1)[0];
+}
+
+/* =========================================================
+   Software menu: press + (Options) on a game
+   ========================================================= */
+function appOptions(pkg, start) {
+  const a = BY[pkg]; if (!a) return;
+  const head = el('div', 'swHead');
+  const art = el('div', 'swArt'); artBox(pkg, 256, art);
+  head.appendChild(art);
+  head.appendChild(el('div', 'swT', `<h2>${esc(a.label)}</h2><span>${esc(a.label !== a.orig ? a.orig : (a.game ? 'Game' : 'App'))} · ${esc(pkg)}</span>`));
+  let sheet;
+  sheet = openPaneSheet({
+    modal: true, start,
+    head: head.outerHTML + '<div class="swRule"></div>',
+    cats: [
+      { name: 'Software Update', build(pane) {
+        const r = [paneRow(pane, 'Via Google Play', { desc: 'Opens this game in the Play Store, where you can update it.', val: '<span class="chev">›</span>',
+          run: () => nb('openUrl', 'https://play.google.com/store/apps/details?id=' + encodeURIComponent(pkg), 'com.android.vending') })];
+        pane.appendChild(el('div', 'paneNote', 'Android keeps games up to date through the Play Store. Updates for games installed some other way come from wherever you got them.'));
+        return r;
+      } },
+      { name: 'Manage Software', build(pane) {
+        const onHome = homeList().includes(pkg);
+        return [
+          onHome ? paneRow(pane, 'Remove from Home', { desc: 'It stays in All Software.', run: () => { setOnHome(pkg, false); toast('Removed from Home'); sheet.refresh(); } })
+                 : paneRow(pane, 'Add to Home', { run: () => { setOnHome(pkg, true); toast('Added to Home'); sheet.refresh(); } }),
+          paneRow(pane, 'Rename', { val: esc(a.label), run: () => { popOverlay(true); renameApp(pkg); } }),
+          a.label !== a.orig ? paneRow(pane, 'Use original name', { val: esc(a.orig), run: () => { const n = store.get('names', {}); delete n[pkg]; store.set('names', n); popOverlay(true); reloadApps(); } }) : null,
+          paneRow(pane, 'App info', { desc: 'Storage, permissions and notifications in Android.', val: '<span class="chev">›</span>', run: () => nb('appInfo', pkg) }),
+          paneRow(pane, 'Uninstall', { danger: true, run: () => nb('uninstall', pkg) }),
+        ];
+      } },
+      { name: 'Cover Art', build(pane) {
+        return [
+          paneRow(pane, 'Find on SteamGridDB', { desc: 'Pick from community-made tile art.', run: () => { popOverlay(true); sgdbFind(pkg); } }),
+          paneRow(pane, 'Use a picture', { desc: 'Any image from your phone.', run: () => nb('pickCover', pkg) }),
+          paneRow(pane, 'Use a screenshot', { desc: 'Choose one from your Album.', run: () => { popOverlay(true); openAlbum(); toast('Pick a screenshot, then Options › Use as tile'); } }),
+          a.cover ? paneRow(pane, 'Reset cover art', { run: () => { nb('removeCover', pkg); a.cover = false; bumpCover(pkg); toast('Cover reset'); sheet.refresh(); } }) : null,
+        ];
+      } },
+      { name: 'Play Activity', build(pane) {
+        const x = playStats()[pkg];
+        if (!x) { pane.appendChild(el('div', 'empty paneEmpty', 'Not played from NSXL yet.')); return []; }
+        const box = el('div', 'swPlay');
+        box.innerHTML = `<div class="pStat"><b>${esc(fmtPlay(x.ms))}</b><span>Play time</span></div><div class="pStat"><b>${x.n || 1}</b><span>${(x.n || 1) === 1 ? 'Session' : 'Sessions'}</span></div><div class="pStat"><b>${esc(ago(x.last))}</b><span>Last played</span></div>`;
+        pane.appendChild(box);
+        return [paneRow(pane, 'Reset play activity for this game', { danger: true, run: () => { nb('playReset', pkg); toast('Play time cleared'); sheet.refresh(); } })];
+      } },
+    ],
+  });
+}
+
 /* =========================================================
    Controllers: see, find and pair Bluetooth controllers
    ========================================================= */
@@ -2293,23 +2527,6 @@ function mockCatalog(sv) {
 }
 
 /* ---------- app options ---------- */
-function appOptions(pkg) {
-  const a = BY[pkg]; if (!a) return;
-  const onHome = homeList().includes(pkg);
-  openMenu(a.label, [
-    { label: 'Start', run: () => launch(pkg, null) },
-    onHome ? { label: 'Remove from Home', run: () => { setOnHome(pkg, false); toast('Removed from Home'); } }
-           : { label: 'Add to Home', run: () => { setOnHome(pkg, true); toast('Added to Home'); } },
-    { label: 'Rename…', run: () => renameApp(pkg) },
-    a.label !== a.orig ? { label: 'Use original name', run: () => { const n = store.get('names', {}); delete n[pkg]; store.set('names', n); reloadApps(); } } : null,
-    { label: 'Find cover on SteamGridDB…', run: () => sgdbFind(pkg) },
-    { label: 'Use a picture as cover…', run: () => nb('pickCover', pkg) },
-    a.cover ? { label: 'Reset cover art', run: () => { nb('removeCover', pkg); a.cover = false; bumpCover(pkg); } } : null,
-    { label: 'App info', run: () => nb('appInfo', pkg) },
-    { label: 'Uninstall', danger: true, run: () => nb('uninstall', pkg) },
-  ]);
-}
-
 /* ---------- all software ---------- */
 function openAll(opts) {
   opts = opts || {};
@@ -2465,7 +2682,7 @@ window.onVideoPicked = (ok, msg) => {
 };
 window.onImagePicked = (kind, pkg, ok) => {
   if (!ok) { toast("Couldn't use that picture"); return; }
-  if (kind === 'avatar') { store.set('avatarV', Date.now()); setAvatar(); }
+  if (kind === 'avatar') { store.set('avatarV', Date.now()); setAvatar(); if (window.__userRedraw && $('.userTitle')) window.__userRedraw(); }
   else if (kind === 'cover') { if (BY[pkg]) BY[pkg].cover = true; bumpCover(pkg); toast('Cover art updated'); }
 };
 
@@ -2883,6 +3100,9 @@ function makeMock() {
       setTimeout(() => { const d = p.found.find(x => x.addr === addr); p.found = p.found.filter(x => x.addr !== addr); p.paired.push({ ...d, connected: true }); p.connected.push({ id: 9, name: d.name, battery: 100, rumble: true }); p.pairing = null; window.onPads(p); toast(d.name + ' paired'); }, 1500); },
     padsForget: (addr) => { const p = window.__pads; p.paired = p.paired.filter(x => x.addr !== addr); window.onPads(p); },
     padsRumble: () => {}, padsPermission: () => {}, padsEnable: () => {},
+    playStats: () => JSON.stringify(window.__play || (window.__play = { 'demo.game0': { ms: 41.5 * 3.6e6, n: 63, last: Date.now() - 3.6e6 * 5 }, 'demo.game2': { ms: 12.2 * 3.6e6, n: 18, last: Date.now() - 864e5 * 2 }, 'demo.game5': { ms: 2.6 * 3.6e6, n: 4, last: Date.now() - 864e5 * 9 }, 'demo.game7': { ms: 35 * 60000, n: 1, last: Date.now() - 864e5 * 20 } })),
+    playReset: (p) => { if (!p) window.__play = {}; else delete window.__play[p]; },
+    removeCover: () => {}, removeAvatar: () => {},
     albumAccess: () => window.__albumAccess || 'full',
     albumRequest: () => setTimeout(() => { window.__albumAccess = 'full'; window.onAlbumAccess('full'); }, 400),
     albumList: (id) => setTimeout(() => window.onAsync(id, true, Array.from({ length: 23 }, (_, i) => ({ id: i + 1, name: i % 3 === 2 ? 'Screenshot_2026111' + i + '.png' : 'Screenshot_20261117_1200' + i + '_' + games[i % 3 === 0 ? 0 : 2][0] + '.jpg', date: Date.now() - i * 5.3e6, w: 1920, h: 1080 }))), 250),
@@ -2933,7 +3153,7 @@ function mockArt(pkg) {
    ========================================================= */
 function boot() {
   $('#padInd .padIcon').innerHTML = svg('pad');
-  onPress($('#avatar'), () => { Snd.select(); retrigger($('#avatar'), 'wiggle'); setTimeout(avatarMenu, 220); });
+  onPress($('#avatar'), () => { Snd.select(); retrigger($('#avatar'), 'wiggle'); setTimeout(openUserPage, 220); });
   loadApps();
   DOCK = DOCK_ALL.filter(d => d.id !== 'ent' || cfg.entTab); renderDock();
   renderRow();

@@ -61,7 +61,11 @@ final class OverlayBridge {
             Intent i = s.getPackageManager().getLaunchIntentForPackage(pkg);
             if (i == null) return;
             i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-            try { s.startActivity(i); } catch (Exception ignored) { }
+            try {
+                s.startActivity(i);
+                Play.finish(s);      // switching games: close the old game's session
+                Play.start(s, pkg);
+            } catch (Exception ignored) { }
         });
     }
 
