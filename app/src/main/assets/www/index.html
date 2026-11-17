@@ -3167,7 +3167,8 @@ function mockFeed(url) {
   const host = url.includes('google') ? 'google' : url.split('/')[2];
   const heads = ['New trailer shows off a huge open world', 'Studio confirms a surprise sequel', 'Patch 2.1 fixes performance on handhelds', 'Hands-on: the best racer in years',
     'Indie hit is coming to Android next month', 'Ten hidden gems you might have missed', 'Review: a gorgeous, cosy adventure', 'Developer explains the new progression system'];
-  const items = heads.map((t, i) => `<item><title>${t}${host === 'google' ? ' - Games Weekly' : ''}</title><link>https://${host}/story/${i}</link>
+  const off = host.length % heads.length, extra = ['Hands-on', 'Preview', 'Interview', 'Feature', 'Guide', 'Opinion'][host.length % 6];
+  const items = heads.map((t, i) => `<item><title>${i % 2 ? extra + ': ' : ''}${heads[(i + off) % heads.length]}${host === 'google' ? ' - Games Weekly' : ''}</title><link>https://${host}/story/${i}</link>
     <pubDate>${new Date(Date.now() - (i * 3 + host.length) * 3.6e6).toUTCString()}</pubDate><description>&lt;p&gt;A short summary of the story so the page has something to show in the preview. It goes on for a sentence or two.&lt;/p&gt;</description></item>`).join('');
   return `<?xml version="1.0"?><rss><channel><title>${host}</title>${items}</channel></rss>`;
 }
