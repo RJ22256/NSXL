@@ -54,7 +54,7 @@ import java.io.OutputStream;
 public class MainActivity extends Activity {
 
     static final String ORIGIN = "https://launcher.local/";
-    static final int REQ_VIDEO = 41, REQ_COVER = 42, REQ_AVATAR = 43, REQ_MUSIC = 44;
+    static final int REQ_VIDEO = 41, REQ_COVER = 42, REQ_AVATAR = 43, REQ_MUSIC = 44, REQ_ALBUM = 45, REQ_ALBUM_DELETE = 46;
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
 
     final Handler ui = new Handler(Looper.getMainLooper());
@@ -355,6 +355,7 @@ public class MainActivity extends Activity {
             return;
         }
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
+        getSharedPreferences("launcher", MODE_PRIVATE).edit().putString("lastLaunched", pkg).apply();
         Bundle opts;
         if ("instant".equals(launchStyle)) {
             opts = ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle();
@@ -520,6 +521,46 @@ public class MainActivity extends Activity {
         else if (requestCode == REQ_COVER) importImage(uri, "cover", pendingCoverPkg);
         else if (requestCode == REQ_AVATAR) importImage(uri, "avatar", "");
         else if (requestCode == REQ_MUSIC) importMusic(uri);
+        else if (requestCode == REQ_ALBUM_DELETE) js("window.onAlbumDeleted&&window.onAlbumDeleted(" + (resultCode == RESULT_OK) + ")");
+    }
+
+    // ------------------------------------------------------------------ album
+
+    void albumRequest() {
+        if ("full".equals(Album.access(this)) || Build.VERSION.SDK_INT < 23) {
+            js("window.onAlbumAccess&&window.onAlbumAccess('full')");
+            return;
+        }
+        requestPermissions(Album.permissions(), REQ_ALBUM);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == REQ_ALBUM) js("window.onAlbumAccess&&window.onAlbumAccess('" + Album.access(this) + "')");
+    }
+
+    void albumDelete(long id) {
+        try {
+            if (Build.VERSION.SDK_INT >= 30) {
+                android.app.PendingIntent pi = android.provider.MediaStore.createDeleteRequest(getContentResolver(),
+                        java.util.Collections.singletonList(Album.uri(id)));
+                startIntentSenderForResult(pi.getIntentSender(), REQ_ALBUM_DELETE, null, 0, 0, 0);
+                return;
+            }
+            try {
+                boolean ok = getContentResolver().delete(Album.uri(id), null, null) > 0;
+                js("window.onAlbumDeleted&&window.onAlbumDeleted(" + ok + ")");
+            } catch (SecurityException se) {
+                if (Build.VERSION.SDK_INT >= 29 && se instanceof android.app.RecoverableSecurityException) {
+                    startIntentSenderForResult(((android.app.RecoverableSecurityException) se).getUserAction().getActionIntent().getIntentSender(),
+                            REQ_ALBUM_DELETE, null, 0, 0, 0);
+                } else throw se;
+            }
+        } catch (Exception e) {
+            jsToast("Couldn't delete that screenshot");
+            js("window.onAlbumDeleted&&window.onAlbumDeleted(false)");
+        }
     }
 
     /** Copies the chosen video into private storage so it keeps working even if the original moves. */

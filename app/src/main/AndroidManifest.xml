@@ -4,6 +4,9 @@
 
     <!-- The home screen is a local web page; WebView expects this even for local content -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <!-- Wi-Fi icon in the status area -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- "Uninstall" in the Options menu -->
