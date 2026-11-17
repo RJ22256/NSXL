@@ -29,11 +29,11 @@
   --r: calc(var(--u) * 1);
   --font: "Montserrat", "Roboto", "Noto Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
   --ring: conic-gradient(from var(--a), #3ec5ff 0deg, #4d7dff 70deg, #9b7bff 130deg, #4d7dff 190deg, #3ec5ff 250deg, #c9f4ff 292deg, #ffffff 310deg, #b5efff 328deg, #3ec5ff 360deg);
-  --glow: rgba(120, 132, 255, .45);
+  --glow: rgba(110, 140, 255, .32);
 }
 html[data-theme=white] {
-  --bg:#e9e9e9; --ovBg:#ebebeb; --fg:#3a3a3a; --fg2:#6a6a6a; --accent:#2a6dd5;
-  --slot:#f6f6f6; --pill:#f2f2f2; --pillLine:transparent; --selBg:#ffffff; --gapRing:#ffffff;
+  --bg:#ebebeb; --ovBg:#ebebeb; --fg:#232323; --fg2:#5e5e5e; --accent:#1f5fd6;
+  --slot:#f7f7f7; --pill:#f6f6f6; --pillLine:transparent; --selBg:#ffffff; --gapRing:#ffffff;
   --panel:#fbfbfb; --line:#dadada; --grey:#7f7f7f; --shadow:rgba(0,0,0,.12); --btn:#3a3a3a; --btnFg:#fff;
   --c-orange:#e8902a; --c-green:#3f9f45; --c-red:#de3434; --c-blue:#3a76cf; --c-teal:#2aa3b1;
 }
@@ -110,7 +110,7 @@ body.full #home { visibility: hidden; }
 #bat.chg { color: #2fbf4f; }
 #bat.chg .lvl { fill: #2fbf4f; }
 #bat .bolt { fill: #fff; }
-#batPct { font-size: calc(var(--u) * 1.6); font-weight: 500; margin-right: calc(var(--u) * -.6); }
+#batPct { font-size: calc(var(--u) * 2.2); font-weight: 500; margin-right: calc(var(--u) * -.5); }
 #batPct:empty { display: none; }
 
 /* ---------- home: tile row ---------- */
@@ -118,13 +118,16 @@ body.full #home { visibility: hidden; }
 #home.enter { animation: enter .32s cubic-bezier(.2,.8,.2,1); }
 @keyframes enter { from { opacity: 0; transform: scale(1.025); } to { opacity: 1; transform: none; } }
 #gameTitle {
-  position: absolute; left: 0; top: calc(var(--oy) + var(--u) * 12);
-  width: var(--tile); overflow: hidden;
-  font-size: calc(var(--u) * 2.05); font-weight: 600; color: var(--accent); line-height: 1.25;
+  position: absolute; left: 0; top: calc(var(--oy) + var(--u) * 11.9);
+  display: flex; align-items: center; gap: calc(var(--u) * .7);
+  font-size: calc(var(--u) * 1.85); font-weight: 500; color: var(--accent); line-height: 1.3;
   white-space: nowrap; opacity: 0; transition: opacity .12s; pointer-events: none;
 }
+#gameTitle .tIcon { flex: 0 0 auto; width: calc(var(--u) * 1.25); height: calc(var(--u) * 1.6); border-radius: calc(var(--u) * .22); background: var(--accent); position: relative; }
+#gameTitle .tIcon::after { content: ''; position: absolute; left: 22%; right: 22%; bottom: 14%; height: 12%; border-radius: 2px; background: rgba(255,255,255,.75); }
+#gameTitle .tClip { flex: 1; min-width: 0; overflow: hidden; }
 #gameTitle span { display: inline-block; white-space: nowrap; }
-#gameTitle.marquee { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 3%, #000 93%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 3%, #000 93%, transparent 100%); }
+#gameTitle.marquee .tClip { -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 3%, #000 93%, transparent 100%); mask-image: linear-gradient(90deg, transparent 0, #000 3%, #000 93%, transparent 100%); }
 #gameTitle.marquee span { animation: marquee var(--dur, 6s) ease-in-out infinite alternate; }
 @keyframes marquee { 0%, 18% { transform: translateX(0); } 82%, 100% { transform: translateX(var(--shift, 0px)); } }
 #rowWrap {
@@ -146,11 +149,16 @@ body.full #home { visibility: hidden; }
       color: #fff; font-weight: 700; font-size: calc(var(--u) * 6); }
 .cell .fb { font-size: calc(var(--u) * 4); }
 .tile.slot { cursor: default; }
-.tile.allTile { display: grid; place-items: center; color: var(--fg2); }
-.tile.allTile svg { width: calc(var(--u) * 5.5); height: calc(var(--u) * 5.5); }
-.tile.allTile span { position: absolute; bottom: calc(var(--u) * 1.6); font-size: calc(var(--u) * 1.6); }
+.tile.more {
+  --rr: 50%; flex: 0 0 calc(var(--u) * 7.4); width: calc(var(--u) * 7.4); height: calc(var(--u) * 7.4);
+  align-self: center; margin-left: calc(var(--u) * 1.2); border-radius: 50%;
+  display: grid; place-items: center; color: var(--grey); background: var(--slot);
+  box-shadow: 0 calc(var(--u) * .2) calc(var(--u) * .8) var(--shadow);
+}
+.tile.more svg { width: calc(var(--u) * 3.2); height: calc(var(--u) * 3.2); }
+.tile.more.sel { box-shadow: 0 0 0 calc(var(--u) * .2) var(--gapRing); }
 .tile.sel, .dk.sel, .cell .art.sel, .tprev.sel { animation: selPop .3s cubic-bezier(.3,1.7,.5,1); }
-@keyframes selPop { 0% { transform: scale(.955); } 100% { transform: scale(1); } }
+@keyframes selPop { 0% { transform: scale(.975); } 100% { transform: scale(1); } }
 .tile.pop { animation: pop .28s ease; }
 @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(.95); } 100% { transform: scale(1); } }
 .nudgeL { animation: nudgeL .22s ease; } .nudgeR { animation: nudgeR .22s ease; }
@@ -227,31 +235,31 @@ img.flip { animation: flip .5s cubic-bezier(.2,.8,.2,1); }
 @keyframes wipe { 60% { opacity: .9; } to { transform: translate(-50%, -50%) scale(400); opacity: 0; } }
 
 /* ---------- the animated selection ring ---------- */
-.g.sel { box-shadow: 0 0 0 calc(var(--u) * .32) var(--gapRing); }
+.g.sel { box-shadow: 0 0 0 calc(var(--u) * .2) var(--gapRing); }
 .g.sel::after {
-  content: ''; position: absolute; inset: calc(var(--u) * -.8);
-  border-radius: calc(var(--rr, var(--r)) + var(--u) * .8); pointer-events: none;
+  content: ''; position: absolute; inset: calc(var(--u) * -.5);
+  border-radius: calc(var(--rr, var(--r)) + var(--u) * .5); pointer-events: none;
 }
 /* The ring is a ring-shaped window over a spinning colour wheel, so the colours travel round it. */
 .g > .ring { display: none; }
 .g.sel > .ring {
   display: block; position: absolute; z-index: 4; pointer-events: none; overflow: hidden;
-  inset: calc(var(--u) * -.8); border-radius: calc(var(--rr, var(--r)) + var(--u) * .8);
-  padding: calc(var(--u) * .46);
+  inset: calc(var(--u) * -.5); border-radius: calc(var(--rr, var(--r)) + var(--u) * .5);
+  padding: calc(var(--u) * .3);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
   animation: ringIn .28s ease-out both;
 }
 .g.sel > .ring > b {
   position: absolute; left: 50%; top: 50%; width: 175%; aspect-ratio: 1; border-radius: 50%;
-  background: conic-gradient(#3ec5ff 0deg, #4d7dff 70deg, #9b7bff 130deg, #4d7dff 190deg, #3ec5ff 250deg, #c9f4ff 292deg, #ffffff 310deg, #b5efff 328deg, #3ec5ff 360deg);
+  background: conic-gradient(#2f6dff 0deg, #3d7bff 55deg, #8fb3ff 100deg, #c6a6ff 145deg, #ffbfe8 185deg, #ffe2f4 205deg, #bdeeff 245deg, #63a0ff 295deg, #2f6dff 360deg);
   transform: translate(-50%, -50%); will-change: transform;
-  animation: ringSpin 2.2s linear infinite;
+  animation: ringSpin 3s linear infinite;
 }
 @keyframes ringSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
 @keyframes ringIn { from { opacity: 0; } to { opacity: 1; } }
 .g.sel::after {
-  z-index: -1; box-shadow: 0 0 calc(var(--u) * 1.6) calc(var(--u) * .2) var(--glow);
+  z-index: -1; box-shadow: 0 0 calc(var(--u) * 1.3) 0 var(--glow);
   animation: breathe 1.8s ease-in-out infinite;
 }
 @keyframes spin { to { --a: 360deg; } }
@@ -265,13 +273,14 @@ img.flip { animation: flip .5s cubic-bezier(.2,.8,.2,1); }
 }
 .dk {
   --rr: 50%;
-  width: calc(var(--u) * 5.4); height: calc(var(--u) * 5.4); border-radius: 50%;
+  width: calc(var(--u) * 5.6); height: calc(var(--u) * 5.6); border-radius: 50%;
   display: grid; place-items: center; position: relative; isolation: isolate; cursor: pointer;
   transition: background .12s;
 }
-.dk svg { width: calc(var(--u) * 3); height: calc(var(--u) * 3); }
+.dk svg { width: calc(var(--u) * 3.35); height: calc(var(--u) * 3.35); }
+.dk .ic { stroke-width: 2.1; }
 .dk.sel { background: var(--selBg); }
-.dk.sel::after, .dk.sel > .ring { border-radius: 50%; inset: calc(var(--u) * -.55); }
+.dk.sel::after, .dk.sel > .ring { border-radius: 50%; inset: calc(var(--u) * -.45); }
 .dk.red { background: #e4202a; }
 .dk.red svg { fill: #fff; stroke: none; width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); }
 #dockLabel { position: relative; width: 100%; height: calc(var(--u) * 3); margin-top: calc(var(--u) * 1.15); }
@@ -287,9 +296,9 @@ img.flip { animation: flip .5s cubic-bezier(.2,.8,.2,1); }
   display: flex; align-items: center; justify-content: space-between; pointer-events: none;
 }
 #foot > * { pointer-events: auto; }
-#padInd { display: flex; align-items: center; gap: calc(var(--u) * .7); color: var(--fg); opacity: .9; }
-#padInd .leds { display: flex; flex-direction: column; gap: calc(var(--u) * .28); }
-#padInd .leds i { width: calc(var(--u) * .5); height: calc(var(--u) * .5); border-radius: 50%; background: var(--line); display: block; }
+#padInd { display: flex; flex-direction: column; align-items: flex-start; gap: calc(var(--u) * .35); color: var(--fg); }
+#padInd .leds { display: flex; gap: calc(var(--u) * .3); margin-left: calc(var(--u) * .2); }
+#padInd .leds i { width: calc(var(--u) * .55); height: calc(var(--u) * .55); border-radius: 1px; background: #9a9a9a; display: block; }
 #padInd.on .leds i:first-child { background: #3bd16f; }
 #padInd svg { width: calc(var(--u) * 3.3); height: calc(var(--u) * 3.3); }
 #hints { display: flex; gap: calc(var(--u) * 2.6); font-size: calc(var(--u) * 1.65); color: var(--fg); }
@@ -312,13 +321,12 @@ img.flip { animation: flip .5s cubic-bezier(.2,.8,.2,1); }
 }
 .ovTitle svg { width: calc(var(--u) * 3.2); height: calc(var(--u) * 3.2); color: var(--accent); }
 .ovRule { position: absolute; left: calc(var(--u) * 4); right: calc(var(--u) * 4); top: calc(var(--u) * 10.4); height: 1px; background: var(--line); }
-.ovRule.bottom { top: auto; bottom: calc(var(--u) * 7.2); }
+.ovRule.bottom { top: auto; bottom: calc(var(--u) * 6.6); }
 
 /* tabs */
 .tabs { position: absolute; top: calc(var(--u) * 11.6); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.8); }
-.tabs .t { padding: calc(var(--u) * .6) calc(var(--u) * 2); border-radius: 999px; color: var(--fg2); cursor: pointer; }
-.tabs .t.on { background: var(--accent); color: #fff; }
-html[data-theme=black] .tabs .t.on, html[data-theme=video] .tabs .t.on { color: #000; }
+.tabs .t { padding: calc(var(--u) * .6) calc(var(--u) * 3) calc(var(--u) * .8); color: var(--fg2); cursor: pointer; border-bottom: calc(var(--u) * .25) solid transparent; }
+.tabs .t.on { color: var(--accent); border-bottom-color: var(--accent); }
 .tabs .btn { width: calc(var(--u) * 2.6); border-radius: calc(var(--u) * .6); font-size: calc(var(--u) * 1.2); }
 
 /* all software grid */
@@ -326,17 +334,19 @@ html[data-theme=black] .tabs .t.on, html[data-theme=video] .tabs .t.on { color: 
   position: absolute; top: calc(var(--u) * 16.4); bottom: calc(var(--u) * 7.4); left: 0; right: 0;
   overflow-y: auto; scrollbar-width: none;
   padding: calc(var(--u) * 1.6) var(--side) calc(var(--u) * 3);
-  display: grid; grid-template-columns: repeat(auto-fill, calc(var(--u) * 11.4));
-  gap: calc(var(--u) * 2.4) calc(var(--u) * 1.7); align-content: start; justify-content: center;
+  display: grid; grid-template-columns: repeat(auto-fill, calc(var(--u) * 10.6));
+  gap: calc(var(--u) * 1.4) calc(var(--u) * 1.2); align-content: start; justify-content: center;
 }
 .grid::-webkit-scrollbar { display: none; }
-.cell { width: calc(var(--u) * 11.4); cursor: pointer; }
+.cell { width: calc(var(--u) * 10.6); cursor: pointer; position: relative; }
 .cell .art { width: 100%; aspect-ratio: 1; border-radius: var(--r); position: relative; background: var(--slot); isolation: isolate; }
 .cell .nm {
-  margin-top: calc(var(--u) * .9); font-size: calc(var(--u) * 1.45); text-align: center;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg2);
+  display: none; position: absolute; z-index: 8; left: 50%; top: calc(100% - var(--u) * 1.4); transform: translateX(-50%);
+  max-width: calc(var(--u) * 24); padding: calc(var(--u) * .55) calc(var(--u) * 1.3); border-radius: calc(var(--u) * .5);
+  background: var(--panel); color: var(--fg); font-size: calc(var(--u) * 1.35); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  box-shadow: 0 calc(var(--u) * .3) calc(var(--u) * 1.2) rgba(0,0,0,.22);
 }
-.cell.sel .nm { color: var(--accent); }
+.cell.sel .nm { display: block; animation: swapIn .22s cubic-bezier(.2,.8,.2,1); }
 .cell .pin {
   position: absolute; z-index: 2; top: calc(var(--u) * .6); right: calc(var(--u) * .6);
   width: calc(var(--u) * 2); height: calc(var(--u) * 2); border-radius: 50%;
@@ -355,8 +365,7 @@ html[data-theme=black] .tabs .t.on, html[data-theme=video] .tabs .t.on { color: 
   border-radius: calc(var(--u) * .7); cursor: pointer; isolation: isolate; --rr: calc(var(--u) * .7);
 }
 .navItem.cur { color: var(--accent); }
-.navItem.cur::marker { content: none; }
-.navItem.cur:not(.sel) { background: var(--slot); }
+.navItem.cur::before { content: ''; position: absolute; left: calc(var(--u) * -.6); top: 18%; bottom: 18%; width: calc(var(--u) * .3); border-radius: 2px; background: var(--accent); }
 .navItem.sel { background: var(--selBg); }
 .setPane {
   position: absolute; top: calc(var(--u) * 11.6); bottom: calc(var(--u) * 8); left: calc(var(--u) * 31); right: calc(var(--u) * 4);
@@ -370,7 +379,8 @@ html[data-theme=black] .tabs .t.on, html[data-theme=video] .tabs .t.on { color: 
   min-height: calc(var(--u) * 6.4); padding: calc(var(--u) * 1) calc(var(--u) * 2);
   border-radius: calc(var(--u) * .7); font-size: calc(var(--u) * 1.85); cursor: pointer;
 }
-.setRow + .setRow { margin-top: calc(var(--u) * .5); }
+.setRow + .setRow:not(.sel) { border-top: 1px solid var(--line); border-radius: 0; }
+.setRow.sel + .setRow { border-top-color: transparent; }
 .setRow.sel { background: var(--selBg); }
 .setRow .val { color: var(--accent); display: flex; align-items: center; gap: calc(var(--u) * 1); font-size: calc(var(--u) * 1.7); white-space: nowrap; }
 .setRow .desc { display: block; font-size: calc(var(--u) * 1.35); color: var(--fg2); margin-top: calc(var(--u) * .4); }
@@ -522,7 +532,7 @@ const store = {
   get(k, d) { try { const v = localStorage.getItem('ch.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
-const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: false, sounds: true, haptics: true,
+const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
                    swapAB: false, orientation: 'landscape', immersive: true, oneTap: true,
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
@@ -884,15 +894,14 @@ function renderRow() {
     t.style.setProperty('--i', Hm.items.length);
     row.appendChild(t); Hm.items.push({ type: 'app', pkg, el: t });
   });
-  if (all.length > MAX_HOME) {
-    const t = el('div', 'tile g allTile', svg('grid') + '<span>All Software</span>');
-    row.appendChild(t); Hm.items.push({ type: 'all', el: t });
-  }
-  Hm.items.forEach((it, i) => onPress(it.el, () => tapRow(i), () => { selectRow(i); rowOptions(); }));
-  for (let i = Hm.items.length; i < 6; i++) {
+  for (let i = Hm.items.length; i < 4; i++) {
     const s = el('div', 'tile slot'); s.style.setProperty('--i', i); onPress(s, () => { Snd.select(); openAll({ mode: 'add', title: 'Add software to Home' }); });
     row.appendChild(s);
   }
+  const more = el('div', 'tile g more', svg('grid'));
+  more.style.setProperty('--i', Math.max(4, Hm.items.length));
+  row.appendChild(more); Hm.items.push({ type: 'all', el: more });
+  Hm.items.forEach((it, i) => onPress(it.el, () => tapRow(i), () => { selectRow(i); rowOptions(); }));
   Hm.idx = clamp(Hm.idx, 0, Math.max(0, Hm.items.length - 1));
   if (!Hm.items.length) Hm.zone = 'dock';
   refreshSel();
@@ -907,9 +916,9 @@ function refreshSel() {
 function updateTitle() {
   const t = $('#gameTitle'), it = Hm.items[Hm.idx];
   if (topOverlay() || Hm.zone !== 'row' || !it) { t.style.opacity = 0; return; }
-  const txt = it.type === 'all' ? 'All Software' : (BY[it.pkg] ? BY[it.pkg].label : '');
+  const txt = it.type === 'all' ? 'View More' : (BY[it.pkg] ? BY[it.pkg].label : '');
   const changed = t.dataset.txt !== txt || t.style.opacity === '0';
-  if (t.dataset.txt !== txt) { t.dataset.txt = txt; t.innerHTML = '<span>' + esc(txt) + '</span>'; }
+  if (t.dataset.txt !== txt) { t.dataset.txt = txt; t.innerHTML = (it.type === 'all' ? '' : '<i class="tIcon"></i>') + '<div class="tClip"><span>' + esc(txt) + '</span></div>'; }
   positionTitle(); t.style.opacity = 1;
   if (changed) { retrigger(t, 'swap'); fitTitle(); }
 }
@@ -917,17 +926,18 @@ function positionTitle() {
   const it = Hm.items[Hm.idx]; if (!it) return;
   const t = $('#gameTitle');
   // Layout position (ignores animations), so the title always sits exactly over its tile.
-  const wrap = $('#rowWrap');
-  const x = wrap.getBoundingClientRect().left + it.el.offsetLeft - wrap.scrollLeft;
-  t.style.width = it.el.offsetWidth + 'px';
-  t.style.transform = `translateX(${x}px)`;
+  const wrap = $('#rowWrap'), icon = t.querySelector('.tIcon');
+  const shift = icon ? icon.offsetWidth + parseFloat(getComputedStyle(t).columnGap || 0) : 0;
+  const x = wrap.getBoundingClientRect().left + it.el.offsetLeft - wrap.scrollLeft - shift;
+  t.style.width = (Math.max(it.el.offsetWidth, 240) + shift) + 'px';
+  t.style.transform = `translateX(${x}px)`;   // icon sits just left of the tile, text lines up with it
 }
 /* Long names scroll back and forth inside the tile's width. */
 function fitTitle() {
-  const t = $('#gameTitle'), span = t.firstElementChild; if (!span) return;
+  const t = $('#gameTitle'), clip = t.querySelector('.tClip'), span = clip && clip.firstElementChild; if (!span) return;
   t.classList.remove('marquee');
   requestAnimationFrame(() => {
-    const over = span.scrollWidth - t.clientWidth;
+    const over = span.scrollWidth - clip.clientWidth;
     if (over > 2) {
       t.style.setProperty('--shift', -(over + 6) + 'px');
       t.style.setProperty('--dur', Math.max(2.5, over / 70 + 2).toFixed(1) + 's');
@@ -1054,7 +1064,10 @@ function refreshOverlays() { stack.forEach(o => o.refresh && o.refresh()); }
 const BTN = { a: 'A', b: 'B', x: 'X', y: 'Y', plus: '+', minus: '−', l: 'L', r: 'R' };
 function updateHints() {
   const top = topOverlay();
-  const list = top ? top.hints() : (Hm.zone === 'dock' && DOCK[Hm.dockIdx].fixed ? [['a', 'OK']] : [['plus', 'Options'], ['a', 'OK']]);
+  const cur = Hm.items[Hm.idx];
+  const list = top ? top.hints()
+    : Hm.zone === 'dock' ? (DOCK[Hm.dockIdx].fixed ? [['a', 'OK']] : [['plus', 'Options'], ['a', 'OK']])
+    : cur && cur.type === 'app' ? [['plus', 'Options'], ['a', 'Start']] : [['a', 'OK']];
   const box = $('#hints'), sig = list.map(x => x.join(':')).join('|');
   if (box.dataset.sig === sig) return;
   box.dataset.sig = sig; box.innerHTML = '';
@@ -1203,7 +1216,7 @@ async function sgdbApply(pkg, url) {
 }
 function openCoverPicker(pkg, name, grids) {
   const ov = el('section', 'ov full');
-  ov.innerHTML = `<div class="ovTitle">${svg('album')}<span>${esc(name)}</span></div><div class="ovRule"></div>
+  ov.innerHTML = `<div class="ovTitle">${svg('album')}<span>${esc(name)}</span></div><div class="ovRule"></div><div class="ovRule bottom"></div>
     <div class="tabs"><span class="t on">SteamGridDB covers</span></div><div class="grid"></div>`;
   const grid = $('.grid', ov);
   let sel = 0;
@@ -1277,7 +1290,7 @@ function openAll(opts) {
   opts = opts || {};
   const ov = el('section', 'ov full');
   ov.innerHTML = `<div class="ovTitle">${svg('grid')}<span>${esc(opts.title || 'All Software')}</span></div>
-    <div class="ovRule"></div>
+    <div class="ovRule"></div><div class="ovRule bottom"></div>
     <div class="tabs"><i class="btn">L</i><span class="t" data-t="games">Games</span><span class="t" data-t="all">All Apps</span><i class="btn">R</i></div>
     <div class="grid"></div>`;
   const grid = $('.grid', ov);
@@ -1472,7 +1485,7 @@ const SETTINGS = [
 
 function openSettings(startCat) {
   const ov = el('section', 'ov full');
-  ov.innerHTML = `<div class="ovTitle">${svg('gear')}<span>Launcher Settings</span></div><div class="ovRule"></div>
+  ov.innerHTML = `<div class="ovTitle">${svg('gear')}<span>Launcher Settings</span></div><div class="ovRule"></div><div class="ovRule bottom"></div>
     <nav class="setNav"></nav><div class="setPane"></div>`;
   const nav = $('.setNav', ov), pane = $('.setPane', ov);
   let cat = startCat || 0, focus = 'nav', row = 0, rows = [], rowEls = [];
