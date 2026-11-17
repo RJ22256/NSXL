@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="bg_light">#FFE9E9E9</color>
-    <color name="ic_bg">#FF15151B</color>
+    <color name="ic_bg">#FF0B0B0F</color>
 
     <style name="LauncherTheme" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/bg_light</item>
