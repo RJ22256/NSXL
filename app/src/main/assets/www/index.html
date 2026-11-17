@@ -331,9 +331,11 @@ body.full #modeTabs { opacity: 0; pointer-events: none; }
 .grid.news .cell.sel .nm { color: var(--accent); }
 .ghint { display: block; margin-top: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.35); }
 .ghint .btn, .empty .btn { display: inline-grid; vertical-align: middle; margin: 0 .3em; }
-.tabs { max-width: 64vw; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
-.tabs::-webkit-scrollbar { display: none; }
-.tabs .t { flex: 0 0 auto; }
+.tabs .t { flex: 0 0 auto; white-space: nowrap; }
+.tabs .tscroll { position: relative; display: flex; align-items: center; gap: calc(var(--u) * 1.2); max-width: 58vw; overflow-x: auto; scrollbar-width: none; scroll-behavior: smooth;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 calc(var(--u) * 3), #000 calc(100% - var(--u) * 3), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 calc(var(--u) * 3), #000 calc(100% - var(--u) * 3), transparent); }
+.tabs .tscroll::-webkit-scrollbar { display: none; }
 /* screenshot viewer */
 .ov.shotView { background: #000; z-index: 40; }
 .shotImg { position: absolute; inset: 0; overflow: hidden; }
@@ -502,7 +504,7 @@ html.calm #bgfx { display: none; }
 .ovRule.bottom { top: auto; bottom: calc(var(--u) * 6.6); }
 
 /* tabs */
-.tabs { position: absolute; top: calc(var(--u) * 11.6); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.8); }
+.tabs { position: absolute; top: calc(var(--u) * 11.6); left: 0; right: 0; margin: 0 auto; width: max-content; display: flex; align-items: center; gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.8); }
 .tabs .t { padding: calc(var(--u) * .6) calc(var(--u) * 3) calc(var(--u) * .8); color: var(--fg2); cursor: pointer; border-bottom: calc(var(--u) * .25) solid transparent; }
 .tabs .t.on { color: var(--accent); border-bottom-color: var(--accent); }
 .tabs .btn { width: calc(var(--u) * 2.6); border-radius: calc(var(--u) * .6); font-size: calc(var(--u) * 1.2); }
@@ -1068,7 +1070,6 @@ const Hm = { items: [], idx: 0, zone: 'row', dockIdx: 0, launched: false, mode: 
 const DOCK_ALL = [
   { id: 'all',      label: 'All Software', icon: 'grid',    red: true, run: () => openAll({}) , fixed: true },
   { id: 'news',     label: 'News',         icon: 'paper',   color: 'var(--c-red)',    run: () => openNews() },
-  { id: 'chat',     label: 'Messages',     icon: 'chat',    color: 'var(--c-orange)', cat: 'messaging' },
   { id: 'web',      label: 'Web',          icon: 'news',    color: 'var(--c-green)',  cat: 'browser' },
   { id: 'store',    label: 'Play Store',   icon: 'bag',     color: 'var(--c-red)',    cat: 'market' },
   { id: 'album',    label: 'Album',        icon: 'album',   color: 'var(--c-blue)',   run: () => openAlbum() },
@@ -1841,7 +1842,7 @@ function openAlbum() {
     tabs = [{ id: '_all', label: 'All' }].concat(games.map(p => ({ id: p, label: BY[p].label })));
     if (games.length && count._other) tabs.push({ id: '_other', label: 'Other' });
     tab = Math.min(tab, tabs.length - 1);
-    tabsEl.innerHTML = (tabs.length > 1 ? '<i class="btn">L</i>' : '') + tabs.map((t, i) => `<span class="t${i === tab ? ' on' : ''}" data-i="${i}">${esc(t.label)}</span>`).join('') + (tabs.length > 1 ? '<i class="btn">R</i>' : '');
+    tabsEl.innerHTML = (tabs.length > 1 ? '<i class="btn">L</i>' : '') + '<div class="tscroll">' + tabs.map((t, i) => `<span class="t${i === tab ? ' on' : ''}" data-i="${i}">${esc(t.label)}</span>`).join('') + '</div>' + (tabs.length > 1 ? '<i class="btn">R</i>' : '');
     $$('.t', tabsEl).forEach(t => onPress(t, () => switchTab(+t.dataset.i)));
   }
   function build() {
@@ -1869,7 +1870,7 @@ function openAlbum() {
   }
   const cols = () => { if (cells.length < 2) return 1; const t0 = cells[0].offsetTop; let n = 0; for (const c of cells) { if (c.offsetTop !== t0) break; n++; } return n; };
   const move = d => { let n = sel + d; if (d > 1 && n >= cells.length && Math.floor(sel / cols()) < Math.floor((cells.length - 1) / cols())) n = cells.length - 1; if (n < 0 || n >= cells.length) { Snd.bump(); return; } sel = n; Snd.tick(); buzz(); paint(); };
-  const switchTab = i => { if (loading || i < 0 || i >= tabs.length || i === tab) { Snd.bump(); return; } grid.classList.remove('fromL', 'fromR'); grid.classList.add(i > tab ? 'fromR' : 'fromL'); tab = i; sel = 0; Snd.tick(); $$('.t', tabsEl).forEach(t => t.classList.toggle('on', +t.dataset.i === tab)); build(); grid.scrollTop = 0; };
+  const switchTab = i => { if (loading || i < 0 || i >= tabs.length || i === tab) { Snd.bump(); return; } grid.classList.remove('fromL', 'fromR'); grid.classList.add(i > tab ? 'fromR' : 'fromL'); tab = i; sel = 0; Snd.tick(); $$('.t', tabsEl).forEach(t => t.classList.toggle('on', +t.dataset.i === tab)); build(); grid.scrollTop = 0; centerTab(tabsEl); };
   const view = () => { if (list[sel]) { Snd.select(); openShot(list, sel, i => { sel = i; paint(); }, reload); } };
   const ask = () => { Snd.select(); nb('albumRequest'); };
   window.onAlbumAccess = a => { access = a; if (a === 'none') { build(); toast('Album needs access to your photos'); } else reload(); };
@@ -1967,6 +1968,10 @@ const NEWS_DEFAULT = { mine: true, eurogamer: true, ign: true, nlife: true, push
 const newsOn = id => (cfg.newsSrc && id in cfg.newsSrc) ? cfg.newsSrc[id] : !!NEWS_DEFAULT[id];
 const newsSources = () => NEWS_SOURCES.concat((cfg.newsCustom || []).map((u, i) => ({ id: 'c' + i, name: u.split('/')[2].replace(/^www\./, ''), url: u, custom: true })));
 
+function centerTab(tabsEl) {
+  const sc = $('.tscroll', tabsEl), on = $('.t.on', tabsEl); if (!sc || !on) return;
+  sc.scrollLeft = on.offsetLeft - (sc.clientWidth - on.offsetWidth) / 2;
+}
 function decodeHtml(s) { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; }
 function parseFeed(xml, src) {
   const doc = new DOMParser().parseFromString(xml, 'text/xml');
@@ -2017,7 +2022,7 @@ function openNews() {
   const srcs = newsSources().filter(s => newsOn(s.id) || s.custom);
   const tabs = [{ id: 'latest', label: 'Latest' }].concat(newsOn('mine') ? [{ id: 'mine', label: 'Your Games' }] : []).concat(srcs.map(s => ({ id: s.id, label: s.name })));
   let tab = 0, data = {}, list = [], cells = [], sel = 0, loading = true, errors = [];
-  tabsEl.innerHTML = '<i class="btn">L</i>' + tabs.map((t, i) => `<span class="t${i === tab ? ' on' : ''}" data-i="${i}">${esc(t.label)}</span>`).join('') + '<i class="btn">R</i>';
+  tabsEl.innerHTML = '<i class="btn">L</i><div class="tscroll">' + tabs.map((t, i) => `<span class="t${i === tab ? ' on' : ''}" data-i="${i}">${esc(t.label)}</span>`).join('') + '</div><i class="btn">R</i>';
   $$('.t', tabsEl).forEach(t => onPress(t, () => switchTab(+t.dataset.i)));
   function build() {
     const id = tabs[tab].id;
@@ -2050,7 +2055,7 @@ function openNews() {
   }
   const cols = () => { if (cells.length < 2) return 1; const t0 = cells[0].offsetTop; let n = 0; for (const c of cells) { if (c.offsetTop !== t0) break; n++; } return n; };
   const move = d => { let n = sel + d; if (d > 1 && n >= cells.length && Math.floor(sel / cols()) < Math.floor((cells.length - 1) / cols())) n = cells.length - 1; if (n < 0 || n >= cells.length) { Snd.bump(); return; } sel = n; Snd.tick(); buzz(); paint(); };
-  const switchTab = i => { if (i < 0 || i >= tabs.length || i === tab) { Snd.bump(); return; } grid.classList.remove('fromL', 'fromR'); grid.classList.add(i > tab ? 'fromR' : 'fromL'); tab = i; sel = 0; Snd.tick(); $$('.t', tabsEl).forEach(t => t.classList.toggle('on', +t.dataset.i === tab)); build(); grid.scrollTop = 0; const on = $$('.t', tabsEl)[tab]; on && on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); };
+  const switchTab = i => { if (i < 0 || i >= tabs.length || i === tab) { Snd.bump(); return; } grid.classList.remove('fromL', 'fromR'); grid.classList.add(i > tab ? 'fromR' : 'fromL'); tab = i; sel = 0; Snd.tick(); $$('.t', tabsEl).forEach(t => t.classList.toggle('on', +t.dataset.i === tab)); build(); grid.scrollTop = 0; centerTab(tabsEl); };
   const read = () => { if (list[sel]) { Snd.select(); openStory(list[sel]); } };
   async function load(force) {
     loading = true; errors = []; build();
