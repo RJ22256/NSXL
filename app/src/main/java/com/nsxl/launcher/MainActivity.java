@@ -120,6 +120,7 @@ public class MainActivity extends Activity {
         bridge = new LauncherBridge(this);
         createWebView();
         setContentView(root);
+        holdSplashUntilReady();
 
         applySystemBars();
         setMode(mode);
@@ -130,11 +131,37 @@ public class MainActivity extends Activity {
         }
     }
 
+    // ------------------------------------------------------------------ start-up: no half-drawn screens
+
+    /** True once the page has drawn its first real frame (the start-up animation or Home). */
+    boolean pageReady;
+
+    /** Keeps the splash screen up until the page is ready, so the wallpaper never shows on its own first. */
+    private void holdSplashUntilReady() {
+        final View content = findViewById(android.R.id.content);
+        content.getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+            @Override public boolean onPreDraw() {
+                if (!pageReady) return false;
+                content.getViewTreeObserver().removeOnPreDrawListener(this);
+                return true;
+            }
+        });
+        ui.postDelayed(this::onPageReady, 3000);   // never wait longer than this
+    }
+
+    void onPageReady() {
+        if (pageReady) return;
+        pageReady = true;
+        if (videoEnabled && resumed) video.play();
+        View content = findViewById(android.R.id.content);
+        if (content != null) content.invalidate();
+    }
+
     @Override
     protected void onStart() {
         super.onStart();
         if (web != null) web.onResume();
-        if (videoEnabled) video.play();
+        if (videoEnabled && pageReady) video.play();
     }
 
     @Override
@@ -302,7 +329,7 @@ public class MainActivity extends Activity {
         boolean wantVideo = "video".equals(newMode) && Storage.videoFile(this).exists();
         videoEnabled = wantVideo;
         video.setVisibility(wantVideo ? View.VISIBLE : View.GONE);
-        if (wantVideo) video.play();
+        if (wantVideo && pageReady) video.play();
         else video.stop();
         applySystemBars();
     }

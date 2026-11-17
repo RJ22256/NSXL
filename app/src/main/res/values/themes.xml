@@ -4,7 +4,7 @@
     <color name="ic_bg">#FF0B0B0F</color>
 
     <style name="LauncherTheme" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@color/bg_light</item>
+        <item name="android:windowBackground">@color/ic_bg</item>
         <item name="android:windowNoTitle">true</item>
         <item name="android:windowActionBar">false</item>
         <item name="android:windowShowWallpaper">false</item>
