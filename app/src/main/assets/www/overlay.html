@@ -95,10 +95,11 @@ body.open #card { opacity: 1; transform: none; }
 .group .gb { --rr: 50%; position: relative; isolation: isolate; width: calc(var(--u) * 6.4); height: calc(var(--u) * 6.4); border-radius: 50%; display: grid; place-items: center; background: var(--panel2); color: var(--fg); cursor: pointer; }
 .group .gb svg { width: calc(var(--u) * 3); height: calc(var(--u) * 3); }
 .group .gb.big { background: var(--accent); color: #fff; }
-.tiles { display: flex; gap: calc(var(--u) * 1.4); padding: calc(var(--u) * 1) calc(var(--u) * 1) calc(var(--u) * 1.6); }
-.tl { --rr: calc(var(--u) * .7); position: relative; isolation: isolate; flex: 0 0 calc(var(--u) * 10); cursor: pointer; }
-.tl .art { --rr: calc(var(--u) * .7); width: 100%; aspect-ratio: 1; border-radius: calc(var(--u) * .7); background: var(--panel2); position: relative; isolation: isolate; }
-.tl .art img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
+.tiles { display: flex; gap: calc(var(--u) * 1.4); padding: calc(var(--u) * 1) calc(var(--u) * 1) calc(var(--u) * 1.6); overflow-x: auto; overflow-y: hidden; scrollbar-width: none; scroll-behavior: smooth; }
+.tiles::-webkit-scrollbar { display: none; }
+.tl { --rr: calc(var(--u) * .7); position: relative; isolation: isolate; flex: 0 0 calc(var(--u) * 10); width: calc(var(--u) * 10); min-width: 0; max-width: calc(var(--u) * 10); cursor: pointer; }
+.tl .art { --rr: calc(var(--u) * .7); width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: calc(var(--u) * .7); background: var(--panel2); position: relative; isolation: isolate; }
+.tl .art img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
 .tl .nm { margin-top: calc(var(--u) * .6); font-size: calc(var(--u) * 1.2); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg2); }
 .tl.sel .nm { color: var(--accent); font-weight: 600; }
 .tl .art.g.sel, .tl.sel .art { }
@@ -191,8 +192,8 @@ function refresh() {
 }
 function recent() {
   if (!Object.keys(apps).length) { (J('getApps') || []).forEach(a => { apps[a.pkg] = a; }); }
-  const names = store.get('names', {}), played = store.get('played', {});
-  return Object.keys(played).filter(p => apps[p]).sort((a, b) => played[b] - played[a]).slice(0, 6)
+  const names = store.get('names', {}), played = store.get('played', {}), added = store.get('added', {}), hidden = store.get('hidden', {});
+  return Object.keys(played).filter(p => apps[p] && (apps[p].game || added[p]) && !hidden[p]).sort((a, b) => played[b] - played[a]).slice(0, 6)
     .map(p => ({ pkg: p, label: names[p] || apps[p].label, v: (store.get('coverV', {})[p] || 0) }));
 }
 
@@ -218,7 +219,7 @@ function cardRows(id) {
   ].filter(Boolean) };
   if (id === 'switch') { const r = recent(); return { title: 'Switch Game', rows: r.length
     ? [{ type: 'tiles', items: r, run: t => go('launch', t.pkg) }]
-    : [{ type: 'info', label: 'Games you start from NSXL appear here.' }] }; }
+    : [{ type: 'info', label: 'Games you start from NSXL appear here.' }] }; }  // only games and apps you added to Home
   if (id === 'music') return { title: 'Music', rows: [
     { type: 'group', items: [{ icon: 'prev', run: () => nb('media', 'prev') }, { icon: 'play', big: true, run: () => nb('media', 'play') }, { icon: 'next', run: () => nb('media', 'next') }] },
     { type: 'info', label: 'Controls whatever is playing on your device.' },
@@ -302,7 +303,11 @@ function paintCard() {
     const e = box.children[i]; if (!e) return;
     const on = focus === 'card' && i === row;
     if (r.type === 'tiles' || r.type === 'group') {
-      [...e.children].forEach((c, k) => { const t = c.classList.contains('tl') ? c.querySelector('.art') : c; c.classList.toggle('sel', on && k === sub); t.classList.toggle('sel', on && k === sub); });
+      [...e.children].forEach((c, k) => {
+        const t = c.classList.contains('tl') ? c.querySelector('.art') : c;
+        c.classList.toggle('sel', on && k === sub); t.classList.toggle('sel', on && k === sub);
+        if (on && k === sub && r.type === 'tiles') c.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
+      });
       return;
     }
     e.classList.toggle('sel', on);
@@ -393,7 +398,7 @@ function makeMock() {
     getStatus: () => JSON.stringify({ battery: 76, charging: false, net: 'wifi', bars: 3, time24: false, controllers: [{ name: 'Wireless Controller', battery: 80 }] }),
     getVolume: () => JSON.stringify({ v, max: 15, muted }), setVolume: x => { v = x; }, toggleMute: () => { muted = !muted; },
     getBrightness: () => JSON.stringify({ v: br, auto, canWrite: true }), setBrightness: x => { br = x; }, setAutoBrightness: x => { auto = x; },
-    getApps: () => JSON.stringify([{ pkg: 'a', label: 'Turbo Drift' }, { pkg: 'b', label: 'Sky Kingdom' }, { pkg: 'c', label: 'Neon Brawl' }]),
+    getApps: () => JSON.stringify([{ pkg: 'a', label: 'Turbo Drift', game: true }, { pkg: 'b', label: 'Sky Kingdom', game: true }, { pkg: 'c', label: 'Neon Brawl', game: true }, { pkg: 'bank', label: 'Lloyds', game: false }]),
     media: c => toast('Media: ' + c), openPanel: p => toast('Opens ' + p + ' panel'), goHome: () => toast('Back to NSXL'), launch: p => toast('Switch to ' + p),
     hasShortcutService: () => true, screenshot: () => toast('Screenshot'), sleep: () => toast('Sleep'),
     hideHandle: () => {}, stopOverlay: () => toast('Overlay off'), requestWriteSettings: () => {}, close: () => setTimeout(() => window.onOpen(), 800), haptic: () => {},
