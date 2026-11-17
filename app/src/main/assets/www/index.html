@@ -315,6 +315,25 @@ html[data-theme=video] { --flash: #000000; }
 body.full #modeTabs { opacity: 0; pointer-events: none; }
 #row.slideL .tile { animation: fromR .42s cubic-bezier(.2,.8,.2,1) both !important; animation-delay: calc(var(--i, 0) * 40ms) !important; }
 #row.slideR .tile { animation: fromL .42s cubic-bezier(.2,.8,.2,1) both !important; animation-delay: calc(var(--i, 0) * 40ms) !important; }
+/* controllers page */
+.padSide { position: absolute; top: calc(var(--u) * 11.6); bottom: calc(var(--u) * 8); left: calc(var(--u) * 4); width: calc(var(--u) * 25); display: flex; flex-direction: column; gap: calc(var(--u) * 2.4); overflow-y: auto; scrollbar-width: none; }
+.padCount { display: flex; flex-direction: column; gap: calc(var(--u) * .3); font-size: calc(var(--u) * 1.5); color: var(--fg2); padding-top: calc(var(--u) * 1); }
+.padCount .big { font-size: calc(var(--u) * 5.4); font-weight: 700; color: var(--fg); line-height: 1; }
+.padTips { display: flex; flex-direction: column; gap: calc(var(--u) * 1.3); }
+.padTips .tipT { font-size: calc(var(--u) * 1.3); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.padTips .tip { display: flex; flex-direction: column; gap: calc(var(--u) * .3); font-size: calc(var(--u) * 1.3); line-height: 1.4; color: var(--fg2); }
+.padTips .tip b { color: var(--fg); font-weight: 600; font-size: calc(var(--u) * 1.45); }
+.padPane { left: calc(var(--u) * 31); }
+.padHead { font-size: calc(var(--u) * 1.35); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--fg2); padding: calc(var(--u) * 2.2) calc(var(--u) * 2) calc(var(--u) * .8); }
+.padHead:first-child { padding-top: calc(var(--u) * .6); }
+.padHead + .setRow { border-top: none !important; }
+.setRow .lbl { display: flex; align-items: center; gap: calc(var(--u) * 1.6); }
+.padIc { flex: none; width: calc(var(--u) * 4.2); height: calc(var(--u) * 4.2); border-radius: 50%; display: grid; place-items: center; background: var(--slot); color: var(--fg); }
+.padIc .ic { width: 62%; height: 62%; }
+.padIc.other { color: var(--fg2); }
+.setRow.live .padIc { background: var(--accent); color: #fff; }
+.spin { display: inline-block; width: 1em; height: 1em; border-radius: 50%; border: .16em solid currentColor; border-right-color: transparent; animation: spinner .8s linear infinite; }
+@keyframes spinner { to { transform: rotate(360deg); } }
 /* album + news: wide cards */
 .grid.wide { grid-template-columns: repeat(auto-fill, calc(var(--u) * 17)); gap: calc(var(--u) * 1.8) calc(var(--u) * 1.4); }
 .grid.wide .cell { width: calc(var(--u) * 17); }
@@ -752,6 +771,7 @@ const ICONS = {
   check:  '<path d="M5 12.6l4.4 4.4L19 7.4"/>',
   film:   '<rect x="3.5" y="5" width="17" height="14" rx="2.6"/><path d="M10.2 9.3v5.4l4.5-2.7z" fill="currentColor"/>',
   paper:  '<path d="M5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v12.5a1.5 1.5 0 0 0 3 0V9h-3"/><path d="M5 4.5v14a1.5 1.5 0 0 0 1.5 1.5h12.5"/><path d="M8 8.5h6M8 12h6M8 15.5h4"/>',
+  bt:     '<path d="M7.5 8l9 8-4.5 4V4l4.5 4-9 8"/>',
   person: '<circle cx="12" cy="9.2" r="3.7"/><path d="M5 20a7 7 0 0 1 14 0"/>',
 };
 const svg = (name, cls = 'ic') => `<svg viewBox="0 0 24 24" class="${cls}">${ICONS[name]}</svg>`;
@@ -1074,7 +1094,7 @@ const DOCK_ALL = [
   { id: 'store',    label: 'Play Store',   icon: 'bag',     color: 'var(--c-red)',    cat: 'market' },
   { id: 'album',    label: 'Album',        icon: 'album',   color: 'var(--c-blue)',   run: () => openAlbum() },
   { id: 'music',    label: 'Music',        icon: 'music',   color: 'var(--c-teal)',   cat: 'music' },
-  { id: 'pads',     label: 'Controllers',  icon: 'pad',     color: 'var(--grey)',     settings: 'bluetooth' },
+  { id: 'pads',     label: 'Controllers',  icon: 'pad',     color: 'var(--grey)',     run: () => openControllers() },
   { id: 'ent',      label: 'Entertainment', icon: 'film',   color: '#8a5cf6',         run: () => { setMode(Hm.mode === 'ent' ? 'games' : 'ent'); Hm.zone = 'row'; refreshSel(); }, fixed: true },
   { id: 'settings', label: 'Settings',     icon: 'gear',    color: 'var(--grey)',     run: () => openSettings(), fixed: true },
   { id: 'power',    label: 'Power',        icon: 'power',   color: 'var(--grey)',     run: () => openPower(), fixed: true },
@@ -1813,6 +1833,98 @@ function openTitle(sv, x) {
   });
   paint();
 }
+/* =========================================================
+   Controllers: see, find and pair Bluetooth controllers
+   ========================================================= */
+const PAD_TIPS = [
+  ['Xbox', 'Hold the small pair button on top until the Xbox button flashes quickly.'],
+  ['PlayStation', 'Hold Create (or Share) and the PS button until the light bar flashes.'],
+  ['Switch Pro / Joy-Con', 'Hold the small sync button until the lights run back and forth.'],
+  ['8BitDo and others', 'Usually: hold the pair button for 3 seconds. Check its manual if the lights don\'t flash.'],
+];
+function openControllers() {
+  const ov = el('section', 'ov full');
+  ov.innerHTML = `<div class="ovTitle">${svg('pad')}<span>Controllers</span></div><div class="ovRule"></div><div class="ovRule bottom"></div>
+    <div class="padSide"></div><div class="setPane padPane"></div>`;
+  const pane = $('.padPane', ov), side = $('.padSide', ov);
+  let st = {}, rows = [], rowEls = [], sel = 0, showAll = false, selKey = null;
+  const read = () => { try { st = JSON.parse(nb('padsState') || '{}'); } catch (e) { st = {}; } };
+  function buildRows() {
+    const out = [];
+    const conn = st.connected || [], connNames = new Set(conn.map(c => c.name.toLowerCase()));
+    if (st.supported === false) { out.push({ head: 'Bluetooth isn\'t available on this device' }); }
+    else if (!st.permission) out.push({ key: 'perm', label: 'Allow NSXL to find controllers', desc: 'Lets NSXL search for and pair Bluetooth controllers right here.', val: 'Allow', run: () => nb('padsPermission') });
+    else if (!st.enabled) out.push({ key: 'bt', label: 'Bluetooth is off', desc: 'Turn it on to pair a wireless controller.', val: 'Turn on', run: () => nb('padsEnable') });
+    out.push({ head: conn.length ? 'Connected' : 'No controllers connected' });
+    conn.forEach(c => out.push({ key: 'c' + c.id, label: c.name, pad: true, desc: c.rumble ? 'Press A to make it buzz' : '', val: c.battery != null ? c.battery + '%' : 'Connected', on: true,
+      run: () => { if (c.rumble) { nb('padsRumble', c.id); toast('Buzzing ' + c.name); } else Snd.bump(); } }));
+    if (st.enabled) {
+      const paired = (st.paired || []).filter(d => !connNames.has(d.name.toLowerCase()) && (d.pad || showAll));
+      if (paired.length) {
+        out.push({ head: 'Paired' });
+        paired.forEach(d => out.push({ key: 'p' + d.addr, label: d.name, pad: d.pad, desc: d.connected ? 'Connected' : 'Turn it on to connect', val: d.connected ? 'Connected' : 'Paired',
+          run: () => openMenu(d.name, [
+            { label: 'Forget this controller', run: () => nb('padsForget', d.addr) },
+            { label: 'Open Bluetooth settings', run: () => nb('openSettings', 'bluetooth') },
+          ]) }));
+      }
+      out.push({ head: 'Pair a new controller' });
+      out.push({ key: 'scan', label: st.scanning ? 'Searching…' : 'Search for controllers', desc: 'Put your controller in pairing mode first (see the left).', val: st.scanning ? '<i class="spin"></i>Stop' : 'Search',
+        run: () => nb(st.scanning ? 'padsStop' : 'padsScan') });
+      const found = (st.found || []).filter(d => d.pad || showAll).sort((a, b) => (b.pad - a.pad));
+      found.forEach(d => out.push({ key: 'f' + d.addr, label: d.name, pad: d.pad, val: st.pairing === d.addr ? '<i class="spin"></i>Pairing…' : 'Pair',
+        run: () => { if (st.pairing) { Snd.bump(); return; } nb('padsPair', d.addr); } }));
+      const hidden = (st.found || []).filter(d => !d.pad).length + (st.paired || []).filter(d => !d.pad && !connNames.has(d.name.toLowerCase())).length;
+      if (hidden || showAll) out.push({ key: 'all', label: showAll ? 'Only show controllers' : 'Show other Bluetooth devices', desc: showAll ? '' : hidden + ' other ' + (hidden === 1 ? 'device' : 'devices') + ' nearby or paired', val: '',
+        run: () => { showAll = !showAll; render(); } });
+    }
+    return out;
+  }
+  function render() {
+    rows = buildRows();
+    pane.innerHTML = ''; rowEls = [];
+    rows.forEach((r, i) => {
+      if (r.head) { pane.appendChild(el('div', 'padHead', esc(r.head))); rowEls.push(null); return; }
+      const e = el('div', 'setRow g' + (r.on ? ' live' : ''));
+      e.style.setProperty('--i', i);
+      e.innerHTML = `<span class="lbl">${r.pad !== undefined ? `<span class="padIc${r.pad ? '' : ' other'}">${svg(r.pad ? 'pad' : 'bt')}</span>` : ''}<span>${esc(r.label)}${r.desc ? `<span class="desc">${esc(r.desc)}</span>` : ''}</span></span><span class="val">${r.val}</span>`;
+      onPress(e, () => { sel = i; paint(); Snd.select(); r.run(); });
+      pane.appendChild(e); rowEls.push(e);
+    });
+    // keep the same row selected when the list changes under it
+    let k = rows.findIndex(r => r.key && r.key === selKey);
+    if (k < 0) k = Math.min(sel, rows.length - 1);
+    while (k < rows.length && !rowEls[k]) k++;
+    if (k >= rows.length) { k = rows.length - 1; while (k > 0 && !rowEls[k]) k--; }
+    sel = k; paint(true); if (rowEls[sel]) rowEls[sel].scrollIntoView({ block: 'nearest' });
+    const n = (st.connected || []).length;
+    side.innerHTML = `<div class="padCount"><span class="big">${n}</span><span>${n === 1 ? 'controller connected' : 'controllers connected'}</span></div>
+      <div class="padTips"><div class="tipT">Pairing mode</div>${PAD_TIPS.map(([t, d]) => `<div class="tip"><b>${esc(t)}</b><span>${esc(d)}</span></div>`).join('')}</div>`;
+  }
+  function paint(noScroll) {
+    rowEls.forEach((e, i) => e && e.classList.toggle('sel', i === sel));
+    selKey = rows[sel] && rows[sel].key;
+    if (!noScroll && rowEls[sel]) rowEls[sel].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  const move = d => { let n = sel + d; while (n >= 0 && n < rows.length && !rowEls[n]) n += d; if (n < 0 || n >= rows.length) { Snd.bump(); return; } sel = n; Snd.tick(); buzz(); paint(); };
+  window.onPads = s => { st = s || {}; render(); };
+  pushOverlay({
+    el: ov, full: true,
+    onClose: () => { nb('padsStop'); window.onPads = null; },
+    pad(b) {
+      if (b === 'up') move(-1); else if (b === 'down') move(1);
+      else if (b === 'a') { const r = rows[sel]; if (r && r.run) { Snd.select(); r.run(); } }
+      else if (b === 'y') { Snd.select(); nb(st.scanning ? 'padsStop' : 'padsScan'); }
+      else if (b === 'b') popOverlay();
+      else Snd.bump();
+    },
+    hints: () => [['b', 'Back'], ['y', st.scanning ? 'Stop' : 'Search'], ['a', 'OK']],
+  });
+  read(); render();
+  // start looking straight away if everything's ready and nothing is connected yet
+  if (st.enabled && !(st.connected || []).length) nb('padsScan');
+}
+
 /* =========================================================
    Album: your screenshots, grouped by game
    ========================================================= */
@@ -2696,6 +2808,19 @@ function makeMock() {
     sgdbSearch: (id, key, term) => setTimeout(() => window.onAsync(id, true, [{ id: 1, name: term, year: 2024 }, { id: 2, name: term + ' Deluxe', year: 2025 }]), 300),
     sgdbGrids: (id) => setTimeout(() => window.onAsync(id, true, apps.filter(a => a.art).map((a, i) => ({ url: mockArt(a.pkg), thumb: mockArt(a.pkg), width: 1024, height: 1024, style: ['alternate', 'material', 'blurred', 'white_logo'][i % 4] }))), 300),
     sgdbApply: (id) => setTimeout(() => window.onAsync(id, true, true), 300),
+    padsState: () => JSON.stringify(window.__pads || (window.__pads = { supported: true, permission: true, enabled: true, scanning: false, pairing: null,
+      connected: [{ id: 7, name: 'Xbox Wireless Controller', battery: 82, rumble: true }],
+      paired: [{ addr: 'AA:01', name: 'Xbox Wireless Controller', pad: true, connected: true }, { addr: 'AA:02', name: 'DualSense Wireless Controller', pad: true, connected: false }, { addr: 'AA:03', name: 'Galaxy Buds', pad: false, connected: false }],
+      found: [] })),
+    padsScan: () => { const p = window.__pads; p.scanning = true; window.onPads(p);
+      setTimeout(() => { p.found.push({ addr: 'BB:01', name: 'Pro Controller', pad: true }); window.onPads(p); }, 900);
+      setTimeout(() => { p.found.push({ addr: 'BB:02', name: 'Living Room TV', pad: false }, { addr: 'BB:03', name: '8BitDo Ultimate', pad: true }); window.onPads(p); }, 1800);
+      setTimeout(() => { p.scanning = false; window.onPads(p); }, 6000); },
+    padsStop: () => { if (window.__pads) { window.__pads.scanning = false; window.onPads && window.onPads(window.__pads); } },
+    padsPair: (addr) => { const p = window.__pads; p.pairing = addr; p.scanning = false; window.onPads(p);
+      setTimeout(() => { const d = p.found.find(x => x.addr === addr); p.found = p.found.filter(x => x.addr !== addr); p.paired.push({ ...d, connected: true }); p.connected.push({ id: 9, name: d.name, battery: 100, rumble: true }); p.pairing = null; window.onPads(p); toast(d.name + ' paired'); }, 1500); },
+    padsForget: (addr) => { const p = window.__pads; p.paired = p.paired.filter(x => x.addr !== addr); window.onPads(p); },
+    padsRumble: () => {}, padsPermission: () => {}, padsEnable: () => {},
     albumAccess: () => window.__albumAccess || 'full',
     albumRequest: () => setTimeout(() => { window.__albumAccess = 'full'; window.onAlbumAccess('full'); }, 400),
     albumList: (id) => setTimeout(() => window.onAsync(id, true, Array.from({ length: 23 }, (_, i) => ({ id: i + 1, name: i % 3 === 2 ? 'Screenshot_2026111' + i + '.png' : 'Screenshot_20261117_1200' + i + '_' + games[i % 3 === 0 ? 0 : 2][0] + '.jpg', date: Date.now() - i * 5.3e6, w: 1920, h: 1080 }))), 250),

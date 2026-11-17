@@ -54,7 +54,7 @@ import java.io.OutputStream;
 public class MainActivity extends Activity {
 
     static final String ORIGIN = "https://launcher.local/";
-    static final int REQ_VIDEO = 41, REQ_COVER = 42, REQ_AVATAR = 43, REQ_MUSIC = 44, REQ_ALBUM = 45, REQ_ALBUM_DELETE = 46;
+    static final int REQ_VIDEO = 41, REQ_COVER = 42, REQ_AVATAR = 43, REQ_MUSIC = 44, REQ_ALBUM = 45, REQ_ALBUM_DELETE = 46, REQ_PADS = 47;
     private static final int MATCH = ViewGroup.LayoutParams.MATCH_PARENT;
 
     final Handler ui = new Handler(Looper.getMainLooper());
@@ -63,6 +63,7 @@ public class MainActivity extends Activity {
     VideoWallpaperView video;
     WebView web;
     LocalServer server;
+    Pads pads;
     LauncherBridge bridge;
     private BroadcastReceiver packageReceiver, screenReceiver;
     private boolean resumed, sleptWhileShowing;
@@ -115,6 +116,7 @@ public class MainActivity extends Activity {
         root.addView(video, new FrameLayout.LayoutParams(MATCH, MATCH));
 
         server = new LocalServer(this);
+        pads = new Pads(this);
         bridge = new LauncherBridge(this);
         createWebView();
         setContentView(root);
@@ -169,6 +171,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         if (current == this) current = null;
+        if (pads != null) pads.release();
         try { unregisterReceiver(packageReceiver); } catch (Exception ignored) { }
         try { unregisterReceiver(screenReceiver); } catch (Exception ignored) { }
         video.stop();
@@ -538,6 +541,7 @@ public class MainActivity extends Activity {
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == REQ_ALBUM) js("window.onAlbumAccess&&window.onAlbumAccess('" + Album.access(this) + "')");
+        if (requestCode == REQ_PADS) js("window.onPads&&window.onPads(" + pads.state() + ")");
     }
 
     void albumDelete(long id) {

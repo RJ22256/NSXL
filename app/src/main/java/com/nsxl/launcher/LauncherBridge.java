@@ -205,6 +205,48 @@ final class LauncherBridge {
         a.typing = on;
     }
 
+    // ---------------------------------------------------------------- Controllers (Bluetooth pairing)
+
+    @JavascriptInterface
+    public String padsState() {
+        return a.pads.state();
+    }
+
+    @JavascriptInterface
+    public void padsPermission() {
+        a.runOnUiThread(a.pads::requestPermission);
+    }
+
+    @JavascriptInterface
+    public void padsEnable() {
+        a.runOnUiThread(a.pads::enableBluetooth);
+    }
+
+    @JavascriptInterface
+    public void padsScan() {
+        a.runOnUiThread(a.pads::startScan);
+    }
+
+    @JavascriptInterface
+    public void padsStop() {
+        a.runOnUiThread(a.pads::stopScan);
+    }
+
+    @JavascriptInterface
+    public void padsPair(final String addr) {
+        a.runOnUiThread(() -> a.pads.pair(addr));
+    }
+
+    @JavascriptInterface
+    public void padsForget(final String addr) {
+        a.runOnUiThread(() -> a.pads.forget(addr));
+    }
+
+    @JavascriptInterface
+    public void padsRumble(final double id) {
+        a.runOnUiThread(() -> a.pads.rumble((int) id));
+    }
+
     // ---------------------------------------------------------------- Album (screenshots)
 
     @JavascriptInterface
