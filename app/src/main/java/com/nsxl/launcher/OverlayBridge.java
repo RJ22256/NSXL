@@ -96,6 +96,29 @@ final class OverlayBridge {
         });
     }
 
+    // ---------------------------------------------------------------- extras (need the controller shortcut service)
+
+    @JavascriptInterface
+    public boolean hasShortcutService() {
+        return ShortcutService.instance != null && Build.VERSION.SDK_INT >= 28;
+    }
+
+    @JavascriptInterface
+    public void screenshot() {
+        s.ui.post(() -> {
+            s.hideMenu();
+            s.ui.postDelayed(ShortcutService::takeScreenshot, 450);   // let the menu fade out first
+        });
+    }
+
+    @JavascriptInterface
+    public void sleep() {
+        s.ui.post(() -> {
+            s.hideMenu();
+            s.ui.postDelayed(ShortcutService::sleep, 250);
+        });
+    }
+
     // ---------------------------------------------------------------- media + sound
 
     @JavascriptInterface

@@ -149,6 +149,8 @@ const I = {
   play:  '<path d="M8 5.5v13l11-6.5z" fill="currentColor"/><path d="M8 5.5v13" stroke="none"/>',
   next:  '<path d="M18 5v14"/><path d="M5 5.5v13L15 12z" fill="currentColor"/>',
   back:  '<path d="M9 7 4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10"/>',
+  cam:   '<path d="M4 8.5a2 2 0 0 1 2-2h2l1.5-2h5L16 6.5h2a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.4"/>',
+  moon:  '<path d="M19 14.5A8 8 0 0 1 9.5 5a8 8 0 1 0 9.5 9.5z"/>',
   bt:    '<path d="M7 7.5l10 9-5 4.5V3l5 4.5-10 9"/>',
   eye:   '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><path d="M4 4l16 16"/>',
   off:   '<circle cx="12" cy="12" r="8.5"/><path d="M8 8l8 8"/>',
@@ -180,7 +182,7 @@ new MutationObserver(ms => ms.forEach(m => {
 /* ---- data ---- */
 let status = {}, vol = { v: 0, max: 15, muted: false }, bright = { v: 128, auto: false, canWrite: true }, apps = {};
 function refresh() {
-  status = J('getStatus') || {}; vol = J('getVolume') || vol; bright = J('getBrightness') || bright;
+  status = J('getStatus') || {}; vol = J('getVolume') || vol; bright = J('getBrightness') || bright; extras = !!nb('hasShortcutService');
   const d = new Date(), use24 = cfg.clock === '24' || (cfg.clock === 'system' && status.time24);
   let h = d.getHours(); const m = String(d.getMinutes()).padStart(2, '0');
   if (use24) { $('#hm').textContent = h + ':' + m; $('#ampm').textContent = ''; }
@@ -207,11 +209,13 @@ const ITEMS = [
 ];
 let idx = 1, focus = 'dock', row = 0, sub = 0, rows = [], dockEls = [];
 
+let extras = false;
 function cardRows(id) {
   if (id === 'home') return { title: 'Home', rows: [
     { type: 'button', icon: 'home', label: 'Go to NSXL Home', sub: 'Your game keeps running in the background', run: () => go('goHome') },
+    extras ? { type: 'button', icon: 'cam', label: 'Take screenshot', sub: 'Saved to your Screenshots folder', run: () => go('screenshot') } : null,
     { type: 'button', icon: 'back', label: 'Back to game', run: close },
-  ] };
+  ].filter(Boolean) };
   if (id === 'switch') { const r = recent(); return { title: 'Switch Game', rows: r.length
     ? [{ type: 'tiles', items: r, run: t => go('launch', t.pkg) }]
     : [{ type: 'info', label: 'Games you start from NSXL appear here.' }] }; }
@@ -244,9 +248,10 @@ function cardRows(id) {
   return { title: 'Power', rows: [
     { type: 'button', icon: 'back', label: 'Back to game', run: close },
     { type: 'button', icon: 'home', label: 'Go to NSXL Home', run: () => go('goHome') },
+    extras ? { type: 'button', icon: 'moon', label: 'Sleep', sub: 'Turns the screen off', run: () => go('sleep') } : null,
     { type: 'button', icon: 'eye', label: 'Hide the side button', sub: 'Open the menu from the notification or Quick Settings instead', run: () => { nb('hideHandle'); toast('Side button hidden'); } },
     { type: 'button', icon: 'off', label: 'Turn off the in-game menu', sub: 'Turn it back on in NSXL Settings', run: () => go('stopOverlay') },
-  ] };
+  ].filter(Boolean) };
 }
 
 function renderDock() {
@@ -390,6 +395,7 @@ function makeMock() {
     getBrightness: () => JSON.stringify({ v: br, auto, canWrite: true }), setBrightness: x => { br = x; }, setAutoBrightness: x => { auto = x; },
     getApps: () => JSON.stringify([{ pkg: 'a', label: 'Turbo Drift' }, { pkg: 'b', label: 'Sky Kingdom' }, { pkg: 'c', label: 'Neon Brawl' }]),
     media: c => toast('Media: ' + c), openPanel: p => toast('Opens ' + p + ' panel'), goHome: () => toast('Back to NSXL'), launch: p => toast('Switch to ' + p),
+    hasShortcutService: () => true, screenshot: () => toast('Screenshot'), sleep: () => toast('Sleep'),
     hideHandle: () => {}, stopOverlay: () => toast('Overlay off'), requestWriteSettings: () => {}, close: () => setTimeout(() => window.onOpen(), 800), haptic: () => {},
   };
 }

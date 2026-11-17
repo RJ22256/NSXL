@@ -643,7 +643,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true,
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select',
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => store.set('cfg', cfg);
@@ -1411,6 +1411,19 @@ function sgdbAll(pkgs, what) {
   });
 }
 
+/* ---------- controller shortcut (accessibility service) ---------- */
+function shortcutHelp() {
+  if (nb('shortcutEnabled')) {
+    openDialog('Controller shortcut is on', 'To turn it off, go to Android Settings › Accessibility › NSXL controller shortcut.',
+      [{ label: 'Close', cancel: true }, { label: 'Open Accessibility', primary: true, run: () => nb('openAccessibility') }]);
+    return;
+  }
+  openDialog('Turn on the controller shortcut',
+    'In Accessibility, open “NSXL controller shortcut” (it may be under Installed apps or Downloaded apps) and turn it on. NSXL only watches controller buttons; it never reads your screen. ' +
+    'If the switch is greyed out: open App info › ⋮ menu › Allow restricted settings, then try again.',
+    [{ label: 'App info', run: () => nb('openAppInfoSelf') }, { label: 'Open Accessibility', primary: true, run: () => nb('openAccessibility') }]);
+}
+
 /* ---------- Entertainment: streaming apps + TMDB ---------- */
 // TMDB watch-provider ids, and the Android packages of each service's app.
 const SERVICES = [
@@ -1820,6 +1833,11 @@ const SETTINGS = [
           if (r === 'permission') { store.set('ovPending', true); toast('Allow “Display over other apps” for NSXL, then come back'); }
           else { cfgSend(); toast('In-game menu on'); setTimeout(refreshOverlays, 300); }
         } },
+      { type: 'choice', label: 'Controller shortcut', desc: 'Opens the menu from any game. Needs the shortcut turned on below.', key: 'shortcut',
+        options: [['hold_select', 'Hold − (Select)'], ['select_start', 'Press − and + together'], ['hold_start', 'Hold + (Start)'], ['l3_r3', 'Click both sticks'], ['guide', 'Guide / Home button'], ['double_guide', 'Double-press Guide'], ['off', 'Off']],
+        after: () => nb('setShortcut', cfg.shortcut) },
+      { type: 'action', label: 'Controller shortcut access', desc: 'Lets NSXL see controller buttons while a game is open. Also adds Screenshot and Sleep to the menu.',
+        value: () => nb('shortcutEnabled') ? 'On ✓' : 'Turn on', run: shortcutHelp },
       { type: 'toggle', label: 'Show side button', desc: 'A small glowing tab on the screen edge. Tap it in a game to open the menu; drag to move it.', key: 'ovHandle', after: cfgSend },
       { type: 'choice', label: 'Side button position', key: 'ovSide', options: [['right', 'Right edge'], ['left', 'Left edge']], after: cfgSend },
       { type: 'slider', label: 'Side button visibility', min: 0.2, max: 1, step: 0.05, get: () => cfg.ovAlpha, set: v => { cfg.ovAlpha = v; saveCfg(); cfgSend(); }, fmt: v => Math.round(v * 100) + '%' },
@@ -2166,7 +2184,7 @@ function boot() {
   renderDock();
   renderRow();
   applyTheme();
-  nb('setSwapAB', cfg.swapAB); nb('setImmersive', cfg.immersive); nb('setOrientation', cfg.orientation);
+  nb('setSwapAB', cfg.swapAB); nb('setImmersive', cfg.immersive); nb('setOrientation', cfg.orientation); nb('setShortcut', cfg.shortcut);
   setAvatar();
   updateStatus();
   setInterval(updateClock, 1000);
