@@ -62,7 +62,7 @@ You can also build it yourself with Android Studio, or run `./gradlew assembleDe
 
 1. Make a free account at [steamgriddb.com](https://www.steamgriddb.com) and copy your API key from **Preferences → API**.
 2. In NSXL, open **Settings → Cover Art** and paste the key.
-3. Choose **Fetch covers for my games**, or press **+** on a single game and pick **Find cover on SteamGridDB…**.
+3. Choose **Fetch covers for my games** (or **Fetch covers for my streaming apps**), or press **+** on any game or streaming app and pick **Find cover on SteamGridDB…**.
 
 ## Entertainment with TMDB
 

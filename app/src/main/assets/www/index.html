@@ -1017,7 +1017,7 @@ function renderRow() {
   shown.forEach(pkg => {
     const t = el('div', 'tile g'); artBox(pkg, 512, t);
     t.style.setProperty('--i', Hm.items.length);
-    row.appendChild(t); Hm.items.push(ent ? { type: 'svc', pkg, svc: svcFor(pkg), el: t } : { type: 'app', pkg, el: t });
+    row.appendChild(t); Hm.items.push(ent ? { type: 'svc', pkg, svc: { ...svcFor(pkg), pkg }, el: t } : { type: 'app', pkg, el: t });
   });
   for (let i = Hm.items.length; i < 4; i++) {
     const s = el('div', 'tile slot'); s.style.setProperty('--i', i);
@@ -1386,10 +1386,10 @@ function openCoverPicker(pkg, name, grids) {
   });
   paint();
 }
-function sgdbAll() {
+function sgdbAll(pkgs, what) {
   needKey(async () => {
-    const list = homeList().filter(p => BY[p] && !BY[p].cover);
-    if (!list.length) { toast('Every game on Home already has cover art'); return; }
+    const list = (pkgs || homeList()).filter(p => BY[p] && !BY[p].cover);
+    if (!list.length) { toast('Every ' + (what || 'game on Home') + ' already has cover art'); return; }
     let got = 0;
     for (let i = 0; i < list.length; i++) {
       const pkg = list[i];
@@ -1453,6 +1453,9 @@ function svcOptions(sv) {
   openMenu(sv.name, [
     { label: 'Browse popular on ' + sv.name, run: () => openCatalog(sv) },
     { label: 'Open ' + sv.name, run: () => launch(sv.pkg, null) },
+    { label: 'Find cover on SteamGridDB…', run: () => sgdbFind(sv.pkg, sv.name) },
+    { label: 'Use a picture as cover…', run: () => nb('pickCover', sv.pkg) },
+    BY[sv.pkg] && BY[sv.pkg].cover ? { label: 'Reset cover art', run: () => { nb('removeCover', sv.pkg); BY[sv.pkg].cover = false; bumpCover(sv.pkg); } } : null,
     { label: 'Hide from Entertainment', run: () => { const h = store.get('entHidden', {}); h[sv.id] = true; store.set('entHidden', h); renderRow(); toast(sv.name + ' hidden'); } },
     { label: 'App info', run: () => nb('appInfo', sv.pkg) },
   ]);
@@ -1807,6 +1810,8 @@ const SETTINGS = [
       run: () => openPrompt('TMDB API key', cfg.tmdbKey, 'Paste your API key or read access token', v => { cfg.tmdbKey = v.trim(); saveCfg(); refreshOverlays(); },
         'Film and TV lists come from <b>TMDB</b>. Make a free account at themoviedb.org, then copy your key from <b>Settings › API</b>.') },
     { type: 'choice', label: 'Region', key: 'region', options: [['auto', 'Automatic'], ['GB', 'United Kingdom'], ['US', 'United States'], ['IE', 'Ireland'], ['CA', 'Canada'], ['AU', 'Australia'], ['NZ', 'New Zealand'], ['DE', 'Germany'], ['FR', 'France'], ['ES', 'Spain'], ['IT', 'Italy'], ['NL', 'Netherlands'], ['SE', 'Sweden'], ['IN', 'India'], ['BR', 'Brazil'], ['MX', 'Mexico'], ['JP', 'Japan']] },
+    { type: 'action', label: 'Fetch covers from SteamGridDB', desc: 'Finds tile art for every streaming app that has none yet.', value: () => '',
+      run: () => sgdbAll(entServices().map(x => x.pkg), 'streaming app') },
     { type: 'action', label: 'Show hidden streaming apps', value: () => Object.keys(store.get('entHidden', {})).length + ' hidden',
       run: () => { store.set('entHidden', {}); if (Hm.mode === 'ent') renderRow(); toast('All streaming apps shown'); } },
     { type: 'action', label: 'Refresh film and TV lists', desc: 'Lists are kept for 6 hours.', value: () => '',
@@ -1816,7 +1821,8 @@ const SETTINGS = [
   { name: 'Cover Art', rows: () => [
     { type: 'action', label: 'SteamGridDB API key', desc: 'Free from steamgriddb.com › Preferences › API.',
       value: () => cfg.sgdbKey ? 'Set ✓' : 'Add key', run: () => openPrompt('SteamGridDB API key', cfg.sgdbKey, 'Paste your API key', v => { cfg.sgdbKey = v.trim(); saveCfg(); refreshOverlays(); }, SGDB_NOTE) },
-    { type: 'action', label: 'Fetch covers for my games', desc: 'Finds art for every game on Home that has none yet.', value: () => '', run: sgdbAll },
+    { type: 'action', label: 'Fetch covers for my games', desc: 'Finds art for every game on Home that has none yet.', value: () => '', run: () => sgdbAll() },
+    { type: 'action', label: 'Fetch covers for my streaming apps', desc: 'Finds art for the apps in Entertainment.', value: () => '', run: () => sgdbAll(entServices().map(x => x.pkg), 'streaming app') },
     { type: 'info', label: 'Tip', value: () => 'Press + on any game for more cover options' },
   ] },
   { name: 'Sound', rows: () => [
