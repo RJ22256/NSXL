@@ -458,8 +458,7 @@ body.viewing #foot::before, body.viewing #top::after { opacity: 0; }
 .tdet .src { font-size: calc(var(--u) * 1.05); color: var(--fg2); }
 
 /* ---- start-up, wake and sleep ---- */
-#bootFx { position: fixed; inset: 0; z-index: 100; display: none; place-items: center; background: var(--bootBg, #000); color: var(--bootFg, #fff); cursor: pointer; }
-html[data-theme=white] { --bootBg: #ffffff; --bootFg: #1d1d1d; }
+#bootFx { position: fixed; inset: 0; z-index: 100; display: none; place-items: center; background: #0B0B0F; color: #fff; cursor: pointer; }
 #bootFx.on { display: grid; animation: bootOut .55s 2.05s cubic-bezier(.5,0,.8,.4) forwards; }
 #bootFx.skip { animation: bootOut .3s forwards !important; }
 @keyframes bootOut { to { opacity: 0; visibility: hidden; transform: scale(1.04); } }
@@ -1682,6 +1681,7 @@ function playBoot(done) {
   const fx = $('#bootFx');
   if (!cfg.bootAnim || cfg.calm) { done(); return; }
   fx.classList.add('on');
+  setTimeout(() => nb('pageReady'), 40);   // the logo is on screen: let the splash go
   setTimeout(() => Snd.boot(), 50);
   let finished = false;
   const finish = () => { if (finished) return; finished = true; fx.classList.add('skip'); setTimeout(() => { fx.classList.remove('on', 'skip'); }, 320); done(); };
@@ -3233,7 +3233,8 @@ function boot() {
     Music.start();
   };
   requestAnimationFrame(() => { document.body.classList.add('ready'); refreshSel(); });
-  if (firstStart) playBoot(startHome); else startHome();
+  if (firstStart && cfg.bootAnim && !cfg.calm) playBoot(startHome);
+  else { startHome(); setTimeout(() => nb('pageReady'), 40); }
 
   if (NATIVE && !store.get('askedHome') && !nb('isDefaultHome')) {
     setTimeout(() => openDialog('Make this your Home screen?',

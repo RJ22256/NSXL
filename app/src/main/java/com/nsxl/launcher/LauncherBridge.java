@@ -213,6 +213,12 @@ final class LauncherBridge {
         a.typing = on;
     }
 
+    /** The page has drawn its first frame: drop the splash screen and start the wallpaper. */
+    @JavascriptInterface
+    public void pageReady() {
+        a.runOnUiThread(a::onPageReady);
+    }
+
     // ---------------------------------------------------------------- Play time
 
     @JavascriptInterface
