@@ -533,10 +533,11 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: true,
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false,
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => store.set('cfg', cfg);
+if (!store.get('mig.twoTap')) { cfg.oneTap = false; saveCfg(); store.set('mig.twoTap', true); }  // new default: tap to select, tap again to start
 
 /* =========================================================
    Icons (original line icons, 24x24)
@@ -860,7 +861,11 @@ function renderDock() {
     const b = el('div', 'dk g' + (d.red ? ' red' : ''), svg(d.icon));
     b.style.setProperty('--i', i);
     if (d.color) b.style.color = d.color;
-    onPress(b, () => { Hm.zone = 'dock'; Hm.dockIdx = i; refreshSel(); runDock(i); },
+    onPress(b, () => {
+      const was = Hm.zone === 'dock' && Hm.dockIdx === i;
+      Hm.zone = 'dock'; Hm.dockIdx = i; refreshSel();
+      if (cfg.oneTap || was) runDock(i); else { Snd.tick(); buzz(); }
+    },
                () => { Hm.zone = 'dock'; Hm.dockIdx = i; refreshSel(); dockOptions(i); });
     dock.appendChild(b); return b;
   });
@@ -1307,7 +1312,11 @@ function openAll(opts) {
       artBox(a.pkg, 256, art);
       if (onHome.has(a.pkg)) art.appendChild(el('span', 'pin', svg('home')));
       c.appendChild(art); c.appendChild(el('div', 'nm', esc(a.label)));
-      onPress(c, () => { sel = i; paint(); act(); }, () => { sel = i; paint(); if (!opts.mode) appOptions(a.pkg); });
+      onPress(c, () => {
+        const was = sel === i && c.classList.contains('sel');
+        sel = i; paint();
+        if (cfg.oneTap || was) act(); else { Snd.tick(); buzz(); }
+      }, () => { sel = i; paint(); if (!opts.mode) appOptions(a.pkg); });
       grid.appendChild(c); return c;
     });
     if (!list.length) grid.appendChild(el('div', 'empty', tab === 'games'
@@ -1449,7 +1458,7 @@ const SETTINGS = [
   { name: 'Home Screen', rows: () => [
     { type: 'choice', label: 'Clock', key: 'clock', options: [['system', 'System'], ['12', '12-hour'], ['24', '24-hour']], after: updateClock },
     { type: 'toggle', label: 'Show battery percentage', key: 'batPct', after: updateStatus },
-    { type: 'toggle', label: 'Start software with one tap', desc: 'Off: first tap selects, second tap starts.', key: 'oneTap' },
+    { type: 'toggle', label: 'Start software with one tap', desc: 'Off: the first tap selects (so you can see its name), the second tap starts it.', key: 'oneTap' },
     { type: 'action', label: 'Profile picture', value: () => 'Change', run: avatarMenu },
     { type: 'action', label: 'Restore removed games', value: () => Object.keys(store.get('hidden', {})).length + ' hidden',
       run: () => { store.set('hidden', {}); renderRow(); toast('Removed games restored'); } },
