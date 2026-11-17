@@ -1,0 +1,44 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.nsxl.launcher'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'com.nsxl.launcher'
+        minSdk 26
+        targetSdk 35
+        // Every GitHub build gets a higher number, so a new APK installs over the old one.
+        def run = (System.getenv('GITHUB_RUN_NUMBER') ?: '0') as int
+        versionCode 100 + run
+        versionName "1.0.${run}"
+    }
+
+    // One fixed key for every build. Android only installs an update over an app
+    // signed with the same key, so this must never change.
+    signingConfigs {
+        nsxl {
+            storeFile file('nsxl.keystore')
+            storePassword 'nsxl-launcher'
+            keyAlias 'nsxl'
+            keyPassword 'nsxl-launcher'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.nsxl
+        }
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.nsxl
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

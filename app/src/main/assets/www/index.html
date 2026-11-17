@@ -1,0 +1,1655 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="white">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>NSXL</title>
+<script>
+/* Apply the saved theme before first paint so there is no flash. */
+(function () {
+  try {
+    var c = JSON.parse(localStorage.getItem('ch.cfg') || '{}');
+    var t = c.theme || 'white';
+    if (t === 'video' && window.Android && !Android.hasVideo()) t = 'black';
+    document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+</script>
+<style>
+@property --a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+
+:root {
+  --u: min(1vw, 1.7778vh);               /* 1% of a 16:9 stage */
+  --H: calc(var(--u) * 56.25);
+  --oy: calc((100vh - var(--H)) / 2);    /* vertical offset of the stage */
+  --tile: calc(var(--u) * 20);
+  --gap: calc(var(--u) * 1.25);
+  --side: calc(var(--u) * 8.3);
+  --r: calc(var(--u) * 1);
+  --font: "Roboto", "Noto Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --ring: conic-gradient(from var(--a), #3ec5ff 0deg, #4d7dff 70deg, #9b7bff 130deg, #4d7dff 190deg, #3ec5ff 250deg, #c9f4ff 292deg, #ffffff 310deg, #b5efff 328deg, #3ec5ff 360deg);
+  --glow: rgba(120, 132, 255, .45);
+}
+html[data-theme=white] {
+  --bg:#e9e9e9; --ovBg:#ebebeb; --fg:#3a3a3a; --fg2:#6a6a6a; --accent:#2a6dd5;
+  --slot:#f6f6f6; --pill:#f2f2f2; --pillLine:transparent; --selBg:#ffffff; --gapRing:#ffffff;
+  --panel:#fbfbfb; --line:#dadada; --grey:#7f7f7f; --shadow:rgba(0,0,0,.12); --btn:#3a3a3a; --btnFg:#fff;
+  --c-orange:#e8902a; --c-green:#3f9f45; --c-red:#de3434; --c-blue:#3a76cf; --c-teal:#2aa3b1;
+}
+html[data-theme=black] {
+  --bg:#000000; --ovBg:#000000; --fg:#f0f0f0; --fg2:#a6a6a6; --accent:#3fcfff;
+  --slot:#151515; --pill:#121212; --pillLine:#1f1f1f; --selBg:#262626; --gapRing:#000;
+  --panel:#1b1b1b; --line:#2c2c2c; --grey:#a0a0a0; --shadow:rgba(0,0,0,.7); --btn:#e8e8e8; --btnFg:#000;
+  --c-orange:#f3a03c; --c-green:#55c25b; --c-red:#ff5757; --c-blue:#5b9bff; --c-teal:#39c6d3;
+}
+html[data-theme=video] {
+  --bg:transparent; --ovBg:rgba(8,8,12,.86); --fg:#ffffff; --fg2:rgba(255,255,255,.8); --accent:#86e3ff;
+  --slot:rgba(255,255,255,.13); --pill:rgba(12,12,18,.45); --pillLine:rgba(255,255,255,.12);
+  --selBg:rgba(255,255,255,.22); --gapRing:rgba(255,255,255,.92);
+  --panel:rgba(30,30,36,.97); --line:rgba(255,255,255,.15); --grey:#e4e4e4; --shadow:rgba(0,0,0,.45);
+  --btn:#fff; --btnFg:#000;
+  --c-orange:#ffb257; --c-green:#72d978; --c-red:#ff6b6b; --c-blue:#86b5ff; --c-teal:#62dde8;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  margin: 0; height: 100%; overflow: hidden;
+  background: var(--bg); color: var(--fg); font-family: var(--font);
+  user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+}
+body { opacity: 0; transition: opacity .25s; }
+body.ready { opacity: 1; }
+svg { display: block; }
+.ic { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ---------- live wallpaper helpers ---------- */
+#fakeVideo {   /* only used in the browser preview, the app plays your real video behind the page */
+  position: fixed; inset: 0; display: none;
+  background:
+    radial-gradient(circle at 20% 30%, #ff5f6d 0, transparent 38%),
+    radial-gradient(circle at 80% 25%, #4facfe 0, transparent 42%),
+    radial-gradient(circle at 55% 85%, #a18cd1 0, transparent 42%),
+    linear-gradient(135deg, #1e1b4b, #0b1020);
+  background-size: 200% 200%;
+  animation: fv 16s ease-in-out infinite alternate;
+}
+@keyframes fv { from { background-position: 0% 0%; } to { background-position: 100% 100%; } }
+#dim { position: fixed; inset: 0; background: #000; opacity: 0; pointer-events: none; }
+html[data-theme=video] #dim { opacity: var(--dim, .25); }
+html[data-theme=video] #top, html[data-theme=video] #foot,
+html[data-theme=video] #gameTitle, html[data-theme=video] #dockLabel { text-shadow: 0 1px 4px rgba(0,0,0,.55); }
+
+/* ---------- header ---------- */
+#top {
+  position: fixed; z-index: 30; left: 0; right: 0;
+  top: calc(var(--u) * 3.6); height: calc(var(--u) * 5);
+  padding: 0 max(calc(var(--u) * 4), env(safe-area-inset-right)) 0 max(calc(var(--u) * 4), env(safe-area-inset-left));
+  display: flex; align-items: center; justify-content: space-between; pointer-events: none;
+}
+#top > * { pointer-events: auto; }
+#avatar {
+  width: calc(var(--u) * 4.4); height: calc(var(--u) * 4.4); border-radius: 50%;
+  background: var(--selBg); position: relative; overflow: hidden;
+  box-shadow: 0 0 0 calc(var(--u) * .28) var(--gapRing), 0 calc(var(--u) * .3) calc(var(--u) * .9) var(--shadow);
+  transition: opacity .2s;
+}
+#avatarDefault { position: absolute; inset: 0; display: grid; place-items: center; color: var(--grey); }
+#avatarDefault svg { width: 66%; height: 66%; }
+#avatarImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+#avatarImg.ok { display: block; }
+body.full #avatar { opacity: 0; pointer-events: none; }
+body.full #home { visibility: hidden; }
+#status { display: flex; align-items: center; gap: calc(var(--u) * 1.4); color: var(--fg); }
+#clock { font-size: calc(var(--u) * 2.75); font-weight: 500; letter-spacing: .02em; display: flex; align-items: baseline; }
+#ampm { font-size: calc(var(--u) * 1.3); font-weight: 600; margin-left: calc(var(--u) * .3); }
+#net svg { width: calc(var(--u) * 2.5); height: calc(var(--u) * 2.5); }
+#bat svg { width: calc(var(--u) * 3.6); height: calc(var(--u) * 1.8); }
+#bat .lvl { fill: var(--fg); }
+#bat.low .lvl { fill: #ff4b4b; }
+#bat.chg { color: #2fbf4f; }
+#bat.chg .lvl { fill: #2fbf4f; }
+#bat .bolt { fill: #fff; }
+#batPct { font-size: calc(var(--u) * 1.6); font-weight: 500; margin-right: calc(var(--u) * -.6); }
+#batPct:empty { display: none; }
+
+/* ---------- home: tile row ---------- */
+#home { position: fixed; inset: 0; }
+#home.enter { animation: enter .32s cubic-bezier(.2,.8,.2,1); }
+@keyframes enter { from { opacity: 0; transform: scale(1.025); } to { opacity: 1; transform: none; } }
+#gameTitle {
+  position: absolute; left: 0; top: calc(var(--oy) + var(--u) * 12.1);
+  font-size: calc(var(--u) * 2.15); font-weight: 500; color: var(--accent);
+  white-space: nowrap; opacity: 0; transition: opacity .12s; pointer-events: none;
+}
+#rowWrap {
+  position: absolute; left: 0; right: 0; top: calc(var(--oy) + var(--u) * 13.5);
+  height: calc(var(--tile) + var(--u) * 4);
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+#rowWrap::-webkit-scrollbar { display: none; }
+#row { display: flex; gap: var(--gap); padding: calc(var(--u) * 2) var(--side); width: max-content; }
+.tile {
+  position: relative; flex: 0 0 var(--tile); width: var(--tile); height: var(--tile);
+  border-radius: var(--r); background: var(--slot); isolation: isolate; cursor: pointer;
+}
+.tile img, .cell .art img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+  border-radius: inherit; display: block; pointer-events: none;
+}
+.fb { position: absolute; inset: 0; border-radius: inherit; display: grid; place-items: center;
+      color: #fff; font-weight: 700; font-size: calc(var(--u) * 6); }
+.cell .fb { font-size: calc(var(--u) * 4); }
+.tile.slot { cursor: default; }
+.tile.allTile { display: grid; place-items: center; color: var(--fg2); }
+.tile.allTile svg { width: calc(var(--u) * 5.5); height: calc(var(--u) * 5.5); }
+.tile.allTile span { position: absolute; bottom: calc(var(--u) * 1.6); font-size: calc(var(--u) * 1.6); }
+.tile.sel, .dk.sel, .cell .art.sel, .tprev.sel { animation: selPop .3s cubic-bezier(.3,1.7,.5,1); }
+@keyframes selPop { 0% { transform: scale(.955); } 100% { transform: scale(1); } }
+.tile.pop { animation: pop .28s ease; }
+@keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(.95); } 100% { transform: scale(1); } }
+.nudgeL { animation: nudgeL .22s ease; } .nudgeR { animation: nudgeR .22s ease; }
+@keyframes nudgeL { 50% { transform: translateX(calc(var(--u) * -.7)); } }
+@keyframes nudgeR { 50% { transform: translateX(calc(var(--u) * .7)); } }
+
+/* ---------- Switch-style motion ---------- */
+body.intro #top { animation: fadeDown .55s cubic-bezier(.2,.8,.2,1) both; }
+body.intro #row .tile { animation: tileIn .6s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 55ms + 90ms); }
+body.intro #dock { animation: rise .6s cubic-bezier(.2,.8,.2,1) .28s both; }
+body.intro #foot { animation: fadeUp .5s .4s both; }
+@keyframes tileIn { from { opacity: 0; transform: translateX(calc(var(--u) * 7)) scale(.94); } to { opacity: 1; transform: none; } }
+@keyframes rise { from { opacity: 0; transform: translateY(calc(var(--u) * 3)) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes fadeDown { from { opacity: 0; transform: translateY(calc(var(--u) * -1.5)); } to { opacity: 1; transform: none; } }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(calc(var(--u) * 1.5)); } to { opacity: 1; transform: none; } }
+body.leaving #home, body.leaving .ov { animation: leave .28s cubic-bezier(.5,0,.9,.5) both; }
+body.leaving #top, body.leaving #foot { animation: fadeOut .2s both; }
+@keyframes leave { to { opacity: 0; transform: scale(1.07); } }
+@keyframes fadeOut { to { opacity: 0; } }
+.tile.launching, .art.launching { z-index: 3; animation: launchTile .28s cubic-bezier(.5,0,.9,.5) both; }
+@keyframes launchTile { 40% { transform: scale(.96); } 100% { transform: scale(1.14); } }
+.ov.full.show .cell { animation: cellIn .42s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(min(var(--i, 0), 20) * 16ms); }
+@keyframes cellIn { from { opacity: 0; transform: translateY(calc(var(--u) * 2)) scale(.96); } to { opacity: 1; transform: none; } }
+.hint:active { transform: scale(.94); }
+.dk:active, .tile:active { transform: scale(.96); }
+
+/* ---------- the animated selection ring ---------- */
+.g.sel { box-shadow: 0 0 0 calc(var(--u) * .32) var(--gapRing); }
+.g.sel::before, .g.sel::after {
+  content: ''; position: absolute; inset: calc(var(--u) * -.8);
+  border-radius: calc(var(--rr, var(--r)) + var(--u) * .8); pointer-events: none;
+}
+.g.sel::before {
+  padding: calc(var(--u) * .46); background: var(--ring);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: spin 2.4s linear infinite;
+}
+.g.sel::after {
+  z-index: -1; box-shadow: 0 0 calc(var(--u) * 1.6) calc(var(--u) * .2) var(--glow);
+  animation: breathe 1.8s ease-in-out infinite;
+}
+@keyframes spin { to { --a: 360deg; } }
+@keyframes breathe { 50% { opacity: .45; } }
+
+/* ---------- dock ---------- */
+#dockWrap { position: absolute; left: 0; right: 0; top: calc(var(--oy) + var(--u) * 40.2); display: flex; flex-direction: column; align-items: center; }
+#dock {
+  display: flex; gap: calc(var(--u) * 1.05); padding: calc(var(--u) * .8) calc(var(--u) * 1.5);
+  background: var(--pill); border: 1px solid var(--pillLine); border-radius: 999px; position: relative;
+}
+.dk {
+  --rr: 50%;
+  width: calc(var(--u) * 5.4); height: calc(var(--u) * 5.4); border-radius: 50%;
+  display: grid; place-items: center; position: relative; isolation: isolate; cursor: pointer;
+  transition: background .12s;
+}
+.dk svg { width: calc(var(--u) * 3); height: calc(var(--u) * 3); }
+.dk.sel { background: var(--selBg); }
+.dk.sel::before, .dk.sel::after { border-radius: 50%; inset: calc(var(--u) * -.55); }
+.dk.red { background: #e4202a; }
+.dk.red svg { fill: #fff; stroke: none; width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); }
+#dockLabel { position: relative; width: 100%; height: calc(var(--u) * 3); margin-top: calc(var(--u) * 1.15); }
+#dockLabel span {
+  position: absolute; top: 0; transform: translateX(-50%); white-space: nowrap;
+  font-size: calc(var(--u) * 1.75); color: var(--accent); font-weight: 500;
+}
+
+/* ---------- footer ---------- */
+#foot {
+  position: fixed; z-index: 30; left: 0; right: 0; bottom: calc(var(--u) * 2.2); height: calc(var(--u) * 3.6);
+  padding: 0 max(calc(var(--u) * 4), env(safe-area-inset-right)) 0 max(calc(var(--u) * 4), env(safe-area-inset-left));
+  display: flex; align-items: center; justify-content: space-between; pointer-events: none;
+}
+#foot > * { pointer-events: auto; }
+#padInd { display: flex; align-items: center; gap: calc(var(--u) * .7); color: var(--fg); opacity: .9; }
+#padInd .leds { display: flex; flex-direction: column; gap: calc(var(--u) * .28); }
+#padInd .leds i { width: calc(var(--u) * .5); height: calc(var(--u) * .5); border-radius: 50%; background: var(--line); display: block; }
+#padInd.on .leds i:first-child { background: #3bd16f; }
+#padInd svg { width: calc(var(--u) * 3.3); height: calc(var(--u) * 3.3); }
+#hints { display: flex; gap: calc(var(--u) * 2.6); font-size: calc(var(--u) * 1.65); color: var(--fg); }
+.hint { display: flex; align-items: center; gap: calc(var(--u) * .7); cursor: pointer; }
+.btn {
+  width: calc(var(--u) * 2.25); height: calc(var(--u) * 2.25); border-radius: 50%;
+  background: var(--btn); color: var(--btnFg); display: grid; place-items: center;
+  font-size: calc(var(--u) * 1.3); font-weight: 700; font-style: normal; line-height: 1;
+}
+
+/* ---------- overlays ---------- */
+.ov { position: fixed; inset: 0; opacity: 0; transition: opacity .18s; }
+.ov.show { opacity: 1; }
+.ov.full { z-index: 20; background: var(--ovBg); transform: translateY(calc(var(--u) * 2)); transition: opacity .2s, transform .32s cubic-bezier(.2,.8,.2,1); }
+.ov.full.show { transform: none; }
+.ovTitle {
+  position: absolute; top: calc(var(--u) * 3.6); left: calc(var(--u) * 4); height: calc(var(--u) * 5);
+  display: flex; align-items: center; gap: calc(var(--u) * 1.2);
+  font-size: calc(var(--u) * 2.6); font-weight: 500;
+}
+.ovTitle svg { width: calc(var(--u) * 3.2); height: calc(var(--u) * 3.2); color: var(--accent); }
+.ovRule { position: absolute; left: calc(var(--u) * 4); right: calc(var(--u) * 4); top: calc(var(--u) * 10.4); height: 1px; background: var(--line); }
+.ovRule.bottom { top: auto; bottom: calc(var(--u) * 7.2); }
+
+/* tabs */
+.tabs { position: absolute; top: calc(var(--u) * 11.6); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.8); }
+.tabs .t { padding: calc(var(--u) * .6) calc(var(--u) * 2); border-radius: 999px; color: var(--fg2); cursor: pointer; }
+.tabs .t.on { background: var(--accent); color: #fff; }
+html[data-theme=black] .tabs .t.on, html[data-theme=video] .tabs .t.on { color: #000; }
+.tabs .btn { width: calc(var(--u) * 2.6); border-radius: calc(var(--u) * .6); font-size: calc(var(--u) * 1.2); }
+
+/* all software grid */
+.grid {
+  position: absolute; top: calc(var(--u) * 16.4); bottom: calc(var(--u) * 7.4); left: 0; right: 0;
+  overflow-y: auto; scrollbar-width: none;
+  padding: calc(var(--u) * 1.6) var(--side) calc(var(--u) * 3);
+  display: grid; grid-template-columns: repeat(auto-fill, calc(var(--u) * 11.4));
+  gap: calc(var(--u) * 2.4) calc(var(--u) * 1.7); align-content: start; justify-content: center;
+}
+.grid::-webkit-scrollbar { display: none; }
+.cell { width: calc(var(--u) * 11.4); cursor: pointer; }
+.cell .art { width: 100%; aspect-ratio: 1; border-radius: var(--r); position: relative; background: var(--slot); isolation: isolate; }
+.cell .nm {
+  margin-top: calc(var(--u) * .9); font-size: calc(var(--u) * 1.45); text-align: center;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg2);
+}
+.cell.sel .nm { color: var(--accent); }
+.cell .pin {
+  position: absolute; z-index: 2; top: calc(var(--u) * .6); right: calc(var(--u) * .6);
+  width: calc(var(--u) * 2); height: calc(var(--u) * 2); border-radius: 50%;
+  background: rgba(0,0,0,.45); opacity: .9; color: #fff; display: grid; place-items: center;
+}
+.cell .pin svg { width: 70%; height: 70%; }
+.empty { grid-column: 1 / -1; text-align: center; color: var(--fg2); font-size: calc(var(--u) * 1.9); padding-top: calc(var(--u) * 8); }
+
+/* settings */
+.setNav {
+  position: absolute; top: calc(var(--u) * 11.6); bottom: calc(var(--u) * 8); left: calc(var(--u) * 4);
+  width: calc(var(--u) * 24); display: flex; flex-direction: column; gap: calc(var(--u) * .5);
+}
+.navItem {
+  position: relative; padding: calc(var(--u) * 1.3) calc(var(--u) * 2); font-size: calc(var(--u) * 1.9);
+  border-radius: calc(var(--u) * .7); cursor: pointer; isolation: isolate; --rr: calc(var(--u) * .7);
+}
+.navItem.cur { color: var(--accent); }
+.navItem.cur::marker { content: none; }
+.navItem.cur:not(.sel) { background: var(--slot); }
+.navItem.sel { background: var(--selBg); }
+.setPane {
+  position: absolute; top: calc(var(--u) * 11.6); bottom: calc(var(--u) * 8); left: calc(var(--u) * 31); right: calc(var(--u) * 4);
+  overflow-y: auto; scrollbar-width: none; padding: calc(var(--u) * 1) calc(var(--u) * 1.2) calc(var(--u) * 4);
+  border-left: 1px solid var(--line);
+}
+.setPane::-webkit-scrollbar { display: none; }
+.setRow {
+  position: relative; isolation: isolate; --rr: calc(var(--u) * .7);
+  display: flex; align-items: center; justify-content: space-between; gap: calc(var(--u) * 2);
+  min-height: calc(var(--u) * 6.4); padding: calc(var(--u) * 1) calc(var(--u) * 2);
+  border-radius: calc(var(--u) * .7); font-size: calc(var(--u) * 1.85); cursor: pointer;
+}
+.setRow + .setRow { margin-top: calc(var(--u) * .5); }
+.setRow.sel { background: var(--selBg); }
+.setRow .val { color: var(--accent); display: flex; align-items: center; gap: calc(var(--u) * 1); font-size: calc(var(--u) * 1.7); white-space: nowrap; }
+.setRow .desc { display: block; font-size: calc(var(--u) * 1.35); color: var(--fg2); margin-top: calc(var(--u) * .4); }
+.setRow.info { cursor: default; }
+.setRow.info .val { color: var(--fg2); }
+.arr { color: var(--fg2); font-size: calc(var(--u) * 2.2); line-height: 1; }
+.chev { color: var(--fg2); font-size: calc(var(--u) * 2.2); line-height: 1; }
+.sw { width: calc(var(--u) * 5.2); height: calc(var(--u) * 2.8); border-radius: 999px; background: var(--line); position: relative; transition: background .15s; }
+.sw i { position: absolute; top: calc(var(--u) * .3); left: calc(var(--u) * .3); width: calc(var(--u) * 2.2); height: calc(var(--u) * 2.2); border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.3); transition: transform .15s; }
+.sw.on { background: var(--accent); }
+.sw.on i { transform: translateX(calc(var(--u) * 2.4)); }
+.bar { width: calc(var(--u) * 16); height: calc(var(--u) * .9); border-radius: 999px; background: var(--line); position: relative; overflow: hidden; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent); border-radius: inherit; }
+.num { min-width: calc(var(--u) * 5); text-align: right; }
+
+/* theme cards */
+.setRow.themes { display: block; cursor: default; padding-bottom: calc(var(--u) * 1.6); }
+.setRow.themes .lbl { display: block; margin-bottom: calc(var(--u) * 1.4); }
+.tcards { display: flex; gap: calc(var(--u) * 2); }
+.tcard { cursor: pointer; text-align: center; font-size: calc(var(--u) * 1.5); color: var(--fg2); }
+.tprev {
+  position: relative; isolation: isolate; --rr: calc(var(--u) * .9);
+  width: calc(var(--u) * 15); height: calc(var(--u) * 8.44); border-radius: calc(var(--u) * .9);
+  overflow: visible; margin-bottom: calc(var(--u) * .9); box-shadow: inset 0 0 0 1px var(--line);
+}
+.tprev .in { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; }
+.tprev .in i { position: absolute; top: 28%; width: 18%; height: 32%; border-radius: 4px; }
+.tprev .in i:nth-child(1) { left: 10%; } .tprev .in i:nth-child(2) { left: 31%; } .tprev .in i:nth-child(3) { left: 52%; } .tprev .in i:nth-child(4) { left: 73%; }
+.tprev .in b { position: absolute; left: 25%; right: 25%; bottom: 14%; height: 12%; border-radius: 99px; }
+.tprev.white .in { background: #e9e9e9; } .tprev.white .in i { background: #fff; } .tprev.white .in b { background: #f6f6f6; }
+.tprev.white .in i:first-child { background: linear-gradient(135deg,#ff9a5a,#e6417a); }
+.tprev.black .in { background: #000; } .tprev.black .in i { background: #1a1a1a; } .tprev.black .in b { background: #161616; }
+.tprev.black .in i:first-child { background: linear-gradient(135deg,#46c2ff,#6b5cff); }
+.tprev.video .in { background: radial-gradient(circle at 25% 30%, #ff5f6d, transparent 45%), radial-gradient(circle at 80% 30%, #4facfe, transparent 50%), linear-gradient(135deg,#2a2160,#0b1020); background-size: 200% 200%; animation: fv 6s ease-in-out infinite alternate; }
+.tprev.video .in i { background: rgba(255,255,255,.22); } .tprev.video .in b { background: rgba(0,0,0,.35); }
+.tprev .check {
+  position: absolute; z-index: 3; right: calc(var(--u) * -.8); top: calc(var(--u) * -.8);
+  width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); border-radius: 50%;
+  background: var(--accent); color: #fff; display: none; place-items: center;
+}
+.tprev .check svg { width: 70%; height: 70%; stroke-width: 3; }
+.tcard.cur .tprev .check { display: grid; }
+.tcard.cur { color: var(--accent); }
+
+/* menus and dialogs */
+.ov.back { z-index: 25; background: rgba(0,0,0,.42); display: grid; place-items: center; }
+.menu, .dialog {
+  min-width: calc(var(--u) * 34); max-width: calc(var(--u) * 52); max-height: calc(100vh - var(--u) * 14);
+  overflow-y: auto; scrollbar-width: none;
+  background: var(--panel); border-radius: calc(var(--u) * 1.4); padding: calc(var(--u) * 1.2);
+  box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 4) rgba(0,0,0,.35);
+  transform: scale(.96); transition: transform .18s;
+}
+.ov.show .menu, .ov.show .dialog { transform: none; }
+.menuTitle { font-size: calc(var(--u) * 1.6); color: var(--fg2); padding: calc(var(--u) * 1) calc(var(--u) * 1.8) calc(var(--u) * 1.2); border-bottom: 1px solid var(--line); margin-bottom: calc(var(--u) * 1); }
+.menuItem {
+  position: relative; isolation: isolate; --rr: calc(var(--u) * .7);
+  padding: calc(var(--u) * 1.5) calc(var(--u) * 1.8); border-radius: calc(var(--u) * .7);
+  font-size: calc(var(--u) * 1.9); cursor: pointer; margin: calc(var(--u) * .5) calc(var(--u) * .4);
+}
+.menuItem.sel { background: var(--selBg); }
+html[data-theme=white] .menuItem.sel { background: #fff; }
+.menuItem.danger { color: #e0413a; }
+.dialog { padding: calc(var(--u) * 3) calc(var(--u) * 3) calc(var(--u) * 2.2); text-align: center; }
+.dialog h2 { margin: 0 0 calc(var(--u) * 1.2); font-size: calc(var(--u) * 2.3); font-weight: 600; }
+.dialog p { margin: 0 0 calc(var(--u) * 2.6); font-size: calc(var(--u) * 1.7); color: var(--fg2); line-height: 1.45; }
+.dbtns { display: flex; gap: calc(var(--u) * 1.6); justify-content: center; }
+.dbtn {
+  position: relative; isolation: isolate; --rr: 999px; flex: 1;
+  padding: calc(var(--u) * 1.4) calc(var(--u) * 2); border-radius: 999px;
+  background: var(--slot); font-size: calc(var(--u) * 1.8); cursor: pointer;
+}
+.dbtn.primary { color: var(--accent); font-weight: 600; }
+.dbtn.sel { background: var(--selBg); }
+html[data-theme=white] .dbtn.sel { background: #fff; }
+
+.field {
+  display: block; width: 100%; font: inherit; font-size: calc(var(--u) * 2); color: var(--fg);
+  padding: calc(var(--u) * 1.4) calc(var(--u) * 1.8); border-radius: calc(var(--u) * 1);
+  border: 2px solid var(--line); background: var(--selBg); outline: none; margin: 0 0 calc(var(--u) * 2.4);
+  user-select: text; -webkit-user-select: text; text-align: left;
+}
+.field:focus { border-color: var(--accent); }
+.dialog p a { color: var(--accent); }
+.cell .art .src { position: absolute; z-index: 2; left: calc(var(--u) * .6); bottom: calc(var(--u) * .6); font-size: calc(var(--u) * 1.1); background: rgba(0,0,0,.55); color: #fff; padding: 2px 6px; border-radius: 4px; }
+
+/* toast */
+#toast {
+  position: fixed; z-index: 40; left: 50%; bottom: calc(var(--u) * 8.5);
+  transform: translate(-50%, calc(var(--u) * 2)); opacity: 0; pointer-events: none;
+  background: rgba(20,20,24,.9); color: #fff; font-size: calc(var(--u) * 1.7);
+  padding: calc(var(--u) * 1.2) calc(var(--u) * 2.6); border-radius: 999px; transition: all .22s; white-space: nowrap;
+}
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* portrait fallback */
+@media (orientation: portrait) {
+  :root { --u: 1.42vw; --tile: calc(var(--u) * 30); --H: 100vh; --oy: 0px; }
+  #gameTitle { top: calc(30vh - var(--u) * 1.4); }
+  #rowWrap { top: 30vh; }
+  #dockWrap { top: calc(30vh + var(--tile) + var(--u) * 10); }
+  .setNav { width: calc(var(--u) * 20); }
+  .setPane { left: calc(var(--u) * 26); }
+}
+</style>
+</head>
+<body>
+<div id="fakeVideo"></div>
+<div id="dim"></div>
+
+<header id="top">
+  <div id="avatar"><span id="avatarDefault"></span><img id="avatarImg" alt=""></div>
+  <div id="status">
+    <span id="clock"><span id="hm">--:--</span><span id="ampm"></span></span>
+    <span id="net"></span>
+    <span id="batPct"></span>
+    <span id="bat"></span>
+  </div>
+</header>
+
+<main id="home">
+  <div id="gameTitle"></div>
+  <div id="rowWrap"><div id="row"></div></div>
+  <div id="dockWrap"><div id="dock"></div><div id="dockLabel"><span></span></div></div>
+</main>
+
+<footer id="foot">
+  <div id="padInd"><span class="leds"><i></i><i></i><i></i><i></i></span><span class="padIcon"></span></div>
+  <div id="hints"></div>
+</footer>
+<div id="toast"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* =========================================================
+   Basics
+   ========================================================= */
+const NATIVE = typeof window.Android !== 'undefined';
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const hash = s => { let h = 0; for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0; return Math.abs(h); };
+
+const store = {
+  get(k, d) { try { const v = localStorage.getItem('ch.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
+};
+const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: false, sounds: true, haptics: true,
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: true,
+                   music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
+const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
+const saveCfg = () => store.set('cfg', cfg);
+
+/* =========================================================
+   Icons (original line icons, 24x24)
+   ========================================================= */
+function gearShape() {
+  const N = 8, R1 = 9, R2 = 6.9; let d = '';
+  for (let i = 0; i < N; i++) {
+    const a0 = (i / N) * Math.PI * 2, w = Math.PI / N;
+    [[R2, a0 - w * .62], [R1, a0 - w * .34], [R1, a0 + w * .34], [R2, a0 + w * .62]].forEach(([r, a], j) => {
+      d += (i === 0 && j === 0 ? 'M' : 'L') + (12 + r * Math.cos(a)).toFixed(2) + ' ' + (12 + r * Math.sin(a)).toFixed(2) + ' ';
+    });
+  }
+  return `<path d="${d}Z"/><circle cx="12" cy="12" r="2.9"/>`;
+}
+const ICONS = {
+  grid:   '<rect x="4" y="4" width="7" height="7" rx="1.7"/><rect x="13" y="4" width="7" height="7" rx="1.7"/><rect x="4" y="13" width="7" height="7" rx="1.7"/><rect x="13" y="13" width="7" height="7" rx="1.7"/>',
+  chat:   '<path d="M6 4.8h12a3 3 0 0 1 3 3v6.4a3 3 0 0 1-3 3h-6.3l-4.6 3.4v-3.4H6a3 3 0 0 1-3-3V7.8a3 3 0 0 1 3-3z"/><path d="M8 11h.01M12 11h.01M16 11h.01" stroke-width="2.4"/>',
+  news:   '<rect x="4.5" y="3.5" width="15" height="17" rx="2.6"/><path d="M8 8.4h8M8 12h8M8 15.6h4.6"/>',
+  bag:    '<path d="M5.2 8.5h13.6l-1.1 10.4a2 2 0 0 1-2 1.8H8.3a2 2 0 0 1-2-1.8z"/><path d="M9 8.5V7a3 3 0 0 1 6 0v1.5"/>',
+  album:  '<rect x="3.5" y="5" width="17" height="14" rx="2.6"/><path d="M3.9 16.4l4.6-4.5 3.8 3.6 2.6-2.4 5.2 4.5"/><circle cx="15.8" cy="9.3" r="1.4"/>',
+  music:  '<path d="M9 17.4V6.3l10-2.1v11"/><circle cx="6.6" cy="17.6" r="2.4"/><circle cx="16.6" cy="15.2" r="2.4"/>',
+  pad:    '<path d="M7.5 7h9a5 5 0 0 1 4.8 6.4l-.9 3a2.3 2.3 0 0 1-3.9.9L14.8 15H9.2l-1.7 2.3a2.3 2.3 0 0 1-3.9-.9l-.9-3A5 5 0 0 1 7.5 7z"/><path d="M8 9.7v3.1M6.45 11.25h3.1"/><circle cx="15.6" cy="10.3" r=".55"/><circle cx="17.5" cy="12.2" r=".55"/>',
+  display:'<rect x="6.5" y="3" width="11" height="18" rx="2.3"/><path d="M10.5 17.8h3"/>',
+  gear:   gearShape(),
+  power:  '<path d="M12 3.6v7.6"/><path d="M7.1 6.6a7.4 7.4 0 1 0 9.8 0"/>',
+  home:   '<path d="M4.5 11 12 4.6l7.5 6.4v8a1 1 0 0 1-1 1h-4.2v-5.4H9.7V20H5.5a1 1 0 0 1-1-1z"/>',
+  check:  '<path d="M5 12.6l4.4 4.4L19 7.4"/>',
+  person: '<circle cx="12" cy="9.2" r="3.7"/><path d="M5 20a7 7 0 0 1 14 0"/>',
+};
+const svg = (name, cls = 'ic') => `<svg viewBox="0 0 24 24" class="${cls}">${ICONS[name]}</svg>`;
+
+function wifiSvg(bars, on) {
+  const o = i => (on && bars >= i) ? 1 : .28;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round">
+    <path d="M2.8 9.4a13.4 13.4 0 0 1 18.4 0" opacity="${o(3)}"/>
+    <path d="M6 12.8a8.9 8.9 0 0 1 12 0" opacity="${o(2)}"/>
+    <path d="M9.2 16.1a4.4 4.4 0 0 1 5.6 0" opacity="${o(1)}"/>
+    <circle cx="12" cy="19.3" r="1.45" fill="currentColor" stroke="none" opacity="${on ? 1 : .28}"/></svg>`;
+}
+function cellSvg(bars) {
+  return `<svg viewBox="0 0 24 24" fill="currentColor">${[0, 1, 2, 3].map(i =>
+    `<rect x="${3 + i * 5}" y="${17 - i * 3.6}" width="3.4" height="${3 + i * 3.6}" rx="1" opacity="${bars > i ? 1 : .28}"/>`).join('')}</svg>`;
+}
+function batterySvg(lvl, charging) {
+  const w = Math.max(1.2, 18 * clamp(lvl, 0, 100) / 100).toFixed(2);
+  return `<svg viewBox="0 0 28 14"><rect x="1" y="1.5" width="22.4" height="11" rx="2.8" fill="none" stroke="currentColor" stroke-width="1.5"/>
+    <rect x="24.4" y="4.8" width="2.2" height="4.4" rx="1.1" fill="currentColor"/>
+    <rect x="3.2" y="3.7" width="${w}" height="6.6" rx="1.3" class="lvl"/>
+    ${charging ? '<path class="bolt" d="M13.9 2.6 9.8 7.6h3.1l-1.5 3.9 4.3-5.2h-3.1z"/>' : ''}</svg>`;
+}
+
+/* =========================================================
+   Native bridge (or a mock for previewing in a browser)
+   ========================================================= */
+const B = NATIVE ? window.Android : makeMock();
+function nb(name, ...args) {
+  try { if (B && typeof B[name] === 'function') return B[name](...args); } catch (e) { console.warn('bridge', name, e); }
+  return undefined;
+}
+
+/* =========================================================
+   Sound + haptics (synthesised, no audio files)
+   ========================================================= */
+const Snd = {
+  ctx: null,
+  ensure() {
+    try {
+      if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) {}
+    return this.ctx;
+  },
+  unlock() {
+    if (cfg.sounds || cfg.music) this.ensure();
+    if (typeof Music !== 'undefined' && cfg.music && !Music.on && !Music.paused) Music.start();
+  },
+  tone(f1, f2, dur, gain, type = 'sine', delay = 0) {
+    if (!cfg.sounds) return;
+    const c = this.ensure(); if (!c) return;
+    const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f1, t);
+    if (f2 !== f1) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(gain, t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + dur + 0.03);
+  },
+  tick()   { this.tone(2300, 1500, 0.03, 0.05); },
+  bump()   { this.tone(240, 180, 0.07, 0.08, 'triangle'); },
+  select() { this.tone(988, 988, 0.05, 0.06); this.tone(1480, 1480, 0.08, 0.06, 'sine', 0.045); },
+  back()   { this.tone(1180, 760, 0.07, 0.05); },
+  launch() { [784, 1047, 1568].forEach((f, i) => this.tone(f, f, 0.1, 0.06, 'sine', i * 0.055)); },
+};
+const buzz = kind => { if (cfg.haptics) nb('haptic', kind || 'tick'); };
+
+/* =========================================================
+   Ambient music: generated on the fly (soft chords + bells),
+   or your own music file. Pauses while a game is running.
+   ========================================================= */
+const hasMusic = () => !!nb('hasMusic');
+const Music = {
+  on: false, paused: false, waiting: false, bus: null, input: null, timer: 0, audio: null,
+  CHORDS: [[53, 57, 60, 64, 67], [52, 55, 59, 62, 67], [50, 53, 57, 60, 64], [48, 55, 59, 62, 64]],
+  BELLS: [72, 74, 76, 79, 81, 84, 86],
+  hz: m => 440 * Math.pow(2, (m - 69) / 12),
+  level: () => 0.24 * cfg.musicVol,
+  start() {
+    if (this.on || this.paused || !cfg.music) return;
+    if (cfg.musicSrc === 'custom' && hasMusic()) return this.startFile();
+    const c = Snd.ensure(); if (!c) return;
+    if (c.state !== 'running') {
+      if (!this.waiting) { this.waiting = true; c.resume().then(() => { this.waiting = false; this.start(); }).catch(() => { this.waiting = false; }); }
+      return;
+    }
+    this.on = true;
+    const bus = c.createGain(); bus.gain.setValueAtTime(0, c.currentTime); bus.gain.linearRampToValueAtTime(this.level(), c.currentTime + 4);
+    const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1700; lp.Q.value = 0.3;
+    const verb = c.createConvolver(); verb.buffer = this.impulse(c, 3.4);
+    const wet = c.createGain(); wet.gain.value = 0.6;
+    const dry = c.createGain(); dry.gain.value = 0.55;
+    lp.connect(dry); lp.connect(verb); verb.connect(wet); dry.connect(bus); wet.connect(bus); bus.connect(c.destination);
+    this.bus = bus; this.input = lp; this.step = 0; this.next = c.currentTime + 0.1; this.bellNext = c.currentTime + 2.5;
+    this.tick();
+  },
+  impulse(c, secs) {
+    const len = Math.floor(c.sampleRate * secs), buf = c.createBuffer(2, len, c.sampleRate);
+    for (let ch = 0; ch < 2; ch++) { const d = buf.getChannelData(ch); for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2.8); }
+    return buf;
+  },
+  tick() {
+    if (!this.on || !this.input) return;
+    const c = Snd.ctx, ahead = c.currentTime + 1.6;
+    while (this.next < ahead) { this.chord(this.CHORDS[this.step % this.CHORDS.length], this.next, 8); this.step++; this.next += 8; }
+    while (this.bellNext < ahead) { this.bell(this.BELLS[Math.floor(Math.random() * this.BELLS.length)], this.bellNext); this.bellNext += 1.3 + Math.random() * 2.8; }
+    this.timer = setTimeout(() => this.tick(), 500);
+  },
+  chord(notes, t, dur) {
+    const c = Snd.ctx, input = this.input;
+    notes.forEach((m, i) => [-5, 5].forEach(det => {
+      const o = c.createOscillator(), g = c.createGain(), peak = i === 0 ? 0.14 : 0.06;
+      o.type = i === 0 ? 'sine' : 'triangle'; o.frequency.value = this.hz(m); o.detune.value = det;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(peak, t + 2.8);
+      g.gain.setValueAtTime(peak, t + dur - 0.4); g.gain.exponentialRampToValueAtTime(0.0001, t + dur + 2.6);
+      o.connect(g); g.connect(input); o.start(t); o.stop(t + dur + 2.8);
+    }));
+  },
+  bell(m, t) {
+    const c = Snd.ctx, o = c.createOscillator(), o2 = c.createOscillator(), g = c.createGain(), g2 = c.createGain();
+    o.frequency.value = this.hz(m); o2.frequency.value = this.hz(m) * 2.01; g2.gain.value = 0.22;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 2.6);
+    o.connect(g); o2.connect(g2); g2.connect(g); g.connect(this.input);
+    o.start(t); o2.start(t); o.stop(t + 2.7); o2.stop(t + 2.7);
+  },
+  startFile() {
+    this.on = true;
+    if (!this.audio) { this.audio = new Audio(); this.audio.loop = true; }
+    const src = '/music?v=' + store.get('musicV', 0);
+    if (!this.audio.src.endsWith(src)) this.audio.src = src;
+    this.audio.volume = clamp(cfg.musicVol * 0.7, 0, 1);
+    this.audio.play().catch(() => { this.on = false; });
+  },
+  stop() {
+    this.on = false; clearTimeout(this.timer);
+    if (this.audio) this.audio.pause();
+    if (this.bus) {
+      const b = this.bus, c = Snd.ctx;
+      try { b.gain.cancelScheduledValues(c.currentTime); b.gain.setValueAtTime(b.gain.value, c.currentTime); b.gain.linearRampToValueAtTime(0, c.currentTime + 0.5); } catch (e) {}
+      setTimeout(() => { try { b.disconnect(); } catch (e) {} }, 700);
+      this.bus = null; this.input = null;
+    }
+  },
+  setVol() {
+    if (this.audio) this.audio.volume = clamp(cfg.musicVol * 0.7, 0, 1);
+    if (this.bus) this.bus.gain.setTargetAtTime(this.level(), Snd.ctx.currentTime, 0.2);
+  },
+  restart() { this.stop(); if (this.audio) this.audio.removeAttribute('src'); if (cfg.music && !this.paused) setTimeout(() => this.start(), 600); },
+  pause() { this.paused = true; this.stop(); },
+  resume() { this.paused = false; if (cfg.music) this.start(); },
+};
+window.onMusicPicked = (ok, msg) => {
+  if (ok) { store.set('musicV', Date.now()); cfg.musicSrc = 'custom'; cfg.music = true; saveCfg(); Music.restart(); showToast('Music set', 2200); refreshOverlays(); }
+  else if (msg) showToast(msg, 2600); else hideToast();
+};
+
+/* =========================================================
+   Async native calls (SteamGridDB) as promises
+   ========================================================= */
+const pending = {}; let reqN = 0;
+function nbAsync(method, ...args) {
+  return new Promise((resolve, reject) => {
+    const id = 'r' + (++reqN); pending[id] = { resolve, reject };
+    nb(method, id, ...args);
+    setTimeout(() => { if (pending[id]) { delete pending[id]; reject('Timed out. Check your connection.'); } }, 45000);
+  });
+}
+window.onAsync = (id, ok, data) => {
+  const p = pending[id]; if (!p) return; delete pending[id];
+  ok ? p.resolve(data) : p.reject(data);
+};
+
+/* =========================================================
+   Apps
+   ========================================================= */
+let APPS = [], BY = {};
+function loadApps() {
+  let list = [];
+  try { list = JSON.parse(nb('getApps') || '[]'); } catch (e) {}
+  const names = store.get('names', {});
+  list.forEach(a => { a.orig = a.label; if (names[a.pkg]) a.label = names[a.pkg]; });
+  list.sort((a, b) => a.label.localeCompare(b.label, undefined, { sensitivity: 'base' }));
+  APPS = list; BY = {};
+  list.forEach(a => { BY[a.pkg] = a; });
+}
+function reloadApps() { loadApps(); renderRow(); refreshOverlays(); refreshSel(); }
+function renameApp(pkg) {
+  const a = BY[pkg]; if (!a) return;
+  openPrompt('Rename', a.label, 'Name', v => {
+    const n = store.get('names', {}); v = v.trim();
+    if (!v || v === a.orig) delete n[pkg]; else n[pkg] = v;
+    store.set('names', n); reloadApps(); toast('Renamed to ' + (v || a.orig));
+  });
+}
+const isGameish = a => a.game || !!store.get('added', {})[a.pkg];
+
+function homeList() {
+  const added = store.get('added', {}), hidden = store.get('hidden', {}), played = store.get('played', {});
+  const key = p => Math.max(played[p] || 0, added[p] || 0, (BY[p] && BY[p].installed) || 0);
+  return APPS.filter(a => (a.game || added[a.pkg]) && !hidden[a.pkg]).map(a => a.pkg).sort((x, y) => key(y) - key(x));
+}
+function setOnHome(pkg, on) {
+  const added = store.get('added', {}), hidden = store.get('hidden', {});
+  if (on) { added[pkg] = Date.now(); delete hidden[pkg]; }
+  else { delete added[pkg]; if (BY[pkg] && BY[pkg].game) hidden[pkg] = true; }
+  store.set('added', added); store.set('hidden', hidden);
+  renderRow(); refreshOverlays();
+}
+
+const coverVer = pkg => (store.get('coverV', {})[pkg] || 0);
+function bumpCover(pkg) {
+  const v = store.get('coverV', {}); v[pkg] = Date.now(); store.set('coverV', v);
+  $$('img[data-pkg]').forEach(img => { if (img.dataset.pkg === pkg) img.src = artUrl(pkg, +img.dataset.s); });
+}
+function artUrl(pkg, size) {
+  return NATIVE ? `/art/${encodeURIComponent(pkg)}?s=${size}&v=${coverVer(pkg)}` : mockArt(pkg);
+}
+function artBox(pkg, size, box) {
+  const a = BY[pkg] || { label: '?' };
+  const hue = hash(pkg) % 360;
+  const fb = el('div', 'fb', esc((a.label || '?').trim().charAt(0).toUpperCase()));
+  fb.style.background = `linear-gradient(135deg, hsl(${hue},62%,56%), hsl(${(hue + 40) % 360},60%,42%))`;
+  box.appendChild(fb);
+  const img = el('img'); img.alt = ''; img.decoding = 'async';
+  img.dataset.pkg = pkg; img.dataset.s = size;
+  img.onload = () => { fb.style.visibility = 'hidden'; };
+  img.onerror = () => { img.style.visibility = 'hidden'; fb.style.visibility = 'visible'; };
+  img.src = artUrl(pkg, size);
+  box.appendChild(img);
+}
+
+/* =========================================================
+   Press helper: tap + long-press for touch
+   ========================================================= */
+function onPress(node, tap, long) {
+  let timer = null, sx = 0, sy = 0, fired = false;
+  const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+  node.addEventListener('pointerdown', e => {
+    fired = false; sx = e.clientX; sy = e.clientY; Snd.unlock();
+    if (long) timer = setTimeout(() => { timer = null; fired = true; buzz('long'); long(e); }, 480);
+  });
+  node.addEventListener('pointermove', e => { if (Math.abs(e.clientX - sx) > 12 || Math.abs(e.clientY - sy) > 12) cancel(); });
+  node.addEventListener('pointerup', cancel);
+  node.addEventListener('pointercancel', cancel);
+  node.addEventListener('pointerleave', cancel);
+  node.addEventListener('click', e => {
+    if (fired) { fired = false; e.stopPropagation(); return; }
+    if (tap) tap(e);
+  });
+  node.addEventListener('contextmenu', e => e.preventDefault());
+}
+
+/* =========================================================
+   Home screen
+   ========================================================= */
+const MAX_HOME = 12;
+const Hm = { items: [], idx: 0, zone: 'row', dockIdx: 0, launched: false };
+
+const DOCK = [
+  { id: 'all',      label: 'All Software', icon: 'grid',    red: true, run: () => openAll({}) , fixed: true },
+  { id: 'chat',     label: 'Messages',     icon: 'chat',    color: 'var(--c-orange)', cat: 'messaging' },
+  { id: 'web',      label: 'Web',          icon: 'news',    color: 'var(--c-green)',  cat: 'browser' },
+  { id: 'store',    label: 'Play Store',   icon: 'bag',     color: 'var(--c-red)',    cat: 'market' },
+  { id: 'album',    label: 'Album',        icon: 'album',   color: 'var(--c-blue)',   cat: 'gallery' },
+  { id: 'music',    label: 'Music',        icon: 'music',   color: 'var(--c-teal)',   cat: 'music' },
+  { id: 'pads',     label: 'Controllers',  icon: 'pad',     color: 'var(--grey)',     settings: 'bluetooth' },
+  { id: 'display',  label: 'Display',      icon: 'display', color: 'var(--grey)',     settings: 'display' },
+  { id: 'settings', label: 'Settings',     icon: 'gear',    color: 'var(--grey)',     run: () => openSettings(), fixed: true },
+  { id: 'power',    label: 'Power',        icon: 'power',   color: 'var(--grey)',     run: () => openPower(), fixed: true },
+];
+let dockEls = [];
+const dockApp = d => { const p = store.get('dockApps', {})[d.id]; return p && BY[p] ? p : null; };
+const dockLabelText = d => { const p = dockApp(d); return p ? BY[p].label : d.label; };
+
+function renderDock() {
+  const dock = $('#dock'); dock.innerHTML = '';
+  dockEls = DOCK.map((d, i) => {
+    const b = el('div', 'dk g' + (d.red ? ' red' : ''), svg(d.icon));
+    if (d.color) b.style.color = d.color;
+    onPress(b, () => { Hm.zone = 'dock'; Hm.dockIdx = i; refreshSel(); runDock(i); },
+               () => { Hm.zone = 'dock'; Hm.dockIdx = i; refreshSel(); dockOptions(i); });
+    dock.appendChild(b); return b;
+  });
+}
+function runDock(i) {
+  const d = DOCK[i]; const p = dockApp(d);
+  Snd.select(); buzz('confirm');
+  if (p) return launch(p, null);
+  if (d.run) return d.run();
+  if (d.cat) return nb('openCategory', d.cat);
+  if (d.settings) return nb('openSettings', d.settings);
+}
+function dockOptions(i) {
+  const d = DOCK[i];
+  if (d.fixed) { Snd.bump(); return; }
+  Snd.select();
+  openMenu(d.label + ' button', [
+    { label: 'Open a different app with this button…', run: () => openAll({ mode: 'pick', title: 'Choose an app for “' + d.label + '”', onPick: pkg => {
+        const m = store.get('dockApps', {}); m[d.id] = pkg; store.set('dockApps', m); refreshSel(); toast(d.label + ' button now opens ' + BY[pkg].label);
+      } }) },
+    dockApp(d) ? { label: 'Reset to default', run: () => { const m = store.get('dockApps', {}); delete m[d.id]; store.set('dockApps', m); refreshSel(); } } : null,
+  ]);
+}
+
+function renderRow() {
+  const all = homeList(), shown = all.slice(0, MAX_HOME);
+  const row = $('#row'); row.innerHTML = '';
+  Hm.items = [];
+  shown.forEach(pkg => {
+    const t = el('div', 'tile g'); artBox(pkg, 512, t);
+    t.style.setProperty('--i', Hm.items.length);
+    row.appendChild(t); Hm.items.push({ type: 'app', pkg, el: t });
+  });
+  if (all.length > MAX_HOME) {
+    const t = el('div', 'tile g allTile', svg('grid') + '<span>All Software</span>');
+    row.appendChild(t); Hm.items.push({ type: 'all', el: t });
+  }
+  Hm.items.forEach((it, i) => onPress(it.el, () => tapRow(i), () => { selectRow(i); rowOptions(); }));
+  for (let i = Hm.items.length; i < 6; i++) {
+    const s = el('div', 'tile slot'); s.style.setProperty('--i', i); onPress(s, () => { Snd.select(); openAll({ mode: 'add', title: 'Add software to Home' }); });
+    row.appendChild(s);
+  }
+  Hm.idx = clamp(Hm.idx, 0, Math.max(0, Hm.items.length - 1));
+  if (!Hm.items.length) Hm.zone = 'dock';
+  refreshSel();
+}
+
+function refreshSel() {
+  const ov = !!topOverlay();
+  Hm.items.forEach((it, i) => it.el.classList.toggle('sel', !ov && Hm.zone === 'row' && i === Hm.idx));
+  dockEls.forEach((b, i) => b.classList.toggle('sel', !ov && Hm.zone === 'dock' && i === Hm.dockIdx));
+  updateTitle(); updateDockLabel(); updateHints();
+}
+function updateTitle() {
+  const t = $('#gameTitle'), it = Hm.items[Hm.idx];
+  if (topOverlay() || Hm.zone !== 'row' || !it) { t.style.opacity = 0; return; }
+  t.textContent = it.type === 'all' ? 'All Software' : (BY[it.pkg] ? BY[it.pkg].label : '');
+  positionTitle(); t.style.opacity = 1;
+}
+function positionTitle() {
+  const it = Hm.items[Hm.idx]; if (!it) return;
+  const t = $('#gameTitle');
+  const x = it.el.getBoundingClientRect().left;
+  const maxX = window.innerWidth - t.offsetWidth - 12;
+  t.style.transform = `translateX(${Math.max(8, Math.min(x, maxX))}px)`;
+}
+function updateDockLabel() {
+  const s = $('#dockLabel span');
+  if (topOverlay() || Hm.zone !== 'dock') { s.style.opacity = 0; return; }
+  const b = dockEls[Hm.dockIdx]; if (!b) return;
+  s.textContent = dockLabelText(DOCK[Hm.dockIdx]);
+  const r = b.getBoundingClientRect(), pr = $('#dockLabel').getBoundingClientRect();
+  s.style.left = (r.left + r.width / 2 - pr.left) + 'px'; s.style.opacity = 1;
+}
+function ensureRowVisible(smooth = true) {
+  const it = Hm.items[Hm.idx]; if (!it) return;
+  const wrap = $('#rowWrap'), side = $('#row').offsetLeft + parseFloat(getComputedStyle($('#row')).paddingLeft);
+  const left = it.el.offsetLeft, w = it.el.offsetWidth, view = wrap.clientWidth;
+  let target = wrap.scrollLeft;
+  if (left - target < side) target = left - side;
+  else if (left + w - target > view - side) target = left + w - (view - side);
+  if (Math.abs(target - wrap.scrollLeft) > 1) wrap.scrollTo({ left: target, behavior: smooth ? 'smooth' : 'auto' });
+}
+function selectRow(i) { Hm.zone = 'row'; Hm.idx = clamp(i, 0, Hm.items.length - 1); refreshSel(); ensureRowVisible(); }
+function moveRow(d) {
+  if (!Hm.items.length) { Snd.bump(); return; }
+  const n = Hm.idx + d;
+  if (n < 0 || n >= Hm.items.length) { Snd.bump(); nudge(Hm.items[Hm.idx].el, d); return; }
+  Hm.idx = n; Snd.tick(); buzz(); refreshSel(); ensureRowVisible();
+}
+function nudge(node, d) {
+  const c = d < 0 ? 'nudgeL' : 'nudgeR';
+  node.classList.remove('nudgeL', 'nudgeR'); void node.offsetWidth; node.classList.add(c);
+  setTimeout(() => node.classList.remove(c), 260);
+}
+function tapRow(i) {
+  const wasSel = Hm.zone === 'row' && Hm.idx === i;
+  selectRow(i);
+  if (cfg.oneTap || wasSel) activateRow(i); else { Snd.tick(); buzz(); }
+}
+function activateRow(i) {
+  const it = Hm.items[i]; if (!it) return;
+  if (it.type === 'all') { Snd.select(); openAll({}); } else launch(it.pkg, it.el);
+}
+function rowOptions() {
+  const it = Hm.items[Hm.idx];
+  if (!it || it.type !== 'app') { Snd.bump(); return; }
+  Snd.select(); appOptions(it.pkg);
+}
+
+let launchLock = false;
+function launch(pkg, node) {
+  if (launchLock) return; launchLock = true; setTimeout(() => { launchLock = false; }, 900);
+  Snd.launch(); buzz('confirm');
+  const played = store.get('played', {}); played[pkg] = Date.now(); store.set('played', played);
+  Hm.launched = true;
+  let r = { left: 0, top: 0, width: 0, height: 0 };
+  if (node) { r = node.getBoundingClientRect(); node.classList.add('launching'); }
+  Music.pause();
+  document.body.classList.add('leaving');
+  setTimeout(() => nb('launch', pkg, r.left, r.top, r.width, r.height), 230);
+  setTimeout(() => {   // if the app never opened, come back
+    document.body.classList.remove('leaving');
+    $$('.launching').forEach(n => n.classList.remove('launching'));
+  }, 2500);
+}
+
+function homePad(b) {
+  if (Hm.zone === 'row') {
+    switch (b) {
+      case 'left': moveRow(-1); break;
+      case 'right': moveRow(1); break;
+      case 'down': Hm.zone = 'dock'; Snd.tick(); buzz(); refreshSel(); break;
+      case 'up': Snd.bump(); break;
+      case 'a': activateRow(Hm.idx); break;
+      case 'plus': case 'x': rowOptions(); break;
+      case 'l': if (Hm.idx) { Snd.tick(); selectRow(0); } else Snd.bump(); break;
+      case 'r': if (Hm.idx < Hm.items.length - 1) { Snd.tick(); selectRow(Hm.items.length - 1); } else Snd.bump(); break;
+      case 'y': Snd.select(); openAll({}); break;
+      case 'minus': Snd.select(); openSettings(); break;
+      case 'b': if (Hm.idx) { Snd.back(); selectRow(0); } break;
+    }
+  } else {
+    switch (b) {
+      case 'left': if (Hm.dockIdx > 0) { Hm.dockIdx--; Snd.tick(); buzz(); refreshSel(); } else { Snd.bump(); nudge(dockEls[0], -1); } break;
+      case 'right': if (Hm.dockIdx < DOCK.length - 1) { Hm.dockIdx++; Snd.tick(); buzz(); refreshSel(); } else { Snd.bump(); nudge(dockEls[DOCK.length - 1], 1); } break;
+      case 'up': case 'b': if (Hm.items.length) { Hm.zone = 'row'; b === 'b' ? Snd.back() : Snd.tick(); buzz(); refreshSel(); ensureRowVisible(); } else Snd.bump(); break;
+      case 'down': Snd.bump(); break;
+      case 'a': runDock(Hm.dockIdx); break;
+      case 'plus': case 'x': dockOptions(Hm.dockIdx); break;
+      case 'y': Snd.select(); openAll({}); break;
+      case 'minus': Snd.select(); openSettings(); break;
+    }
+  }
+}
+
+/* =========================================================
+   Overlay stack
+   ========================================================= */
+const stack = [];
+const topOverlay = () => stack[stack.length - 1];
+function pushOverlay(o) {
+  document.body.appendChild(o.el);
+  stack.push(o);
+  requestAnimationFrame(() => o.el.classList.add('show'));
+  syncFull(); refreshSel();
+}
+function popOverlay(silent) {
+  const o = stack.pop(); if (!o) return;
+  if (!silent) Snd.back();
+  o.el.classList.remove('show');
+  setTimeout(() => o.el.remove(), 200);
+  if (o.onClose) o.onClose();
+  syncFull(); refreshSel();
+}
+function closeAll() { while (stack.length) popOverlay(true); }
+function syncFull() { document.body.classList.toggle('full', stack.some(o => o.full)); }
+function refreshOverlays() { stack.forEach(o => o.refresh && o.refresh()); }
+
+const BTN = { a: 'A', b: 'B', x: 'X', y: 'Y', plus: '+', minus: '−', l: 'L', r: 'R' };
+function updateHints() {
+  const top = topOverlay();
+  const list = top ? top.hints() : (Hm.zone === 'dock' && DOCK[Hm.dockIdx].fixed ? [['a', 'OK']] : [['plus', 'Options'], ['a', 'OK']]);
+  const box = $('#hints'); box.innerHTML = '';
+  list.forEach(([btn, label]) => {
+    const s = el('span', 'hint', `<i class="btn">${BTN[btn]}</i>${esc(label)}`);
+    onPress(s, () => window.onPad(btn, false, true));
+    box.appendChild(s);
+  });
+}
+
+/* ---------- menu ---------- */
+function openMenu(title, items) {
+  items = items.filter(Boolean);
+  const back = el('div', 'ov back'), m = el('div', 'menu');
+  if (title) m.appendChild(el('div', 'menuTitle', esc(title)));
+  let sel = 0;
+  const paint = () => { els.forEach((e, i) => e.classList.toggle('sel', i === sel)); els[sel] && els[sel].scrollIntoView({ block: 'nearest' }); };
+  const choose = () => { const it = items[sel]; if (!it) return; Snd.select(); popOverlay(true); it.run(); };
+  const els = items.map((it, i) => {
+    const e = el('div', 'menuItem g' + (it.danger ? ' danger' : ''), esc(it.label));
+    onPress(e, () => { sel = i; paint(); choose(); });
+    m.appendChild(e); return e;
+  });
+  back.appendChild(m);
+  onPress(back, ev => { if (ev.target === back) popOverlay(); });
+  pushOverlay({
+    el: back,
+    pad(b) {
+      if (b === 'up') { if (sel > 0) { sel--; Snd.tick(); buzz(); paint(); } else Snd.bump(); }
+      else if (b === 'down') { if (sel < els.length - 1) { sel++; Snd.tick(); buzz(); paint(); } else Snd.bump(); }
+      else if (b === 'a') choose();
+      else if (b === 'b' || b === 'plus') popOverlay();
+    },
+    hints: () => [['b', 'Back'], ['a', 'OK']],
+  });
+  paint();
+}
+
+/* ---------- dialog ---------- */
+function openDialog(title, text, buttons) {
+  const back = el('div', 'ov back'), d = el('div', 'dialog');
+  d.innerHTML = `<h2>${esc(title)}</h2><p>${esc(text)}</p>`;
+  const row = el('div', 'dbtns'); d.appendChild(row); back.appendChild(d);
+  let sel = Math.max(0, buttons.findIndex(b => b.primary));
+  const paint = () => els.forEach((e, i) => e.classList.toggle('sel', i === sel));
+  const choose = () => { const bt = buttons[sel]; Snd.select(); popOverlay(true); bt.run && bt.run(); };
+  const els = buttons.map((bt, i) => {
+    const e = el('div', 'dbtn g' + (bt.primary ? ' primary' : ''), esc(bt.label));
+    onPress(e, () => { sel = i; paint(); choose(); }); row.appendChild(e); return e;
+  });
+  pushOverlay({
+    el: back,
+    pad(b) {
+      if (b === 'left') { if (sel > 0) { sel--; Snd.tick(); paint(); } else Snd.bump(); }
+      else if (b === 'right') { if (sel < els.length - 1) { sel++; Snd.tick(); paint(); } else Snd.bump(); }
+      else if (b === 'a') choose();
+      else if (b === 'b') { popOverlay(); const c = buttons.find(x => x.cancel); c && c.run && c.run(); }
+    },
+    hints: () => [['b', 'Back'], ['a', 'OK']],
+  });
+  paint();
+}
+
+/* ---------- text prompt ---------- */
+function openPrompt(title, value, placeholder, onOk, noteHtml) {
+  const back = el('div', 'ov back'), d = el('div', 'dialog');
+  d.innerHTML = `<h2>${esc(title)}</h2>${noteHtml ? `<p>${noteHtml}</p>` : ''}
+    <input class="field" type="text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="${esc(placeholder)}" placeholder="${esc(placeholder)}">`;
+  const input = $('input', d); input.value = value || '';
+  const row = el('div', 'dbtns'); d.appendChild(row); back.appendChild(d);
+  let sel = 1;
+  const done = ok => { popOverlay(ok); if (ok) { Snd.select(); onOk(input.value); } };
+  const btns = [['Cancel', false], ['OK', true]].map(([l, ok], i) => {
+    const e = el('div', 'dbtn g' + (ok ? ' primary' : ''), l);
+    onPress(e, () => done(ok)); row.appendChild(e); return e;
+  });
+  const paint = () => btns.forEach((e, i) => e.classList.toggle('sel', i === sel));
+  input.addEventListener('focus', () => nb('setTyping', true));
+  input.addEventListener('blur', () => nb('setTyping', false));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); done(true); } else if (e.key === 'Escape') { e.preventDefault(); done(false); } });
+  pushOverlay({
+    el: back,
+    pad(b) {
+      if (b === 'left' || b === 'right') { sel = b === 'left' ? 0 : 1; Snd.tick(); paint(); }
+      else if (b === 'up') input.focus();
+      else if (b === 'down') input.blur();
+      else if (b === 'a') done(btns[sel] && sel === 1);
+      else if (b === 'b') done(false);
+    },
+    hints: () => [['b', 'Cancel'], ['a', 'OK']],
+    onClose: () => { input.blur(); nb('setTyping', false); },
+  });
+  paint();
+  setTimeout(() => { input.focus(); input.select(); }, 260);
+}
+
+/* ---------- SteamGridDB cover art ---------- */
+const SGDB_NOTE = 'Covers come from <b>SteamGridDB</b>. Make a free account at steamgriddb.com, then copy your API key from <b>Preferences › API</b> and paste it here.';
+function needKey(then) {
+  if (cfg.sgdbKey) return then();
+  openPrompt('SteamGridDB API key', '', 'Paste your API key', v => {
+    cfg.sgdbKey = v.trim(); saveCfg(); refreshOverlays();
+    if (cfg.sgdbKey) then();
+  }, SGDB_NOTE);
+}
+function sgdbError(e) {
+  const msg = String(e || 'Something went wrong');
+  if (/key|401|403/i.test(msg)) {
+    openDialog('SteamGridDB key problem', msg + ' Check the key in Settings › Cover Art.', [{ label: 'OK', primary: true }]);
+  } else showToast(msg, 3000);
+}
+function sgdbFind(pkg, term) {
+  const a = BY[pkg]; if (!a) return;
+  term = term || a.label;
+  needKey(async () => {
+    showToast('Searching SteamGridDB…', 15000);
+    try {
+      const games = await nbAsync('sgdbSearch', cfg.sgdbKey, term);
+      hideToast();
+      const searchOther = { label: 'Search a different name…', run: () => openPrompt('Search SteamGridDB', term, 'Game name', v => v.trim() && sgdbFind(pkg, v.trim())) };
+      if (!games.length) { openMenu('No matches for “' + term + '”', [searchOther]); return; }
+      openMenu('Which game is “' + a.label + '”?', games.slice(0, 8).map(g => ({
+        label: g.name + (g.year ? '  (' + g.year + ')' : ''), run: () => sgdbPick(pkg, g),
+      })).concat([searchOther]));
+    } catch (e) { hideToast(); sgdbError(e); }
+  });
+}
+async function sgdbPick(pkg, game) {
+  showToast('Loading covers…', 15000);
+  try {
+    const grids = await nbAsync('sgdbGrids', cfg.sgdbKey, game.id);
+    hideToast();
+    if (!grids.length) { toast('No covers for ' + game.name + ' yet'); return; }
+    openCoverPicker(pkg, game.name, grids);
+  } catch (e) { hideToast(); sgdbError(e); }
+}
+async function sgdbApply(pkg, url) {
+  showToast('Downloading cover…', 20000);
+  try {
+    await nbAsync('sgdbApply', pkg, url);
+    if (BY[pkg]) BY[pkg].cover = true; bumpCover(pkg); showToast('Cover art updated', 2000);
+  } catch (e) { hideToast(); sgdbError(e); }
+}
+function openCoverPicker(pkg, name, grids) {
+  const ov = el('section', 'ov full');
+  ov.innerHTML = `<div class="ovTitle">${svg('album')}<span>${esc(name)}</span></div><div class="ovRule"></div>
+    <div class="tabs"><span class="t on">SteamGridDB covers</span></div><div class="grid"></div>`;
+  const grid = $('.grid', ov);
+  let sel = 0;
+  const cells = grids.map((g, i) => {
+    const c = el('div', 'cell'), art = el('div', 'art g');
+    c.style.setProperty('--i', i);
+    const img = el('img'); img.alt = ''; img.loading = 'lazy'; img.src = g.thumb || g.url; art.appendChild(img);
+    if (g.width && g.height) art.appendChild(el('span', 'src', g.width + '×' + g.height));
+    c.appendChild(art); c.appendChild(el('div', 'nm', esc(g.style ? g.style.replace(/_/g, ' ') : 'Cover ' + (i + 1))));
+    onPress(c, () => { sel = i; paint(); act(); });
+    grid.appendChild(c); return c;
+  });
+  const paint = () => { cells.forEach((c, i) => { c.classList.toggle('sel', i === sel); c.firstChild.classList.toggle('sel', i === sel); }); const c = cells[sel]; c && c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
+  const cols = () => { if (cells.length < 2) return 1; const t0 = cells[0].offsetTop; let n = 0; for (const c of cells) { if (c.offsetTop !== t0) break; n++; } return n; };
+  const move = d => { const n = sel + d; if (n < 0 || n >= cells.length) { Snd.bump(); return; } sel = n; Snd.tick(); buzz(); paint(); };
+  const act = () => { const g = grids[sel]; if (!g) return; Snd.select(); popOverlay(true); sgdbApply(pkg, g.url); };
+  pushOverlay({
+    el: ov, full: true,
+    pad(b) {
+      if (b === 'left') move(-1); else if (b === 'right') move(1);
+      else if (b === 'up') move(-cols()); else if (b === 'down') move(cols());
+      else if (b === 'a') act(); else if (b === 'b') popOverlay();
+    },
+    hints: () => [['b', 'Back'], ['a', 'Use this cover']],
+  });
+  paint();
+}
+function sgdbAll() {
+  needKey(async () => {
+    const list = homeList().filter(p => BY[p] && !BY[p].cover);
+    if (!list.length) { toast('Every game on Home already has cover art'); return; }
+    let got = 0;
+    for (let i = 0; i < list.length; i++) {
+      const pkg = list[i];
+      showToast(`Fetching covers… ${i + 1} of ${list.length}`, 30000);
+      try {
+        const games = await nbAsync('sgdbSearch', cfg.sgdbKey, BY[pkg].label);
+        if (!games.length) continue;
+        const grids = await nbAsync('sgdbGrids', cfg.sgdbKey, games[0].id);
+        if (!grids.length) continue;
+        await nbAsync('sgdbApply', pkg, grids[0].url);
+        BY[pkg].cover = true; bumpCover(pkg); got++;
+      } catch (e) {
+        if (/key|401|403/i.test(String(e))) { hideToast(); sgdbError(e); return; }
+      }
+    }
+    showToast(`Found covers for ${got} of ${list.length} games`, 3200);
+  });
+}
+
+/* ---------- app options ---------- */
+function appOptions(pkg) {
+  const a = BY[pkg]; if (!a) return;
+  const onHome = homeList().includes(pkg);
+  openMenu(a.label, [
+    { label: 'Start', run: () => launch(pkg, null) },
+    onHome ? { label: 'Remove from Home', run: () => { setOnHome(pkg, false); toast('Removed from Home'); } }
+           : { label: 'Add to Home', run: () => { setOnHome(pkg, true); toast('Added to Home'); } },
+    { label: 'Rename…', run: () => renameApp(pkg) },
+    a.label !== a.orig ? { label: 'Use original name', run: () => { const n = store.get('names', {}); delete n[pkg]; store.set('names', n); reloadApps(); } } : null,
+    { label: 'Find cover on SteamGridDB…', run: () => sgdbFind(pkg) },
+    { label: 'Use a picture as cover…', run: () => nb('pickCover', pkg) },
+    a.cover ? { label: 'Reset cover art', run: () => { nb('removeCover', pkg); a.cover = false; bumpCover(pkg); } } : null,
+    { label: 'App info', run: () => nb('appInfo', pkg) },
+    { label: 'Uninstall', danger: true, run: () => nb('uninstall', pkg) },
+  ]);
+}
+
+/* ---------- all software ---------- */
+function openAll(opts) {
+  opts = opts || {};
+  const ov = el('section', 'ov full');
+  ov.innerHTML = `<div class="ovTitle">${svg('grid')}<span>${esc(opts.title || 'All Software')}</span></div>
+    <div class="ovRule"></div>
+    <div class="tabs"><i class="btn">L</i><span class="t" data-t="games">Games</span><span class="t" data-t="all">All Apps</span><i class="btn">R</i></div>
+    <div class="grid"></div>`;
+  const grid = $('.grid', ov);
+  let tab = opts.mode ? 'all' : (APPS.some(isGameish) ? 'games' : 'all');
+  let list = [], cells = [], sel = 0;
+
+  function build() {
+    const onHome = new Set(homeList());
+    list = tab === 'games' ? APPS.filter(isGameish) : APPS.slice();
+    grid.innerHTML = '';
+    cells = list.map((a, i) => {
+      const c = el('div', 'cell'), art = el('div', 'art g');
+      c.style.setProperty('--i', i);
+      artBox(a.pkg, 256, art);
+      if (onHome.has(a.pkg)) art.appendChild(el('span', 'pin', svg('home')));
+      c.appendChild(art); c.appendChild(el('div', 'nm', esc(a.label)));
+      onPress(c, () => { sel = i; paint(); act(); }, () => { sel = i; paint(); if (!opts.mode) appOptions(a.pkg); });
+      grid.appendChild(c); return c;
+    });
+    if (!list.length) grid.appendChild(el('div', 'empty', tab === 'games'
+      ? 'No games found yet.<br>Switch to <b>All Apps</b> (R) and add any app to Home.'
+      : 'No apps found.'));
+    $$('.t', ov).forEach(t => t.classList.toggle('on', t.dataset.t === tab));
+    sel = clamp(sel, 0, Math.max(0, cells.length - 1));
+    paint(true);
+  }
+  function paint(noScroll) {
+    cells.forEach((c, i) => { c.classList.toggle('sel', i === sel); c.firstChild.classList.toggle('sel', i === sel); });
+    if (!noScroll) ensure();
+  }
+  function cols() {
+    if (cells.length < 2) return 1;
+    const t0 = cells[0].offsetTop; let n = 0;
+    for (const c of cells) { if (c.offsetTop !== t0) break; n++; }
+    return Math.max(1, n);
+  }
+  function ensure() {
+    const c = cells[sel]; if (!c) return;
+    const g = grid.getBoundingClientRect(), r = c.getBoundingClientRect(), pad = g.height * 0.06;
+    if (r.top < g.top + pad) grid.scrollBy({ top: r.top - g.top - pad, behavior: 'smooth' });
+    else if (r.bottom > g.bottom - pad) grid.scrollBy({ top: r.bottom - g.bottom + pad, behavior: 'smooth' });
+  }
+  function move(d) {
+    let n = sel + d;
+    if (d > 1 && n >= cells.length) {
+      const c = cols();
+      n = Math.floor(sel / c) < Math.floor((cells.length - 1) / c) ? cells.length - 1 : -1;
+    }
+    if (n < 0 || n >= cells.length || !cells.length) { Snd.bump(); return; }
+    sel = n; Snd.tick(); buzz(); paint();
+  }
+  function act() {
+    const a = list[sel]; if (!a) return;
+    if (opts.mode === 'pick') { Snd.select(); popOverlay(true); opts.onPick(a.pkg); }
+    else if (opts.mode === 'add') { Snd.select(); popOverlay(true); setOnHome(a.pkg, true); toast('Added ' + a.label + ' to Home'); }
+    else launch(a.pkg, cells[sel].firstChild);
+  }
+  function switchTab(t) { if (t === tab) { Snd.bump(); return; } tab = t; sel = 0; Snd.tick(); build(); grid.scrollTop = 0; }
+  $$('.t', ov).forEach(t => onPress(t, () => switchTab(t.dataset.t)));
+
+  pushOverlay({
+    el: ov, full: true,
+    pad(b) {
+      switch (b) {
+        case 'left': move(-1); break;
+        case 'right': move(1); break;
+        case 'up': move(-cols()); break;
+        case 'down': move(cols()); break;
+        case 'a': act(); break;
+        case 'plus': case 'x': if (!opts.mode && list[sel]) { Snd.select(); appOptions(list[sel].pkg); } else Snd.bump(); break;
+        case 'l': switchTab('games'); break;
+        case 'r': switchTab('all'); break;
+        case 'b': popOverlay(); break;
+      }
+    },
+    hints: () => opts.mode ? [['b', 'Back'], ['a', opts.mode === 'pick' ? 'Choose' : 'Add']] : [['b', 'Back'], ['plus', 'Options'], ['a', 'Start']],
+    refresh: build,
+  });
+  build();
+}
+
+/* ---------- power ---------- */
+function openPower() {
+  openMenu('Power', [
+    { label: 'Choose Home app…', run: () => nb('openSettings', 'home') },
+    { label: 'Android settings', run: () => nb('openSettings', 'system') },
+    { label: 'Battery', run: () => nb('openSettings', 'battery') },
+    { label: 'Restart launcher', run: () => (NATIVE ? nb('reload') : location.reload()) },
+  ]);
+}
+
+/* ---------- avatar ---------- */
+function setAvatar() {
+  $('#avatarDefault').innerHTML = svg('person');
+  const img = $('#avatarImg');
+  img.classList.remove('ok');
+  if (!NATIVE) return;
+  img.onload = () => img.classList.add('ok');
+  img.onerror = () => img.classList.remove('ok');
+  img.src = '/avatar?v=' + store.get('avatarV', 0);
+}
+function avatarMenu() {
+  openMenu('Profile picture', [
+    { label: 'Choose a picture…', run: () => nb('pickAvatar') },
+    { label: 'Remove picture', run: () => { nb('removeAvatar'); store.set('avatarV', Date.now()); setAvatar(); } },
+  ]);
+}
+
+/* =========================================================
+   Themes & live wallpaper
+   ========================================================= */
+const THEMES = [['white', 'Basic White'], ['black', 'Basic Black'], ['video', 'Live Wallpaper']];
+const hasVideo = () => !!nb('hasVideo');
+function applyTheme() {
+  const t = cfg.theme === 'video' && !hasVideo() ? 'black' : cfg.theme;
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.style.setProperty('--dim', cfg.dim);
+  nb('setMode', t === 'white' ? 'light' : t);
+  if (t === 'video') nb('setVideoBlur', cfg.blur | 0);
+  if (!NATIVE) $('#fakeVideo').style.display = t === 'video' ? 'block' : 'none';
+}
+function setTheme(t) {
+  if (t === 'video' && !hasVideo()) { toast('Choose a video file for your live wallpaper'); nb('pickVideo'); return; }
+  cfg.theme = t; saveCfg(); applyTheme(); Snd.select(); buzz('confirm'); refreshOverlays();
+}
+window.onVideoProgress = p => showToast('Importing video… ' + p + '%', 10000);
+window.onVideoPicked = (ok, msg) => {
+  if (ok) { cfg.theme = 'video'; saveCfg(); applyTheme(); showToast('Live wallpaper set', 2200); refreshOverlays(); }
+  else if (msg) showToast(msg, 2600);
+  else hideToast();
+};
+window.onImagePicked = (kind, pkg, ok) => {
+  if (!ok) { toast("Couldn't use that picture"); return; }
+  if (kind === 'avatar') { store.set('avatarV', Date.now()); setAvatar(); }
+  else if (kind === 'cover') { if (BY[pkg]) BY[pkg].cover = true; bumpCover(pkg); toast('Cover art updated'); }
+};
+
+/* =========================================================
+   Settings
+   ========================================================= */
+const blurOK = () => (nb('sdk') || 0) >= 31;
+const SETTINGS = [
+  { name: 'Themes', rows: () => [
+    { type: 'themes', label: 'Theme' },
+    { type: 'action', label: 'Live wallpaper video', desc: 'Pick any video file. It loops silently behind your home screen.',
+      value: () => hasVideo() ? 'Change video' : 'Choose video', run: () => nb('pickVideo') },
+    { type: 'slider', label: 'Wallpaper dimming', min: 0, max: 0.8, step: 0.05, get: () => cfg.dim,
+      set: v => { cfg.dim = v; saveCfg(); applyTheme(); }, fmt: v => Math.round(v * 100) + '%' },
+    blurOK() ? { type: 'slider', label: 'Wallpaper blur', min: 0, max: 25, step: 1, get: () => cfg.blur,
+      set: v => { cfg.blur = v; saveCfg(); applyTheme(); }, fmt: v => v ? String(v) : 'Off' } : null,
+  ] },
+  { name: 'Home Screen', rows: () => [
+    { type: 'choice', label: 'Clock', key: 'clock', options: [['system', 'System'], ['12', '12-hour'], ['24', '24-hour']], after: updateClock },
+    { type: 'toggle', label: 'Show battery percentage', key: 'batPct', after: updateStatus },
+    { type: 'toggle', label: 'Start software with one tap', desc: 'Off: first tap selects, second tap starts.', key: 'oneTap' },
+    { type: 'action', label: 'Profile picture', value: () => 'Change', run: avatarMenu },
+    { type: 'action', label: 'Restore removed games', value: () => Object.keys(store.get('hidden', {})).length + ' hidden',
+      run: () => { store.set('hidden', {}); renderRow(); toast('Removed games restored'); } },
+  ] },
+  { name: 'Controls', rows: () => [
+    { type: 'toggle', label: 'Swap A and B buttons', desc: 'Use this if confirm/back feel reversed on your controller.', key: 'swapAB', after: () => nb('setSwapAB', cfg.swapAB) },
+    { type: 'action', label: 'Pair a controller', value: () => 'Bluetooth', run: () => nb('openSettings', 'bluetooth') },
+  ] },
+  { name: 'Cover Art', rows: () => [
+    { type: 'action', label: 'SteamGridDB API key', desc: 'Free from steamgriddb.com › Preferences › API.',
+      value: () => cfg.sgdbKey ? 'Set ✓' : 'Add key', run: () => openPrompt('SteamGridDB API key', cfg.sgdbKey, 'Paste your API key', v => { cfg.sgdbKey = v.trim(); saveCfg(); refreshOverlays(); }, SGDB_NOTE) },
+    { type: 'action', label: 'Fetch covers for my games', desc: 'Finds art for every game on Home that has none yet.', value: () => '', run: sgdbAll },
+    { type: 'info', label: 'Tip', value: () => 'Press + on any game for more cover options' },
+  ] },
+  { name: 'Sound', rows: () => [
+    { type: 'toggle', label: 'Ambient music', key: 'music', after: () => (cfg.music ? Music.resume() : Music.stop()) },
+    { type: 'slider', label: 'Music volume', min: 0, max: 1, step: 0.05, get: () => cfg.musicVol,
+      set: v => { cfg.musicVol = v; saveCfg(); Music.setVol(); }, fmt: v => Math.round(v * 100) + '%' },
+    { type: 'choice', label: 'Music', key: 'musicSrc', options: [['builtin', 'Built-in ambient'], ['custom', 'Your music file']],
+      after: () => { if (cfg.musicSrc === 'custom' && !hasMusic()) nb('pickMusic'); else Music.restart(); } },
+    { type: 'action', label: 'Choose a music file', desc: 'Any song or loop; it plays quietly on repeat.', value: () => hasMusic() ? 'Change' : 'Choose', run: () => nb('pickMusic') },
+    { type: 'toggle', label: 'Sound effects', key: 'sounds' },
+    { type: 'toggle', label: 'Vibration', key: 'haptics' },
+  ] },
+  { name: 'System', rows: () => [
+    { type: 'action', label: 'Home app', value: () => nb('isDefaultHome') ? 'NSXL ✓' : 'Set as Home app', run: () => nb('openSettings', 'home') },
+    { type: 'choice', label: 'Screen orientation', key: 'orientation', options: [['landscape', 'Landscape'], ['auto', 'Auto-rotate']], after: () => nb('setOrientation', cfg.orientation) },
+    { type: 'toggle', label: 'Hide status & navigation bars', key: 'immersive', after: () => nb('setImmersive', cfg.immersive) },
+    { type: 'action', label: 'Android settings', value: () => '', run: () => nb('openSettings', 'system') },
+    { type: 'info', label: 'Version', value: () => nb('version') || '1.0' },
+  ] },
+];
+
+function openSettings(startCat) {
+  const ov = el('section', 'ov full');
+  ov.innerHTML = `<div class="ovTitle">${svg('gear')}<span>Launcher Settings</span></div><div class="ovRule"></div>
+    <nav class="setNav"></nav><div class="setPane"></div>`;
+  const nav = $('.setNav', ov), pane = $('.setPane', ov);
+  let cat = startCat || 0, focus = 'nav', row = 0, rows = [], rowEls = [];
+  let tIdx = Math.max(0, THEMES.findIndex(t => t[0] === cfg.theme));
+
+  const navEls = SETTINGS.map((s, i) => {
+    const e = el('div', 'navItem g', esc(s.name));
+    onPress(e, () => { if (cat !== i) { cat = i; row = 0; renderPane(); } focus = 'nav'; Snd.tick(); paint(); });
+    nav.appendChild(e); return e;
+  });
+
+  function renderPane() {
+    rows = SETTINGS[cat].rows().filter(Boolean);
+    row = clamp(row, 0, rows.length - 1);
+    pane.innerHTML = '';
+    rowEls = rows.map((r, i) => { const e = rowEl(r, i); pane.appendChild(e); return e; });
+  }
+  function rowEl(r, i) {
+    const e = el('div', 'setRow g ' + r.type);
+    if (r.type === 'themes') {
+      e.innerHTML = `<span class="lbl">${esc(r.label)}</span><div class="tcards"></div>`;
+      const box = $('.tcards', e);
+      THEMES.forEach(([id, name], k) => {
+        const c = el('div', 'tcard' + (cfg.theme === id ? ' cur' : ''),
+          `<div class="tprev ${id} g"><div class="in"><i></i><i></i><i></i><i></i><b></b></div><span class="check">${svg('check')}</span></div>${esc(name)}`);
+        onPress(c, () => { row = i; focus = 'pane'; tIdx = k; paint(); setTheme(id); });
+        box.appendChild(c);
+      });
+      return e;
+    }
+    e.innerHTML = `<span class="lbl">${esc(r.label)}${r.desc ? `<span class="desc">${esc(r.desc)}</span>` : ''}</span><span class="val"></span>`;
+    fillVal(r, $('.val', e));
+    onPress(e, ev => {
+      row = i; focus = 'pane'; paint();
+      if (r.type === 'slider') {
+        const bar = $('.bar', e), br = bar.getBoundingClientRect();
+        if (ev.clientX >= br.left - 10 && ev.clientX <= br.right + 10) {
+          const f = clamp((ev.clientX - br.left) / br.width, 0, 1);
+          r.set(Math.round((r.min + f * (r.max - r.min)) / r.step) * r.step); Snd.tick(); fillVal(r, $('.val', e)); return;
+        }
+        adjust(r, 1); return;
+      }
+      activate(r);
+    });
+    return e;
+  }
+  function fillVal(r, v) {
+    if (r.type === 'toggle') v.innerHTML = `<span class="sw${cfg[r.key] ? ' on' : ''}"><i></i></span>`;
+    else if (r.type === 'choice') { const o = r.options.find(x => x[0] === cfg[r.key]) || r.options[0]; v.innerHTML = `<span class="arr">‹</span>${esc(o[1])}<span class="arr">›</span>`; }
+    else if (r.type === 'slider') { const val = r.get(), p = (val - r.min) / (r.max - r.min) * 100; v.innerHTML = `<span class="bar"><i style="width:${p}%"></i></span><span class="num">${esc(r.fmt(val))}</span>`; }
+    else if (r.type === 'action') v.innerHTML = `${esc(r.value ? r.value() : '')}<span class="chev">›</span>`;
+    else if (r.type === 'info') v.textContent = r.value();
+  }
+  function refreshRow(i) { const r = rows[i], e = rowEls[i]; if (r && e && r.type !== 'themes') fillVal(r, $('.val', e)); }
+  function activate(r) {
+    if (r.type === 'toggle') { cfg[r.key] = !cfg[r.key]; saveCfg(); r.after && r.after(); Snd.select(); buzz(); refreshRow(row); }
+    else if (r.type === 'choice') adjust(r, 1);
+    else if (r.type === 'action') { Snd.select(); r.run(); }
+    else if (r.type === 'slider') adjust(r, 1);
+    else if (r.type === 'themes') setTheme(THEMES[tIdx][0]);
+  }
+  function adjust(r, d) {
+    if (r.type === 'choice') {
+      const k = r.options.findIndex(x => x[0] === cfg[r.key]);
+      cfg[r.key] = r.options[(k + d + r.options.length) % r.options.length][0];
+      saveCfg(); r.after && r.after(); Snd.tick(); buzz(); refreshRow(row); return true;
+    }
+    if (r.type === 'slider') {
+      const v = clamp(Math.round((r.get() + d * r.step) / r.step) * r.step, r.min, r.max);
+      if (Math.abs(v - r.get()) < 1e-9) { Snd.bump(); return true; }
+      r.set(+v.toFixed(3)); Snd.tick(); refreshRow(row); return true;
+    }
+    if (r.type === 'toggle') {
+      const want = d > 0; if (cfg[r.key] === want) { Snd.bump(); return true; }
+      cfg[r.key] = want; saveCfg(); r.after && r.after(); Snd.tick(); refreshRow(row); return true;
+    }
+    if (r.type === 'themes') {
+      const n = tIdx + d;
+      if (n < 0) return false;
+      if (n >= THEMES.length) { Snd.bump(); return true; }
+      tIdx = n; Snd.tick(); buzz(); paint(); return true;
+    }
+    return false;
+  }
+  function paint() {
+    navEls.forEach((e, i) => { e.classList.toggle('cur', i === cat); e.classList.toggle('sel', focus === 'nav' && i === cat); });
+    rowEls.forEach((e, i) => e.classList.toggle('sel', focus === 'pane' && i === row && rows[i].type !== 'themes'));
+    rowEls.forEach((e, i) => {
+      if (rows[i].type !== 'themes') return;
+      $$('.tcard', e).forEach((c, k) => {
+        c.classList.toggle('cur', THEMES[k][0] === cfg.theme);
+        $('.tprev', c).classList.toggle('sel', focus === 'pane' && i === row && k === tIdx);
+      });
+    });
+    const e = rowEls[row];
+    if (focus === 'pane' && e) e.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  renderPane();
+  pushOverlay({
+    el: ov, full: true,
+    pad(b) {
+      if (focus === 'nav') {
+        if (b === 'up' || b === 'down') {
+          const n = cat + (b === 'up' ? -1 : 1);
+          if (n < 0 || n >= SETTINGS.length) { Snd.bump(); return; }
+          cat = n; row = 0; Snd.tick(); buzz(); renderPane(); paint();
+        } else if (b === 'right' || b === 'a') { focus = 'pane'; row = 0; tIdx = Math.max(0, THEMES.findIndex(t => t[0] === cfg.theme)); Snd.tick(); paint(); }
+        else if (b === 'b') popOverlay();
+      } else {
+        const r = rows[row];
+        if (b === 'up' || b === 'down') {
+          const n = row + (b === 'up' ? -1 : 1);
+          if (n < 0 || n >= rows.length) { Snd.bump(); return; }
+          row = n; Snd.tick(); buzz(); paint();
+        } else if (b === 'left') { if (!adjust(r, -1)) { focus = 'nav'; Snd.tick(); paint(); } }
+        else if (b === 'right') { if (!adjust(r, 1)) Snd.bump(); }
+        else if (b === 'a') activate(r);
+        else if (b === 'b') { focus = 'nav'; Snd.back(); paint(); }
+      }
+    },
+    hints: () => [['b', 'Back'], ['a', 'OK']],
+    refresh() { renderPane(); paint(); },
+  });
+  paint();
+}
+
+/* =========================================================
+   Status bar: clock, wifi, battery, controller
+   ========================================================= */
+let sys24 = false;
+function updateClock() {
+  const d = new Date(); let h = d.getHours(); const m = String(d.getMinutes()).padStart(2, '0');
+  const use24 = cfg.clock === '24' || (cfg.clock === 'system' && sys24);
+  if (use24) { $('#hm').textContent = h + ':' + m; $('#ampm').textContent = ''; }
+  else { $('#ampm').textContent = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; $('#hm').textContent = h + ':' + m; }
+}
+function updateStatus() {
+  let st = {};
+  try { st = JSON.parse(nb('getStatus') || '{}'); } catch (e) {}
+  sys24 = !!st.time24;
+  const lvl = st.battery == null ? 100 : st.battery;
+  const bat = $('#bat');
+  bat.innerHTML = batterySvg(lvl, !!st.charging);
+  bat.classList.toggle('chg', !!st.charging);
+  bat.classList.toggle('low', !st.charging && lvl <= 15);
+  $('#batPct').textContent = cfg.batPct ? lvl + '%' : '';
+  $('#net').innerHTML = st.net === 'cell' ? cellSvg(st.bars || 0) : wifiSvg(st.bars || 0, st.net === 'wifi' || st.net === 'ethernet');
+  $('#padInd').classList.toggle('on', (st.pads || 0) > 0);
+  updateClock();
+}
+
+/* =========================================================
+   Toast
+   ========================================================= */
+let toastT = 0;
+function showToast(msg, ms) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(hideToast, ms || 2200);
+}
+function hideToast() { $('#toast').classList.remove('show'); }
+const toast = msg => showToast(msg, 2200);
+window.toast = toast;
+
+/* =========================================================
+   Input from the native side (controller / keys)
+   ========================================================= */
+let lastPad = { b: '', t: 0 };
+window.onPad = (b, repeat, fromTouch) => {
+  const now = performance.now();
+  if (!repeat && !fromTouch && b === lastPad.b && now - lastPad.t < 70) return;  // drop duplicate d-pad events
+  lastPad = { b, t: now };
+  Snd.unlock();
+  const top = topOverlay();
+  if (top) top.pad(b, repeat); else homePad(b, repeat);
+};
+window.onPauseApp = () => Music.pause();
+window.onResumeApp = () => {
+  updateStatus();
+  document.body.classList.remove('leaving');
+  $$('.launching').forEach(n => n.classList.remove('launching'));
+  Music.resume();
+  if (Hm.launched) {
+    Hm.launched = false;
+    renderRow();
+    if (!topOverlay()) { Hm.idx = 0; Hm.zone = Hm.items.length ? 'row' : 'dock'; }
+    $('#rowWrap').scrollLeft = 0;
+    refreshSel();
+    const home = $('#home'); home.classList.remove('enter'); void home.offsetWidth; home.classList.add('enter');
+  }
+};
+window.onHome = () => {
+  closeAll();
+  Hm.idx = 0; Hm.dockIdx = 0; Hm.zone = Hm.items.length ? 'row' : 'dock';
+  refreshSel(); $('#rowWrap').scrollTo({ left: 0, behavior: 'smooth' });
+};
+window.onAppsChanged = () => { loadApps(); renderRow(); refreshOverlays(); };
+
+if (!NATIVE) {  // keyboard controls for the browser preview
+  const K = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', ' ': 'a',
+              Escape: 'b', Backspace: 'b', '+': 'plus', '=': 'plus', '-': 'minus', x: 'x', y: 'y', q: 'l', e: 'r' };
+  document.addEventListener('keydown', ev => { if (ev.target && ev.target.tagName === 'INPUT') return; const b = K[ev.key]; if (b) { ev.preventDefault(); window.onPad(b, ev.repeat); } });
+}
+
+/* =========================================================
+   Mock bridge — lets the page run in a normal browser
+   ========================================================= */
+function makeMock() {
+  const games = [
+    ['Turbo Drift', '#ff8a00', '#e52e71', 'race'], ['Sky Kingdom', '#43cea2', '#185a9d', 'island'],
+    ['Neon Brawl', '#8e2de2', '#ff0080', 'bolt'], ['Pixel Quest', '#f7971e', '#ffd200', 'pixel'],
+    ['Galaxy Run', '#141e30', '#3a6ea5', 'stars'], ['Tiny Farm', '#a8e063', '#2f8f2f', 'sun'],
+    ['Puzzle Pop', '#ff9a9e', '#f6416c', 'bubbles'], ['Ocean Dive', '#00c6ff', '#0052d4', 'waves'],
+  ];
+  const others = ['Browser', 'Calculator', 'Calendar', 'Camera', 'Clock', 'Files', 'Maps', 'Messages', 'Music', 'Notes', 'Photos', 'Weather'];
+  const apps = games.map((g, i) => ({ pkg: 'demo.game' + i, label: g[0], game: true, installed: 1e12 - i * 1e8, cover: false, art: g }))
+    .concat(others.map((n, i) => ({ pkg: 'demo.app' + i, label: n, game: false, installed: 0, cover: false })));
+  window.__mockApps = apps;
+  return {
+    getApps: () => JSON.stringify(apps.map(({ art, ...a }) => a)),
+    launch: (pkg) => toast('Would start ' + (BY[pkg] ? BY[pkg].label : pkg)),
+    getStatus: () => JSON.stringify({ battery: 76, charging: true, net: 'wifi', bars: 3, pads: 1, time24: false }),
+    hasVideo: () => true,
+    pickVideo: () => { let p = 0; const t = setInterval(() => { p += 20; window.onVideoProgress(p); if (p >= 100) { clearInterval(t); window.onVideoPicked(true, ''); } }, 120); },
+    isDefaultHome: () => false,
+    sdk: () => 34,
+    version: () => '1.0 (preview)',
+    openCategory: c => toast('Opens your ' + c + ' app'),
+    openSettings: s => toast('Opens Android ' + s + ' settings'),
+    pickCover: () => toast('Opens the image picker'),
+    pickAvatar: () => toast('Opens the image picker'),
+    appInfo: () => toast('Opens App info'),
+    uninstall: () => toast('Opens the uninstall prompt'),
+    hasMusic: () => false,
+    pickMusic: () => toast('Opens the file picker'),
+    sgdbSearch: (id, key, term) => setTimeout(() => window.onAsync(id, true, [{ id: 1, name: term, year: 2024 }, { id: 2, name: term + ' Deluxe', year: 2025 }]), 300),
+    sgdbGrids: (id) => setTimeout(() => window.onAsync(id, true, apps.filter(a => a.art).map((a, i) => ({ url: mockArt(a.pkg), thumb: mockArt(a.pkg), width: 1024, height: 1024, style: ['alternate', 'material', 'blurred', 'white_logo'][i % 4] }))), 300),
+    sgdbApply: (id) => setTimeout(() => window.onAsync(id, true, true), 300),
+  };
+}
+function mockArt(pkg) {
+  const a = (window.__mockApps || []).find(x => x.pkg === pkg);
+  if (!a) return '';
+  if (!a.art) {
+    const hue = hash(pkg) % 360;
+    return 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><rect width="200" height="200" fill="hsl(${hue},55%,92%)"/><circle cx="100" cy="100" r="54" fill="hsl(${hue},60%,50%)"/><text x="100" y="122" text-anchor="middle" font-family="Arial" font-weight="700" font-size="60" fill="#fff">${a.label[0]}</text></svg>`);
+  }
+  const [title, c1, c2, kind] = a.art;
+  let s = '';
+  if (kind === 'race') s = [0, 1, 2, 3, 4].map(i => `<rect x="${-40 + i * 50}" y="40" width="18" height="160" fill="#fff" opacity=".18" transform="skewX(-25)"/>`).join('') + '<circle cx="100" cy="92" r="34" fill="none" stroke="#fff" stroke-width="10"/><circle cx="100" cy="92" r="9" fill="#fff"/>';
+  if (kind === 'island') s = '<circle cx="150" cy="45" r="20" fill="#fff6c2"/><ellipse cx="100" cy="125" rx="70" ry="22" fill="#2e7d32"/><path d="M60 125 Q100 40 140 125z" fill="#43a047"/><ellipse cx="100" cy="150" rx="80" ry="10" fill="#fff" opacity=".25"/>';
+  if (kind === 'bolt') s = '<path d="M112 20 60 110h36l-16 70 62-100h-38z" fill="#fff" opacity=".92"/>';
+  if (kind === 'pixel') s = [[60,60],[80,60],[100,60],[120,60],[60,80],[140,80],[60,100],[80,100],[100,100],[120,100],[140,100],[80,120],[120,120]].map(([x, y]) => `<rect x="${x}" y="${y}" width="20" height="20" fill="#5a2d0c" opacity=".85"/>`).join('');
+  if (kind === 'stars') s = Array.from({ length: 26 }, (_, i) => `<circle cx="${(i * 73) % 200}" cy="${(i * 41) % 140}" r="${1 + (i % 3)}" fill="#fff" opacity=".85"/>`).join('') + '<path d="M70 140 l30-70 30 70 -30-15z" fill="#ffd166"/>';
+  if (kind === 'sun') s = '<circle cx="100" cy="70" r="30" fill="#fff59d"/><path d="M0 130 Q50 100 100 125 T200 120 V200 H0z" fill="#33691e"/>';
+  if (kind === 'bubbles') s = '<circle cx="60" cy="70" r="26" fill="#fff" opacity=".55"/><circle cx="125" cy="60" r="34" fill="#fff" opacity=".4"/><circle cx="105" cy="115" r="22" fill="#fff" opacity=".6"/>';
+  if (kind === 'waves') s = '<path d="M0 90 Q25 75 50 90 T100 90 T150 90 T200 90 V200 H0z" fill="#fff" opacity=".2"/><path d="M0 115 Q25 100 50 115 T100 115 T150 115 T200 115 V200 H0z" fill="#fff" opacity=".22"/><circle cx="140" cy="55" r="8" fill="none" stroke="#fff" stroke-width="3"/>';
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${c1}"/><stop offset="1" stop-color="${c2}"/></linearGradient></defs><rect width="200" height="200" fill="url(#g)"/>${s}<text x="100" y="182" text-anchor="middle" font-family="Arial Black, Arial, sans-serif" font-weight="900" font-size="21" fill="#fff" stroke="rgba(0,0,0,.25)" stroke-width="1">${title.toUpperCase()}</text></svg>`);
+}
+
+/* =========================================================
+   Boot
+   ========================================================= */
+function boot() {
+  $('#padInd .padIcon').innerHTML = svg('pad');
+  onPress($('#avatar'), () => { Snd.select(); avatarMenu(); });
+  loadApps();
+  renderDock();
+  renderRow();
+  applyTheme();
+  nb('setSwapAB', cfg.swapAB); nb('setImmersive', cfg.immersive); nb('setOrientation', cfg.orientation);
+  setAvatar();
+  updateStatus();
+  setInterval(updateClock, 1000);
+  setInterval(updateStatus, 15000);
+  $('#rowWrap').addEventListener('scroll', () => requestAnimationFrame(positionTitle), { passive: true });
+  window.addEventListener('resize', () => { refreshSel(); ensureRowVisible(false); });
+  document.body.classList.add('intro');
+  requestAnimationFrame(() => { document.body.classList.add('ready'); refreshSel(); });
+  setTimeout(() => document.body.classList.remove('intro'), 1400);
+  Music.start();
+
+  if (NATIVE && !store.get('askedHome') && !nb('isDefaultHome')) {
+    setTimeout(() => openDialog('Make this your Home screen?',
+      'Pick NSXL as your Home app so the Home button always brings you here.',
+      [{ label: 'Not now', cancel: true, run: () => store.set('askedHome', true) },
+       { label: 'Set as Home', primary: true, run: () => { store.set('askedHome', true); nb('openSettings', 'home'); } }]), 900);
+  }
+}
+boot();
+})();
+</script>
+</body>
+</html>
