@@ -389,6 +389,7 @@ html.calm #bgfx { display: none; }
 .dk.sel { background: var(--selBg); }
 .dk.sel::after, .dk.sel > .ring { border-radius: 50%; inset: calc(var(--u) * -.45); }
 .dk.red { background: #e4202a; }
+.dk.on:not(.sel) { background: rgba(138, 92, 246, .16); }
 .dk.red svg { fill: #fff; stroke: none; width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); }
 #dockLabel { position: relative; width: 100%; height: calc(var(--u) * 3); margin-top: calc(var(--u) * 1.15); }
 #dockLabel span {
@@ -599,7 +600,6 @@ html[data-theme=white] .dbtn.sel { background: #fff; }
 <div id="dim"></div>
 
 <header id="top">
-  <nav id="modeTabs" aria-label="Mode"><i class="btn">L</i><span class="m on" data-m="games">Home</span><span class="m" data-m="ent">Entertainment</span><i class="btn">R</i></nav>
   <div id="avatar"><span id="avatarDefault"></span><img id="avatarImg" alt=""></div>
   <div id="status">
     <span id="clock"><span id="hm">--:--</span><span id="ampm"></span></span>
@@ -966,13 +966,13 @@ const DOCK = [
   { id: 'album',    label: 'Album',        icon: 'album',   color: 'var(--c-blue)',   cat: 'gallery' },
   { id: 'music',    label: 'Music',        icon: 'music',   color: 'var(--c-teal)',   cat: 'music' },
   { id: 'pads',     label: 'Controllers',  icon: 'pad',     color: 'var(--grey)',     settings: 'bluetooth' },
-  { id: 'ent',      label: 'Entertainment', icon: 'film',   color: '#8a5cf6',         run: () => setMode(Hm.mode === 'ent' ? 'games' : 'ent'), fixed: true },
+  { id: 'ent',      label: 'Entertainment', icon: 'film',   color: '#8a5cf6',         run: () => { setMode(Hm.mode === 'ent' ? 'games' : 'ent'); Hm.zone = 'row'; refreshSel(); }, fixed: true },
   { id: 'settings', label: 'Settings',     icon: 'gear',    color: 'var(--grey)',     run: () => openSettings(), fixed: true },
   { id: 'power',    label: 'Power',        icon: 'power',   color: 'var(--grey)',     run: () => openPower(), fixed: true },
 ];
 let dockEls = [];
 const dockApp = d => { const p = store.get('dockApps', {})[d.id]; return p && BY[p] ? p : null; };
-const dockLabelText = d => { const p = dockApp(d); return p ? BY[p].label : d.label; };
+const dockLabelText = d => { if (d.id === 'ent') return Hm.mode === 'ent' ? 'Back to Games' : 'Entertainment'; const p = dockApp(d); return p ? BY[p].label : d.label; };
 
 function renderDock() {
   const dock = $('#dock'); dock.innerHTML = '';
@@ -1445,7 +1445,7 @@ function setMode(m) {
   renderRow();
   Hm.zone = Hm.items.length > 1 || Hm.mode === 'games' ? (Hm.items.length ? 'row' : 'dock') : 'row';
   $('#rowWrap').scrollLeft = 0; refreshSel(); ensureRowVisible(false);
-  $$('#modeTabs .m').forEach(e => e.classList.toggle('on', e.dataset.m === m));
+  const dk = dockEls[DOCK.findIndex(d => d.id === 'ent')]; if (dk) dk.classList.toggle('on', m === 'ent');
   Snd.select(); buzz();
   if (m === 'ent' && !entServices().length) toast('No streaming apps found. Install one, or check Streaming settings.');
 }
@@ -2124,8 +2124,6 @@ function mockArt(pkg) {
    ========================================================= */
 function boot() {
   $('#padInd .padIcon').innerHTML = svg('pad');
-  $$('#modeTabs .m').forEach(e => onPress(e, () => setMode(e.dataset.m)));
-  $$('#modeTabs .btn').forEach((e, i) => onPress(e, () => setMode(i ? 'ent' : 'games')));
   onPress($('#avatar'), () => { Snd.select(); retrigger($('#avatar'), 'wiggle'); setTimeout(avatarMenu, 220); });
   loadApps();
   renderDock();

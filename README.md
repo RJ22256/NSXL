@@ -28,7 +28,7 @@ Big game tiles, a round-button dock, a glowing selection ring, ambient music and
 
 - **Game row.** Your games, emulators and streaming apps sorted by when you last played them. Up to 12 sit on Home; everything else is one press away in **All Software**.
 - **Switch-style motion.** Tiles slide in on start-up, selections pop, games zoom out of their tile when you launch them, and the selection ring sweeps a highlight round the selected item.
-- **Entertainment mode.** Press **R** (or the film button on the dock) and the Home row becomes your streaming apps. Pick one to see up to 50 of the most popular films and shows on that service in your region, with All / Movies / TV tabs, ratings and summaries, plus buttons to open the app or search for the title in it. Data from TMDB.
+- **Entertainment mode.** Press the film button on the dock (or **R**) and the Home row becomes your streaming apps. Pick one to see up to 50 of the most popular films and shows on that service in your region, with All / Movies / TV tabs, ratings and summaries, plus buttons to open the app or search for the title in it. Data from TMDB.
 - **Cover art from SteamGridDB.** Search for any game and pick from hundreds of community covers, or fetch art for every game at once. You can also use any picture from your phone.
 - **Rename anything.** Give apps the name you want shown on their tile.
 - **Ambient music.** A calm built-in soundtrack that's generated on your device, or any music file you choose. It pauses while you play.
@@ -68,7 +68,7 @@ You can also build it yourself with Android Studio, or run `./gradlew assembleDe
 
 1. Make a free account at [themoviedb.org](https://www.themoviedb.org) and copy your API key (or API read access token) from **Settings → API**.
 2. In NSXL, open **Settings → Entertainment** and paste it. Your region is detected automatically; change it there if the lists look wrong.
-3. Press **R** on Home to switch to Entertainment.
+3. Press the film button on the dock (or **R**) to switch to Entertainment; press it again to go back.
 
 Streaming apps NSXL recognises: Netflix, Disney+, Prime Video, Apple TV, Max, Paramount+, Hulu, Peacock, BBC iPlayer, ITVX, Channel 4, NOW, Crunchyroll, MUBI, Tubi and Pluto TV.
 
