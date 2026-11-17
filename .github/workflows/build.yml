@@ -43,6 +43,10 @@ jobs:
           if [ -f "$NOTES" ]; then ARGS=(--notes-file "$NOTES"); else ARGS=(--generate-notes); fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "NSXL-${TAG}.apk" --clobber
+            # A release made on github.com with an empty description gets the prepared notes.
+            if [ -f "$NOTES" ] && [ -z "$(gh release view "$TAG" --json body -q .body)" ]; then
+              gh release edit "$TAG" --notes-file "$NOTES" --title "NSXL ${TAG}"
+            fi
           else
             gh release create "$TAG" "NSXL-${TAG}.apk" --title "NSXL ${TAG}" --latest "${ARGS[@]}"
           fi
