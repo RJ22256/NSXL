@@ -315,6 +315,46 @@ final class LauncherBridge {
         });
     }
 
+    /** Two-letter country for TMDB's watch region: SIM country first, then the phone's locale. */
+    @JavascriptInterface
+    public String region() {
+        try {
+            android.telephony.TelephonyManager tm = (android.telephony.TelephonyManager) a.getSystemService(Context.TELEPHONY_SERVICE);
+            String c = tm == null ? null : tm.getSimCountryIso();
+            if (c != null && c.length() == 2) return c.toUpperCase(java.util.Locale.ROOT);
+        } catch (Exception ignored) { }
+        String c = java.util.Locale.getDefault().getCountry();
+        return c == null || c.length() != 2 ? "GB" : c;
+    }
+
+    @JavascriptInterface
+    public void copyText(final String text) {
+        a.runOnUiThread(() -> {
+            android.content.ClipboardManager cm = (android.content.ClipboardManager) a.getSystemService(Context.CLIPBOARD_SERVICE);
+            if (cm != null) cm.setPrimaryClip(android.content.ClipData.newPlainText("title", text));
+        });
+    }
+
+    /** Opens a web link, preferring the given app (so a streaming app can catch its own search links). */
+    @JavascriptInterface
+    public void openUrl(final String url, final String pkg) {
+        if (url == null || !url.startsWith("https://")) return;
+        a.runOnUiThread(() -> {
+            Intent i = new Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (pkg != null && !pkg.isEmpty()) {
+                try {
+                    a.startActivity(new Intent(i).setPackage(pkg));
+                    return;
+                } catch (Exception ignored) { }
+            }
+            try {
+                a.startActivity(i);
+            } catch (Exception e) {
+                a.jsToast("Couldn't open that link");
+            }
+        });
+    }
+
     @JavascriptInterface
     public int sdk() {
         return Build.VERSION.SDK_INT;
