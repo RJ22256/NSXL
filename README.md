@@ -49,9 +49,11 @@ Big game tiles, a round-button dock, a glowing selection ring, ambient music and
 ## Install
 
 1. Open the [**Actions**](https://github.com/RJ22256/NSXL/actions/workflows/build.yml) tab and tap the latest successful **Build APK** run.
-2. Under **Artifacts**, download **NSXL-apk**. It's a zip containing the `.apk`.
+2. Under **Artifacts**, download **NSXL-v1.0.…** (the number is the build). It's a zip containing the `.apk`.
 3. Unzip it on your device and open the `.apk`. If Android asks, allow your browser or file manager to install apps.
 4. Open NSXL and choose **Set as Home** so the Home button always brings you back to it.
+
+**Updating:** install a newer build the same way and it replaces the old one, keeping your settings, covers and wallpaper.
 
 You can also build it yourself with Android Studio, or run `./gradlew assembleDebug` and take the APK from `app/build/outputs/apk/debug/`.
 
