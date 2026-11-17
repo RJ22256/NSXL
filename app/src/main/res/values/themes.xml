@@ -12,4 +12,9 @@
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowDisablePreview">false</item>
     </style>
+
+    <style name="Invisible" parent="android:Theme.Translucent.NoTitleBar">
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowNoDisplay">false</item>
+    </style>
 </resources>

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="black">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>NSXL Quick Menu</title>
+<script>
+/* Same theme and size as the launcher (they share storage). */
+(function () {
+  try {
+    var c = JSON.parse(localStorage.getItem('ch.cfg') || '{}');
+    document.documentElement.setAttribute('data-theme', c.theme === 'white' ? 'white' : 'black');
+    if (c.scale) document.documentElement.style.setProperty('--scale', c.scale);
+  } catch (e) {}
+})();
+</script>
+<style>
+@font-face { font-family: "Montserrat"; src: url("fonts/Montserrat.ttf") format("truetype"); font-weight: 100 900; font-display: swap; }
+:root {
+  --scale: 1;
+  --u: calc(min(1vw, 1.7778vh) * var(--scale));
+  --font: "Montserrat", "Roboto", system-ui, sans-serif;
+}
+html[data-theme=white] { --panel: #f4f4f4; --panel2: #ffffff; --fg: #232323; --fg2: #5e5e5e; --accent: #1f5fd6; --line: #d9d9d9; --pill: rgba(246,246,246,.96); --selBg: #ffffff; --gapRing: #ffffff; --grey: #7f7f7f; --btn: #232323; --btnFg: #fff; --track: #d6d6d6; }
+html[data-theme=black] { --panel: rgba(22,22,26,.97); --panel2: #262629; --fg: #f2f2f2; --fg2: #a8a8a8; --accent: #4fd2ff; --line: #333; --pill: rgba(16,16,20,.94); --selBg: #2c2c30; --gapRing: #101014; --grey: #b0b0b0; --btn: #e8e8e8; --btnFg: #000; --track: #3a3a40; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; font-family: var(--font); color: #fff; user-select: none; -webkit-user-select: none; }
+svg { display: block; }
+button { font: inherit; color: inherit; border: 0; background: none; padding: 0; margin: 0; }
+.ic { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+#shade { position: fixed; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.28) 0%, rgba(0,0,0,.42) 50%, rgba(0,0,0,.78) 100%); opacity: 0; transition: opacity .25s; }
+body.open #shade { opacity: 1; }
+
+#top { position: fixed; top: calc(var(--u) * 3.4); left: calc(var(--u) * 4); right: calc(var(--u) * 4); display: flex; justify-content: space-between; align-items: center; opacity: 0; transform: translateY(calc(var(--u) * -1.5)); transition: opacity .25s, transform .35s cubic-bezier(.2,.8,.2,1); text-shadow: 0 1px 4px rgba(0,0,0,.5); }
+body.open #top { opacity: 1; transform: none; }
+#title { display: flex; align-items: center; gap: calc(var(--u) * 1); font-size: calc(var(--u) * 2.2); font-weight: 600; }
+#title i { width: calc(var(--u) * 1.4); height: calc(var(--u) * 1.4); border-radius: 50%; background: conic-gradient(#2f6dff, #8fb3ff, #c6a6ff, #ffbfe8, #bdeeff, #2f6dff); animation: spin 3s linear infinite; }
+#status { display: flex; align-items: center; gap: calc(var(--u) * 1.4); font-size: calc(var(--u) * 2.5); font-weight: 500; }
+#ampm { font-size: calc(var(--u) * 1.2); font-weight: 600; margin-left: calc(var(--u) * .3); }
+#bat { font-size: calc(var(--u) * 2); }
+
+/* dock */
+#dockWrap { position: fixed; left: 0; right: 0; bottom: calc(var(--u) * 8); display: flex; flex-direction: column; align-items: center; transform: translateY(calc(var(--u) * 10)); opacity: 0; transition: transform .38s cubic-bezier(.2,.9,.25,1.15), opacity .2s; }
+body.open #dockWrap { transform: none; opacity: 1; }
+#label { height: calc(var(--u) * 3); position: relative; width: 100%; }
+#label span { position: absolute; bottom: calc(var(--u) * .4); transform: translateX(-50%); white-space: nowrap; font-size: calc(var(--u) * 1.8); font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,.6); animation: lblIn .25s cubic-bezier(.2,.8,.2,1); }
+@keyframes lblIn { from { opacity: 0; transform: translate(-50%, calc(var(--u) * .8)); } }
+#dock { display: flex; gap: calc(var(--u) * 1.2); padding: calc(var(--u) * .9) calc(var(--u) * 1.8); border-radius: 999px; background: var(--pill); box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 3) rgba(0,0,0,.35); }
+.dk { --rr: 50%; width: calc(var(--u) * 5.6); height: calc(var(--u) * 5.6); border-radius: 50%; display: grid; place-items: center; position: relative; isolation: isolate; cursor: pointer; color: var(--grey); transition: background .15s; }
+.dk svg { width: calc(var(--u) * 3.1); height: calc(var(--u) * 3.1); }
+.dk.sel { background: var(--selBg); }
+.dk.sel svg { animation: hop .45s cubic-bezier(.3,1.6,.5,1); }
+@keyframes hop { 40% { transform: translateY(calc(var(--u) * -.5)) scale(1.12); } }
+body.inCard .dk.sel { background: transparent; }
+
+/* selection ring (same as the launcher) */
+.g.sel { box-shadow: 0 0 0 calc(var(--u) * .2) var(--gapRing); }
+.g > .ring { display: none; }
+.g.sel > .ring { display: block; position: absolute; z-index: 4; pointer-events: none; overflow: hidden; inset: calc(var(--u) * -.5); border-radius: calc(var(--rr, calc(var(--u) * .8)) + var(--u) * .5); padding: calc(var(--u) * .3);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; }
+.g.sel > .ring > b { position: absolute; left: 50%; top: 50%; width: 175%; aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%);
+  background: conic-gradient(#2f6dff 0deg, #3d7bff 55deg, #8fb3ff 100deg, #c6a6ff 145deg, #ffbfe8 185deg, #ffe2f4 205deg, #bdeeff 245deg, #63a0ff 295deg, #2f6dff 360deg); animation: ringSpin 3s linear infinite; }
+@keyframes ringSpin { to { transform: translate(-50%, -50%) rotate(360deg); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+body.inCard .dk.sel > .ring { opacity: .35; }
+
+/* card */
+#card { position: fixed; bottom: calc(var(--u) * 19); width: calc(var(--u) * 40); max-height: calc(100vh - var(--u) * 30); overflow: hidden; display: flex; flex-direction: column;
+  background: var(--panel); color: var(--fg); border-radius: calc(var(--u) * 1.6); box-shadow: 0 calc(var(--u) * 1.4) calc(var(--u) * 4) rgba(0,0,0,.45);
+  opacity: 0; transform: translateY(calc(var(--u) * 2)) scale(.94); transform-origin: 50% 100%; transition: opacity .2s, transform .32s cubic-bezier(.3,1.4,.5,1), left .28s cubic-bezier(.2,.8,.2,1); }
+body.open #card { opacity: 1; transform: none; }
+#card.swap { animation: cardIn .3s cubic-bezier(.3,1.4,.5,1); }
+@keyframes cardIn { from { opacity: .3; transform: translateY(calc(var(--u) * 1)) scale(.97); } }
+#card h2 { margin: 0; padding: calc(var(--u) * 1.8) calc(var(--u) * 2.2) calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.6); font-weight: 600; color: var(--fg2); border-bottom: 1px solid var(--line); }
+#rows { padding: calc(var(--u) * 1.1); overflow-y: auto; overflow-x: hidden; scrollbar-width: none; }
+.row { --rr: calc(var(--u) * .8); position: relative; isolation: isolate; border-radius: calc(var(--u) * .8); padding: calc(var(--u) * 1.3) calc(var(--u) * 1.4); display: flex; align-items: center; gap: calc(var(--u) * 1.4); font-size: calc(var(--u) * 1.7); cursor: pointer; animation: rowIn .3s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(var(--i, 0) * 35ms); }
+@keyframes rowIn { from { opacity: 0; transform: translateY(calc(var(--u) * .8)); } }
+.row + .row { margin-top: calc(var(--u) * .4); }
+.row.sel { background: var(--selBg); }
+.row .lbl { flex: 1; min-width: 0; }
+.row .sub { display: block; font-size: calc(var(--u) * 1.25); color: var(--fg2); margin-top: calc(var(--u) * .25); }
+.row .val { color: var(--accent); font-size: calc(var(--u) * 1.5); white-space: nowrap; }
+.row svg.lead { width: calc(var(--u) * 2.4); height: calc(var(--u) * 2.4); color: var(--accent); flex: 0 0 auto; }
+.bar { flex: 1; height: calc(var(--u) * .8); border-radius: 999px; background: var(--track); position: relative; }
+.bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: inherit; background: var(--accent); transition: width .2s; }
+.bar b { position: absolute; top: 50%; width: calc(var(--u) * 2); height: calc(var(--u) * 2); border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); transform: translate(-50%, -50%); transition: left .2s; }
+.slider .lbl { flex: 0 0 calc(var(--u) * 11); }
+.slider .val { min-width: calc(var(--u) * 4.5); text-align: right; }
+.sw { width: calc(var(--u) * 5); height: calc(var(--u) * 2.7); border-radius: 999px; background: var(--track); position: relative; transition: background .2s; flex: 0 0 auto; }
+.sw i { position: absolute; top: calc(var(--u) * .3); left: calc(var(--u) * .3); width: calc(var(--u) * 2.1); height: calc(var(--u) * 2.1); border-radius: 50%; background: #fff; transition: transform .3s cubic-bezier(.3,1.6,.5,1); }
+.sw.on { background: var(--accent); }
+.sw.on i { transform: translateX(calc(var(--u) * 2.3)); }
+.group { display: flex; gap: calc(var(--u) * 1.4); justify-content: center; padding: calc(var(--u) * .6); }
+.group .gb { --rr: 50%; position: relative; isolation: isolate; width: calc(var(--u) * 6.4); height: calc(var(--u) * 6.4); border-radius: 50%; display: grid; place-items: center; background: var(--panel2); color: var(--fg); cursor: pointer; }
+.group .gb svg { width: calc(var(--u) * 3); height: calc(var(--u) * 3); }
+.group .gb.big { background: var(--accent); color: #fff; }
+.tiles { display: flex; gap: calc(var(--u) * 1.4); padding: calc(var(--u) * 1) calc(var(--u) * 1) calc(var(--u) * 1.6); }
+.tl { --rr: calc(var(--u) * .7); position: relative; isolation: isolate; flex: 0 0 calc(var(--u) * 10); cursor: pointer; }
+.tl .art { --rr: calc(var(--u) * .7); width: 100%; aspect-ratio: 1; border-radius: calc(var(--u) * .7); background: var(--panel2); position: relative; isolation: isolate; }
+.tl .art img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: inherit; }
+.tl .nm { margin-top: calc(var(--u) * .6); font-size: calc(var(--u) * 1.2); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fg2); }
+.tl.sel .nm { color: var(--accent); font-weight: 600; }
+.tl .art.g.sel, .tl.sel .art { }
+.empty { padding: calc(var(--u) * 2); text-align: center; color: var(--fg2); font-size: calc(var(--u) * 1.5); line-height: 1.5; }
+
+#hints { position: fixed; right: calc(var(--u) * 4); bottom: calc(var(--u) * 2.4); display: flex; gap: calc(var(--u) * 2.4); font-size: calc(var(--u) * 1.6); opacity: 0; transition: opacity .3s; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
+body.open #hints { opacity: 1; }
+.hint { display: flex; align-items: center; gap: calc(var(--u) * .6); cursor: pointer; }
+.btn { width: calc(var(--u) * 2.2); height: calc(var(--u) * 2.2); border-radius: 50%; background: #fff; color: #000; display: grid; place-items: center; font-size: calc(var(--u) * 1.2); font-weight: 700; font-style: normal; text-shadow: none; }
+#toast { position: fixed; left: 50%; top: calc(var(--u) * 10); transform: translate(-50%, -10px); opacity: 0; background: rgba(20,20,24,.92); color: #fff; padding: calc(var(--u) * 1) calc(var(--u) * 2.2); border-radius: 999px; font-size: calc(var(--u) * 1.5); transition: all .25s; pointer-events: none; }
+#toast.show { opacity: 1; transform: translate(-50%, 0); }
+#demoGame { position: fixed; inset: 0; display: none; background: radial-gradient(circle at 70% 30%, #ffb347, transparent 40%), linear-gradient(160deg, #2b5876, #4e4376); }
+</style>
+</head>
+<body>
+<div id="demoGame"></div>
+<div id="shade"></div>
+<header id="top"><div id="title"><i></i>Quick Menu</div><div id="status"><span id="clock"><span id="hm">--:--</span><span id="ampm"></span></span><span id="bat"></span></div></header>
+<section id="card" aria-live="polite"><h2 id="cardTitle"></h2><div id="rows"></div></section>
+<div id="dockWrap"><div id="label"><span></span></div><nav id="dock" aria-label="Quick menu"></nav></div>
+<div id="hints"></div>
+<div id="toast"></div>
+<script>
+(() => {
+'use strict';
+const NATIVE = typeof window.Android !== 'undefined';
+const $ = (s, r = document) => r.querySelector(s);
+const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h != null) e.innerHTML = h; return e; };
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const store = { get(k, d) { try { const v = localStorage.getItem('ch.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } } };
+const cfg = Object.assign({ sounds: true, haptics: true, clock: 'system' }, store.get('cfg', {}));
+const B = NATIVE ? window.Android : makeMock();
+const nb = (n, ...a) => { try { if (typeof B[n] === 'function') return B[n](...a); } catch (e) { console.warn(n, e); } };
+const J = (n, ...a) => { try { return JSON.parse(nb(n, ...a) || 'null'); } catch (e) { return null; } };
+
+/* ---- icons ---- */
+const I = {
+  home:  '<path d="M4.5 11 12 4.6l7.5 6.4v8a1 1 0 0 1-1 1h-4.2v-5.4H9.7V20H5.5a1 1 0 0 1-1-1z"/>',
+  stack: '<rect x="7" y="3.5" width="13.5" height="11" rx="2"/><path d="M4 8v9.5a2 2 0 0 0 2 2h10.5"/>',
+  music: '<path d="M9 17.4V6.3l10-2.1v11"/><circle cx="6.6" cy="17.6" r="2.4"/><circle cx="16.6" cy="15.2" r="2.4"/>',
+  sound: '<path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.8 7.8 0 0 1 0 11"/>',
+  sun:   '<circle cx="12" cy="12" r="4"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/>',
+  pad:   '<path d="M7.5 7h9a5 5 0 0 1 4.8 6.4l-.9 3a2.3 2.3 0 0 1-3.9.9L14.8 15H9.2l-1.7 2.3a2.3 2.3 0 0 1-3.9-.9l-.9-3A5 5 0 0 1 7.5 7z"/><path d="M8 9.7v3.1M6.45 11.25h3.1"/><circle cx="15.6" cy="10.3" r=".55"/><circle cx="17.5" cy="12.2" r=".55"/>',
+  wifi:  '<path d="M2.8 9.4a13.4 13.4 0 0 1 18.4 0"/><path d="M6 12.8a8.9 8.9 0 0 1 12 0"/><path d="M9.2 16.1a4.4 4.4 0 0 1 5.6 0"/><circle cx="12" cy="19.3" r="1.2" fill="currentColor"/>',
+  power: '<path d="M12 3.6v7.6"/><path d="M7.1 6.6a7.4 7.4 0 1 0 9.8 0"/>',
+  prev:  '<path d="M6 5v14"/><path d="M19 5.5v13L9 12z" fill="currentColor"/>',
+  play:  '<path d="M8 5.5v13l11-6.5z" fill="currentColor"/><path d="M8 5.5v13" stroke="none"/>',
+  next:  '<path d="M18 5v14"/><path d="M5 5.5v13L15 12z" fill="currentColor"/>',
+  back:  '<path d="M9 7 4 12l5 5"/><path d="M4 12h11a5 5 0 0 1 0 10"/>',
+  bt:    '<path d="M7 7.5l10 9-5 4.5V3l5 4.5-10 9"/>',
+  eye:   '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><path d="M4 4l16 16"/>',
+  off:   '<circle cx="12" cy="12" r="8.5"/><path d="M8 8l8 8"/>',
+};
+const svg = (n, c = 'ic') => `<svg viewBox="0 0 24 24" class="${c}">${I[n]}</svg>`;
+
+/* ---- sound + haptics ---- */
+let actx = null;
+function tone(f1, f2, d, g, delay = 0) {
+  if (!cfg.sounds) return;
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume();
+    const t = actx.currentTime + delay, o = actx.createOscillator(), v = actx.createGain();
+    o.frequency.setValueAtTime(f1, t); if (f2 !== f1) o.frequency.exponentialRampToValueAtTime(f2, t + d);
+    v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(g, t + .004); v.gain.exponentialRampToValueAtTime(.0001, t + d);
+    o.connect(v); v.connect(actx.destination); o.start(t); o.stop(t + d + .03); } catch (e) {}
+}
+const tick = () => { tone(2300, 1500, .03, .05); if (cfg.haptics) nb('haptic'); };
+const bump = () => tone(240, 180, .07, .08);
+const ok = () => { tone(988, 988, .05, .06); tone(1480, 1480, .08, .06, .045); };
+const backS = () => tone(1180, 760, .07, .05);
+
+/* ---- ring on whatever is selected ---- */
+new MutationObserver(ms => ms.forEach(m => {
+  const n = m.target; if (!n.classList || !n.classList.contains('g') || !n.classList.contains('sel')) return;
+  for (const c of n.children) if (c.classList.contains('ring')) return;
+  const r = el('i', 'ring'); r.appendChild(el('b')); n.appendChild(r);
+})).observe(document.documentElement, { subtree: true, attributes: true, attributeFilter: ['class'] });
+
+/* ---- data ---- */
+let status = {}, vol = { v: 0, max: 15, muted: false }, bright = { v: 128, auto: false, canWrite: true }, apps = {};
+function refresh() {
+  status = J('getStatus') || {}; vol = J('getVolume') || vol; bright = J('getBrightness') || bright;
+  const d = new Date(), use24 = cfg.clock === '24' || (cfg.clock === 'system' && status.time24);
+  let h = d.getHours(); const m = String(d.getMinutes()).padStart(2, '0');
+  if (use24) { $('#hm').textContent = h + ':' + m; $('#ampm').textContent = ''; }
+  else { $('#ampm').textContent = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12; $('#hm').textContent = h + ':' + m; }
+  $('#bat').textContent = status.battery != null ? status.battery + '%' + (status.charging ? ' ⚡' : '') : '';
+}
+function recent() {
+  if (!Object.keys(apps).length) { (J('getApps') || []).forEach(a => { apps[a.pkg] = a; }); }
+  const names = store.get('names', {}), played = store.get('played', {});
+  return Object.keys(played).filter(p => apps[p]).sort((a, b) => played[b] - played[a]).slice(0, 6)
+    .map(p => ({ pkg: p, label: names[p] || apps[p].label, v: (store.get('coverV', {})[p] || 0) }));
+}
+
+/* ---- the dock ---- */
+const ITEMS = [
+  { id: 'home',  label: 'Home',        icon: 'home' },
+  { id: 'switch', label: 'Switch Game', icon: 'stack' },
+  { id: 'music', label: 'Music',       icon: 'music' },
+  { id: 'sound', label: 'Sound',       icon: 'sound' },
+  { id: 'light', label: 'Brightness',  icon: 'sun' },
+  { id: 'pads',  label: 'Accessories', icon: 'pad' },
+  { id: 'net',   label: 'Network',     icon: 'wifi' },
+  { id: 'power', label: 'Power',       icon: 'power' },
+];
+let idx = 1, focus = 'dock', row = 0, sub = 0, rows = [], dockEls = [];
+
+function cardRows(id) {
+  if (id === 'home') return { title: 'Home', rows: [
+    { type: 'button', icon: 'home', label: 'Go to NSXL Home', sub: 'Your game keeps running in the background', run: () => go('goHome') },
+    { type: 'button', icon: 'back', label: 'Back to game', run: close },
+  ] };
+  if (id === 'switch') { const r = recent(); return { title: 'Switch Game', rows: r.length
+    ? [{ type: 'tiles', items: r, run: t => go('launch', t.pkg) }]
+    : [{ type: 'info', label: 'Games you start from NSXL appear here.' }] }; }
+  if (id === 'music') return { title: 'Music', rows: [
+    { type: 'group', items: [{ icon: 'prev', run: () => nb('media', 'prev') }, { icon: 'play', big: true, run: () => nb('media', 'play') }, { icon: 'next', run: () => nb('media', 'next') }] },
+    { type: 'info', label: 'Controls whatever is playing on your device.' },
+  ] };
+  if (id === 'sound') return { title: 'Sound', rows: [
+    { type: 'slider', label: 'Volume', min: 0, max: vol.max || 15, step: 1, get: () => vol.v, set: v => { nb('setVolume', v); vol.v = v; }, fmt: v => Math.round(v / (vol.max || 15) * 100) + '%' },
+    { type: 'toggle', label: 'Mute', get: () => vol.muted, set: () => { nb('toggleMute'); vol = J('getVolume') || vol; } },
+    { type: 'button', icon: 'sound', label: 'More sound options', run: () => go('openPanel', 'volume') },
+  ] };
+  if (id === 'light') return { title: 'Brightness', rows: bright.canWrite ? [
+    { type: 'slider', label: 'Brightness', min: 0, max: 255, step: 8, get: () => bright.v, set: v => { nb('setBrightness', v); bright.v = v; bright.auto = false; }, fmt: v => Math.round(v / 255 * 100) + '%' },
+    { type: 'toggle', label: 'Automatic', get: () => bright.auto, set: () => { bright.auto = !bright.auto; nb('setAutoBrightness', bright.auto); } },
+  ] : [
+    { type: 'button', icon: 'sun', label: 'Allow NSXL to change brightness', sub: 'Opens a settings page once', run: () => go('requestWriteSettings') },
+  ] };
+  if (id === 'pads') { const pads = status.controllers || []; return { title: 'Accessories', rows: [
+    ...(pads.length ? pads.map(p => ({ type: 'info', icon: 'pad', label: p.name, value: p.battery >= 0 ? p.battery + '%' : 'Connected' }))
+                    : [{ type: 'info', label: 'No controllers connected.' }]),
+    { type: 'button', icon: 'bt', label: 'Bluetooth', sub: 'Pair or disconnect controllers and headphones', run: () => go('openPanel', 'bluetooth') },
+  ] }; }
+  if (id === 'net') return { title: 'Network', rows: [
+    { type: 'info', icon: 'wifi', label: status.net === 'wifi' ? 'Wi-Fi connected' : status.net === 'cell' ? 'Using mobile data' : status.net === 'ethernet' ? 'Ethernet connected' : 'Not connected',
+      value: status.net === 'wifi' ? ['Weak', 'Fair', 'Good', 'Strong'][clamp(status.bars || 0, 0, 3)] : '' },
+    { type: 'button', icon: 'wifi', label: 'Wi-Fi', run: () => go('openPanel', 'wifi') },
+    { type: 'button', icon: 'bt', label: 'Bluetooth', run: () => go('openPanel', 'bluetooth') },
+  ] };
+  return { title: 'Power', rows: [
+    { type: 'button', icon: 'back', label: 'Back to game', run: close },
+    { type: 'button', icon: 'home', label: 'Go to NSXL Home', run: () => go('goHome') },
+    { type: 'button', icon: 'eye', label: 'Hide the side button', sub: 'Open the menu from the notification or Quick Settings instead', run: () => { nb('hideHandle'); toast('Side button hidden'); } },
+    { type: 'button', icon: 'off', label: 'Turn off the in-game menu', sub: 'Turn it back on in NSXL Settings', run: () => go('stopOverlay') },
+  ] };
+}
+
+function renderDock() {
+  const dock = $('#dock'); dock.innerHTML = '';
+  dockEls = ITEMS.map((it, i) => {
+    const b = el('button', 'dk g', svg(it.icon)); b.setAttribute('aria-label', it.label);
+    b.addEventListener('click', () => { if (idx === i && focus === 'dock') { enterCard(); return; } idx = i; focus = 'dock'; tick(); paint(true); });
+    dock.appendChild(b); return b;
+  });
+}
+function paint(newCard) {
+  document.body.classList.toggle('inCard', focus === 'card');
+  dockEls.forEach((b, i) => b.classList.toggle('sel', i === idx));
+  const lbl = $('#label span'); const txt = ITEMS[idx].label;
+  if (lbl.textContent !== txt) { const n = lbl.cloneNode(); n.textContent = txt; lbl.replaceWith(n); }
+  const r = dockEls[idx].getBoundingClientRect(), pr = $('#label').getBoundingClientRect();
+  $('#label span').style.left = (r.left + r.width / 2 - pr.left) + 'px';
+  if (newCard) renderCard(); else paintCard();
+}
+function renderCard() {
+  const c = cardRows(ITEMS[idx].id); rows = c.rows;
+  $('#cardTitle').textContent = c.title;
+  const box = $('#rows'); box.innerHTML = '';
+  rows.forEach((r, i) => {
+    let e;
+    if (r.type === 'tiles') {
+      e = el('div', 'tiles');
+      r.items.forEach((t, k) => {
+        const d = el('div', 'tl', `<div class="art g"><img alt="" src="${NATIVE ? '/art/' + encodeURIComponent(t.pkg) + '?s=256&v=' + t.v : ''}" onerror="this.remove()"></div><div class="nm">${esc(t.label)}</div>`);
+        d.addEventListener('click', () => { row = i; sub = k; focus = 'card'; paint(); activate(); }); e.appendChild(d);
+      });
+    } else if (r.type === 'group') {
+      e = el('div', 'group');
+      r.items.forEach((g, k) => { const d = el('button', 'gb g' + (g.big ? ' big' : ''), svg(g.icon)); d.addEventListener('click', () => { row = i; sub = k; focus = 'card'; paint(); activate(); }); e.appendChild(d); });
+    } else {
+      e = el('div', 'row g ' + r.type);
+      e.style.setProperty('--i', i);
+      e.addEventListener('click', ev => { row = i; focus = 'card'; if (r.type === 'slider') { const bar = $('.bar', e).getBoundingClientRect(); const f = clamp((ev.clientX - bar.left) / bar.width, 0, 1); r.set(Math.round((r.min + f * (r.max - r.min)) / r.step) * r.step); tick(); paintCard(); return; } paint(); activate(); });
+    }
+    box.appendChild(e);
+  });
+  const card = $('#card'); card.classList.remove('swap'); void card.offsetWidth; card.classList.add('swap');
+  row = clamp(row, 0, rows.length - 1); paintCard(); placeCard();
+}
+function paintCard() {
+  const box = $('#rows');
+  rows.forEach((r, i) => {
+    const e = box.children[i]; if (!e) return;
+    const on = focus === 'card' && i === row;
+    if (r.type === 'tiles' || r.type === 'group') {
+      [...e.children].forEach((c, k) => { const t = c.classList.contains('tl') ? c.querySelector('.art') : c; c.classList.toggle('sel', on && k === sub); t.classList.toggle('sel', on && k === sub); });
+      return;
+    }
+    e.classList.toggle('sel', on);
+    let inner = '';
+    if (r.icon) inner += svg(r.icon, 'ic lead');
+    if (r.type === 'slider') { const v = r.get(), p = (v - r.min) / (r.max - r.min) * 100; inner += `<span class="lbl">${esc(r.label)}</span><span class="bar"><i style="width:${p}%"></i><b style="left:${p}%"></b></span><span class="val">${esc(r.fmt(v))}</span>`; }
+    else if (r.type === 'toggle') inner += `<span class="lbl">${esc(r.label)}</span><span class="sw${r.get() ? ' on' : ''}"><i></i></span>`;
+    else inner += `<span class="lbl">${esc(r.label)}${r.sub ? `<span class="sub">${esc(r.sub)}</span>` : ''}</span>${r.value ? `<span class="val">${esc(r.value)}</span>` : ''}`;
+    const ring = e.querySelector('.ring'); e.innerHTML = inner; if (ring) e.appendChild(ring);
+  });
+  updateHints();
+}
+function placeCard() {
+  const card = $('#card'), r = dockEls[idx].getBoundingClientRect(), w = card.offsetWidth, m = 24;
+  card.style.left = clamp(r.left + r.width / 2 - w / 2, m, window.innerWidth - w - m) + 'px';
+}
+function enterCard() {
+  if (!rows.length) { bump(); return; }
+  focus = 'card'; row = rows.findIndex(r => r.type !== 'info'); if (row < 0) { focus = 'dock'; bump(); return; }
+  sub = rows[row].type === 'group' ? 1 : 0; tick(); paint();
+}
+function activate() {
+  const r = rows[row]; if (!r) return;
+  if (r.type === 'button') { ok(); r.run(); }
+  else if (r.type === 'toggle') { ok(); r.set(); setTimeout(paintCard, 60); }
+  else if (r.type === 'tiles') { ok(); r.run(r.items[sub]); }
+  else if (r.type === 'group') { ok(); r.items[sub].run(); const b = $('#rows').children[row].children[sub]; b.animate([{ transform: 'scale(.88)' }, { transform: 'none' }], { duration: 220, easing: 'ease-out' }); }
+  else if (r.type === 'slider') bump();
+}
+function adjust(d) {
+  const r = rows[row]; if (!r) return false;
+  if (r.type === 'slider') { const v = clamp(r.get() + d * r.step, r.min, r.max); if (v === r.get()) { bump(); return true; } r.set(v); tick(); paintCard(); return true; }
+  if (r.type === 'tiles' || r.type === 'group') { const n = sub + d; if (n < 0 || n >= r.items.length) { bump(); return true; } sub = n; tick(); paintCard(); return true; }
+  return false;
+}
+function updateHints() {
+  const list = focus === 'card' ? [['b', 'Back'], ['a', 'OK']] : [['b', 'Close'], ['a', 'OK']];
+  const box = $('#hints'); box.innerHTML = '';
+  list.forEach(([b, l]) => { const s = el('span', 'hint', `<i class="btn">${b.toUpperCase()}</i>${l}`); s.addEventListener('click', () => window.onPad(b)); box.appendChild(s); });
+}
+
+/* ---- open / close ---- */
+let closing = false;
+function close() { if (closing) return; closing = true; backS(); document.body.classList.remove('open'); setTimeout(() => { closing = false; nb('close'); }, 230); }
+function go(method, ...args) { document.body.classList.remove('open'); setTimeout(() => nb(method, ...args), 160); }
+window.onOpen = () => {
+  closing = false; refresh(); focus = 'dock';
+  renderDock(); paint(true);
+  requestAnimationFrame(() => { document.body.classList.add('open'); placeCard(); });
+  tone(660, 990, .12, .05);
+};
+$('#shade').addEventListener('click', close);
+
+window.onPad = (b, rep) => {
+  if (!document.body.classList.contains('open')) return;
+  if (focus === 'dock') {
+    if (b === 'left' || b === 'right') { const n = idx + (b === 'left' ? -1 : 1); if (n < 0 || n >= ITEMS.length) { bump(); return; } idx = n; tick(); paint(true); }
+    else if (b === 'up' || b === 'a') enterCard();
+    else if (b === 'b' || b === 'plus') close();
+    else if (b === 'down') bump();
+  } else {
+    if (b === 'up' || b === 'down') {
+      let n = row + (b === 'up' ? -1 : 1);
+      while (rows[n] && rows[n].type === 'info') n += (b === 'up' ? -1 : 1);
+      if (n < 0) { bump(); return; }
+      if (n >= rows.length) { focus = 'dock'; tick(); paint(); return; }
+      row = n; sub = rows[row].type === 'group' ? 1 : 0; tick(); paintCard();
+    }
+    else if (b === 'left' || b === 'right') { if (!adjust(b === 'left' ? -1 : 1)) bump(); }
+    else if (b === 'a') activate();
+    else if (b === 'b') { focus = 'dock'; backS(); paint(); }
+    else if (b === 'plus') close();
+  }
+};
+let toastT = 0;
+function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2000); }
+window.toast = toast;
+window.addEventListener('resize', () => paint(false));
+setInterval(() => { if (document.body.classList.contains('open')) { refresh(); } }, 5000);
+
+function makeMock() {
+  document.getElementById('demoGame').style.display = 'block';
+  const K = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b' };
+  document.addEventListener('keydown', e => { if (K[e.key]) { e.preventDefault(); window.onPad(K[e.key]); } });
+  setTimeout(() => window.onOpen(), 300);
+  let v = 9, muted = false, br = 150, auto = false;
+  return {
+    getStatus: () => JSON.stringify({ battery: 76, charging: false, net: 'wifi', bars: 3, time24: false, controllers: [{ name: 'Wireless Controller', battery: 80 }] }),
+    getVolume: () => JSON.stringify({ v, max: 15, muted }), setVolume: x => { v = x; }, toggleMute: () => { muted = !muted; },
+    getBrightness: () => JSON.stringify({ v: br, auto, canWrite: true }), setBrightness: x => { br = x; }, setAutoBrightness: x => { auto = x; },
+    getApps: () => JSON.stringify([{ pkg: 'a', label: 'Turbo Drift' }, { pkg: 'b', label: 'Sky Kingdom' }, { pkg: 'c', label: 'Neon Brawl' }]),
+    media: c => toast('Media: ' + c), openPanel: p => toast('Opens ' + p + ' panel'), goHome: () => toast('Back to NSXL'), launch: p => toast('Switch to ' + p),
+    hideHandle: () => {}, stopOverlay: () => toast('Overlay off'), requestWriteSettings: () => {}, close: () => setTimeout(() => window.onOpen(), 800), haptic: () => {},
+  };
+}
+})();
+</script>
+</body>
+</html>

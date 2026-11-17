@@ -355,6 +355,56 @@ final class LauncherBridge {
         });
     }
 
+    // ---------------------------------------------------------------- in-game quick menu
+
+    @JavascriptInterface
+    public String overlayState() {
+        JSONObject o = new JSONObject();
+        try {
+            o.put("permission", Settings.canDrawOverlays(a));
+            o.put("running", OverlayService.instance != null);
+            o.put("enabled", a.prefs.getBoolean("overlay", false));
+            o.put("handleHidden", a.prefs.getBoolean("overlayHideHandle", false));
+        } catch (Exception ignored) { }
+        return o.toString();
+    }
+
+    /** Returns "ok", or "permission" when Android's "display over other apps" screen was opened instead. */
+    @JavascriptInterface
+    public String overlayEnable(boolean on) {
+        if (!on) {
+            a.prefs.edit().putBoolean("overlay", false).apply();
+            a.runOnUiThread(() -> OverlayService.stop(a));
+            return "ok";
+        }
+        if (!Settings.canDrawOverlays(a)) {
+            start(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + a.getPackageName())));
+            return "permission";
+        }
+        a.prefs.edit().putBoolean("overlay", true).putBoolean("overlayHideHandle", false).apply();
+        a.runOnUiThread(() -> {
+            if (Build.VERSION.SDK_INT >= 33
+                    && a.checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                a.requestPermissions(new String[]{android.Manifest.permission.POST_NOTIFICATIONS}, 51);
+            }
+            OverlayService.start(a, null);
+        });
+        return "ok";
+    }
+
+    @JavascriptInterface
+    public void overlayConfig(String side, float alpha, boolean hideHandle) {
+        a.prefs.edit().putString("overlaySide", side).putFloat("overlayAlpha", alpha).putBoolean("overlayHideHandle", hideHandle).apply();
+        OverlayService.refreshHandle();
+    }
+
+    @JavascriptInterface
+    public void overlayTest() {
+        a.runOnUiThread(() -> {
+            if (Settings.canDrawOverlays(a)) OverlayService.start(a, OverlayService.ACTION_SHOW);
+        });
+    }
+
     @JavascriptInterface
     public int sdk() {
         return Build.VERSION.SDK_INT;

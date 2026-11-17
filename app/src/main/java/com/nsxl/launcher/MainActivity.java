@@ -104,6 +104,9 @@ public class MainActivity extends Activity {
         applySystemBars();
         setMode(mode);
         registerPackageReceiver();
+        if (prefs.getBoolean("overlay", false) && android.provider.Settings.canDrawOverlays(this)) {
+            try { OverlayService.start(this, null); } catch (Exception ignored) { }
+        }
     }
 
     @Override
@@ -115,6 +118,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        OverlayService.setLauncherVisible(true);
         applySystemBars();
         js("window.onResumeApp&&window.onResumeApp()");
     }
@@ -122,6 +126,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onPause() {
         js("window.onPauseApp&&window.onPauseApp()");   // stop the music when a game opens
+        OverlayService.setLauncherVisible(false);
         super.onPause();
     }
 
