@@ -33,6 +33,7 @@ Big game tiles, a round-button dock, a glowing selection ring, ambient music and
 - **NSXL Cloud.** Your device can host its own backup server on your Wi-Fi. Other NSXL devices back up their API keys, theme and music to it and restore from it, and any browser can open it to download or upload backups. PIN-protected.
 - **Cover art from SteamGridDB.** Search for any game and pick from hundreds of community covers, or fetch art for every game at once. You can also use any picture from your phone.
 - **Rename anything.** Give apps the name you want shown on their tile.
+- **Interface sounds.** A full set of crisp clicks, chimes and whooshes for moving, selecting, opening menus, toggles, sliders, typing, notifications and start-up. They're NSXL's own, synthesised from scratch by `tools/make_sounds.py`.
 - **Ambient music.** A calm built-in soundtrack that's generated on your device, or any music file you choose. It pauses while you play.
 - **Dock.** All Software, Messages, Web, Play Store, Album, Music, Controllers, Display, Settings and Power. Remap any of them to a different app.
 - **Controllers first, touch too.** D-pad, sticks, A/B/X/Y, L/R, + and −, with an option to swap A and B. Tap to start, long-press for options.

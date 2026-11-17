@@ -175,10 +175,29 @@ function tone(f1, f2, d, g, delay = 0) {
     v.gain.setValueAtTime(.0001, t); v.gain.exponentialRampToValueAtTime(g, t + .004); v.gain.exponentialRampToValueAtTime(.0001, t + d);
     o.connect(v); v.connect(actx.destination); o.start(t); o.stop(t + d + .03); } catch (e) {}
 }
-const tick = () => { tone(2300, 1500, .03, .05); if (cfg.haptics) nb('haptic'); };
-const bump = () => tone(240, 180, .07, .08);
-const ok = () => { tone(988, 988, .05, .06); tone(1480, 1480, .08, .06, .045); };
-const backS = () => tone(1180, 760, .07, .05);
+/* NSXL interface sounds (sfx/*.wav), synth blips until they load */
+const sfx = {}, sfxLast = {};
+function loadSfx() {
+  if (loadSfx.done || !cfg.sounds) return; loadSfx.done = true;
+  try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
+  ['tick', 'select', 'back', 'bump', 'on', 'off', 'step', 'menu', 'sleep'].forEach(n =>
+    fetch('sfx/' + n + '.wav').then(r => r.arrayBuffer()).then(a => new Promise((y, x) => actx.decodeAudioData(a, y, x))).then(b => { sfx[n] = b; }).catch(() => {}));
+}
+function play(name, gain, fallback) {
+  if (!cfg.sounds) return;
+  loadSfx();
+  const now = performance.now(); if (now - (sfxLast[name] || 0) < 28) return; sfxLast[name] = now;
+  if (!sfx[name] || !actx) { fallback(); return; }
+  try { if (actx.state === 'suspended') actx.resume();
+    const s = actx.createBufferSource(), v = actx.createGain(); s.buffer = sfx[name]; v.gain.value = gain; s.connect(v); v.connect(actx.destination); s.start(); } catch (e) {}
+}
+const tick = () => { play('tick', .5, () => tone(3100, 2600, .025, .04)); if (cfg.haptics) nb('haptic'); };
+const bump = () => play('bump', .6, () => tone(1400, 420, .06, .07));
+const ok = () => play('select', .55, () => { tone(1750, 2150, .05, .05); tone(2150, 2150, .1, .05, .045); });
+const backS = () => play('back', .5, () => tone(980, 620, .08, .05));
+const swOn = () => play('on', .55, () => tone(1760, 2637, .05, .05));
+const swOff = () => play('off', .55, () => tone(790, 330, .1, .05));
+const step = () => play('step', .45, () => tone(2600, 2600, .02, .03));
 
 /* ---- ring on whatever is selected ---- */
 new MutationObserver(ms => ms.forEach(m => {
@@ -297,7 +316,7 @@ function renderCard() {
     } else {
       e = el('div', 'row g ' + r.type);
       e.style.setProperty('--i', i);
-      e.addEventListener('click', ev => { row = i; focus = 'card'; if (r.type === 'slider') { const bar = $('.bar', e).getBoundingClientRect(); const f = clamp((ev.clientX - bar.left) / bar.width, 0, 1); r.set(Math.round((r.min + f * (r.max - r.min)) / r.step) * r.step); tick(); paintCard(); return; } paint(); activate(); });
+      e.addEventListener('click', ev => { row = i; focus = 'card'; if (r.type === 'slider') { const bar = $('.bar', e).getBoundingClientRect(); const f = clamp((ev.clientX - bar.left) / bar.width, 0, 1); r.set(Math.round((r.min + f * (r.max - r.min)) / r.step) * r.step); step(); paintCard(); return; } paint(); activate(); });
     }
     box.appendChild(e);
   });
@@ -339,14 +358,14 @@ function enterCard() {
 function activate() {
   const r = rows[row]; if (!r) return;
   if (r.type === 'button') { ok(); r.run(); }
-  else if (r.type === 'toggle') { ok(); r.set(); setTimeout(paintCard, 60); }
+  else if (r.type === 'toggle') { r.set(); (r.get && r.get() ? swOn : (r.get ? swOff : ok))(); setTimeout(paintCard, 60); }
   else if (r.type === 'tiles') { ok(); r.run(r.items[sub]); }
   else if (r.type === 'group') { ok(); r.items[sub].run(); const b = $('#rows').children[row].children[sub]; b.animate([{ transform: 'scale(.88)' }, { transform: 'none' }], { duration: 220, easing: 'ease-out' }); }
   else if (r.type === 'slider') bump();
 }
 function adjust(d) {
   const r = rows[row]; if (!r) return false;
-  if (r.type === 'slider') { const v = clamp(r.get() + d * r.step, r.min, r.max); if (v === r.get()) { bump(); return true; } r.set(v); tick(); paintCard(); return true; }
+  if (r.type === 'slider') { const v = clamp(r.get() + d * r.step, r.min, r.max); if (v === r.get()) { bump(); return true; } r.set(v); step(); paintCard(); return true; }
   if (r.type === 'tiles' || r.type === 'group') { const n = sub + d; if (n < 0 || n >= r.items.length) { bump(); return true; } sub = n; tick(); paintCard(); return true; }
   return false;
 }
@@ -359,7 +378,7 @@ function updateHints() {
 /* ---- sleep with a little goodnight ---- */
 function sleepAnim() {
   const fx = $('#sleepFx'); fx.classList.remove('on'); void fx.offsetWidth; fx.classList.add('on');
-  [1047, 784, 523].forEach((f, i) => tone(f, f * .98, .25, .05, i * .09));
+  play('sleep', .6, () => [1047, 784, 523].forEach((f, i) => tone(f, f * .98, .25, .05, i * .09)));
   setTimeout(() => nb('sleep'), 950);
   setTimeout(() => fx.classList.remove('on'), 2200);
 }
@@ -372,7 +391,7 @@ window.onOpen = () => {
   closing = false; refresh(); focus = 'dock';
   renderDock(); paint(true);
   requestAnimationFrame(() => { document.body.classList.add('open'); placeCard(); });
-  tone(660, 990, .12, .05);
+  play('menu', .55, () => tone(660, 990, .12, .05));
 };
 $('#shade').addEventListener('click', close);
 
