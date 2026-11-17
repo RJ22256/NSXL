@@ -111,6 +111,12 @@ body.open #hints { opacity: 1; }
 .btn { width: calc(var(--u) * 2.2); height: calc(var(--u) * 2.2); border-radius: 50%; background: #fff; color: #000; display: grid; place-items: center; font-size: calc(var(--u) * 1.2); font-weight: 700; font-style: normal; text-shadow: none; }
 #toast { position: fixed; left: 50%; top: calc(var(--u) * 10); transform: translate(-50%, -10px); opacity: 0; background: rgba(20,20,24,.92); color: #fff; padding: calc(var(--u) * 1) calc(var(--u) * 2.2); border-radius: 999px; font-size: calc(var(--u) * 1.5); transition: all .25s; pointer-events: none; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
+#sleepFx { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; background: #000; }
+#sleepFx.on { display: grid; animation: sleepIn .55s ease-in both; }
+@keyframes sleepIn { from { background: rgba(0,0,0,0); } to { background: #000; } }
+#sleepFx i { width: calc(var(--u) * 9); height: calc(var(--u) * 9); border-radius: 50%; background: conic-gradient(#2f6dff, #8fb3ff, #c6a6ff, #ffbfe8, #bdeeff, #2f6dff);
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 56%); mask: radial-gradient(circle, transparent 54%, #000 56%); animation: sleepRing .9s cubic-bezier(.6,0,.8,.6) both; }
+@keyframes sleepRing { 0% { transform: scale(1) rotate(0); opacity: 1; } 70% { opacity: 1; } 100% { transform: scale(.05) rotate(240deg); opacity: 0; } }
 #demoGame { position: fixed; inset: 0; display: none; background: radial-gradient(circle at 70% 30%, #ffb347, transparent 40%), linear-gradient(160deg, #2b5876, #4e4376); }
 </style>
 </head>
@@ -122,6 +128,7 @@ body.open #hints { opacity: 1; }
 <div id="dockWrap"><div id="label"><span></span></div><nav id="dock" aria-label="Quick menu"></nav></div>
 <div id="hints"></div>
 <div id="toast"></div>
+<div id="sleepFx" aria-hidden="true"><i></i></div>
 <script>
 (() => {
 'use strict';
@@ -249,7 +256,7 @@ function cardRows(id) {
   return { title: 'Power', rows: [
     { type: 'button', icon: 'back', label: 'Back to game', run: close },
     { type: 'button', icon: 'home', label: 'Go to NSXL Home', run: () => go('goHome') },
-    extras ? { type: 'button', icon: 'moon', label: 'Sleep', sub: 'Turns the screen off', run: () => go('sleep') } : null,
+    extras ? { type: 'button', icon: 'moon', label: 'Sleep', sub: 'Turns the screen off', run: sleepAnim } : null,
     { type: 'button', icon: 'eye', label: 'Hide the side button', sub: 'Open the menu from the notification or Quick Settings instead', run: () => { nb('hideHandle'); toast('Side button hidden'); } },
     { type: 'button', icon: 'off', label: 'Turn off the in-game menu', sub: 'Turn it back on in NSXL Settings', run: () => go('stopOverlay') },
   ].filter(Boolean) };
@@ -347,6 +354,14 @@ function updateHints() {
   const list = focus === 'card' ? [['b', 'Back'], ['a', 'OK']] : [['b', 'Close'], ['a', 'OK']];
   const box = $('#hints'); box.innerHTML = '';
   list.forEach(([b, l]) => { const s = el('span', 'hint', `<i class="btn">${b.toUpperCase()}</i>${l}`); s.addEventListener('click', () => window.onPad(b)); box.appendChild(s); });
+}
+
+/* ---- sleep with a little goodnight ---- */
+function sleepAnim() {
+  const fx = $('#sleepFx'); fx.classList.remove('on'); void fx.offsetWidth; fx.classList.add('on');
+  [1047, 784, 523].forEach((f, i) => tone(f, f * .98, .25, .05, i * .09));
+  setTimeout(() => nb('sleep'), 950);
+  setTimeout(() => fx.classList.remove('on'), 2200);
 }
 
 /* ---- open / close ---- */
