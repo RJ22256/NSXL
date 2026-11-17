@@ -92,13 +92,17 @@ html[data-theme=video] #gameTitle, html[data-theme=video] #dockLabel { text-shad
 #top > * { pointer-events: auto; }
 #avatar {
   width: calc(var(--u) * 4.4); height: calc(var(--u) * 4.4); border-radius: 50%;
-  background: var(--selBg); position: relative; overflow: hidden;
+  background: var(--selBg); position: relative; cursor: pointer; isolation: isolate; --rr: 50%;
   box-shadow: 0 0 0 calc(var(--u) * .28) var(--gapRing), 0 calc(var(--u) * .3) calc(var(--u) * .9) var(--shadow);
   transition: opacity .2s;
 }
 #avatarDefault { position: absolute; inset: 0; display: grid; place-items: center; color: var(--grey); }
 #avatarDefault svg { width: 66%; height: 66%; }
-#avatarImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; }
+#avatarImg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: none; border-radius: 50%; }
+#avatar.sel::after, #avatar.sel > .ring { border-radius: 50%; inset: calc(var(--u) * -.45); }
+#avatarName { position: absolute; left: calc(var(--u) * -.4); top: calc(100% + var(--u) * 1.1); white-space: nowrap; font-size: calc(var(--u) * 1.55); font-weight: 600; color: var(--accent);
+  opacity: 0; transform: translateY(calc(var(--u) * -.4)); transition: opacity .2s, transform .25s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+#avatar.sel #avatarName { opacity: 1; transform: none; }
 #avatarImg.ok { display: block; }
 body.full #avatar { opacity: 0; pointer-events: none; }
 body.full #home { visibility: hidden; }
@@ -343,20 +347,25 @@ body.full #modeTabs { opacity: 0; pointer-events: none; }
 .setRow.danger .lbl { color: var(--c-red); }
 .paneEmpty { padding-top: calc(var(--u) * 5); }
 .paneNote { font-size: calc(var(--u) * 1.35); line-height: 1.5; color: var(--fg2); padding: calc(var(--u) * 1.6) calc(var(--u) * 2); }
-/* software menu (+ on a game) */
-.swMenu { position: absolute; left: 50%; top: calc(var(--u) * 10.4); bottom: calc(var(--u) * 7.6); width: min(86vw, calc(var(--u) * 100)); transform: translate(-50%, 2%) scale(.97); opacity: 0;
-  transition: transform .26s cubic-bezier(.2,.8,.2,1), opacity .2s; background: var(--panel); border-radius: calc(var(--u) * 1.2); box-shadow: 0 calc(var(--u) * 2) calc(var(--u) * 6) rgba(0,0,0,.35); overflow: hidden; }
+/* software menu (+ on a game): a full-height panel like the console's */
+.swMenu { position: absolute; left: 50%; top: 0; bottom: 0; width: min(78vw, calc(var(--u) * 110)); transform: translate(-50%, 1.5%); opacity: 0;
+  transition: transform .26s cubic-bezier(.2,.8,.2,1), opacity .2s; background: var(--panel); box-shadow: 0 0 calc(var(--u) * 6) rgba(0,0,0,.4); overflow: hidden; }
 .ov.show .swMenu { transform: translate(-50%, 0); opacity: 1; }
-.swHead { position: absolute; left: calc(var(--u) * 3); right: calc(var(--u) * 3); top: calc(var(--u) * 2.2); height: calc(var(--u) * 8); display: flex; align-items: center; gap: calc(var(--u) * 2.2); }
-.swArt { position: relative; flex: none; width: calc(var(--u) * 8); height: calc(var(--u) * 8); border-radius: calc(var(--u) * .7); overflow: hidden; background: var(--slot); }
-.swArt img { width: 100%; height: 100%; object-fit: cover; }
-.swT { min-width: 0; display: flex; flex-direction: column; gap: calc(var(--u) * .4); }
-.swT h2 { margin: 0; font-size: calc(var(--u) * 2.6); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.swT span { font-size: calc(var(--u) * 1.35); color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.swRule { position: absolute; left: calc(var(--u) * 2.4); right: calc(var(--u) * 2.4); top: calc(var(--u) * 11.6); height: 1px; background: var(--line); }
-.swMenu .setNav { top: calc(var(--u) * 13.4); bottom: calc(var(--u) * 2); left: calc(var(--u) * 3); width: calc(var(--u) * 26); }
-.swMenu .setPane { top: calc(var(--u) * 12.6); bottom: calc(var(--u) * 1); left: calc(var(--u) * 31); right: calc(var(--u) * 2.4); }
+body.swOpen #top, body.swOpen #foot { opacity: 0; pointer-events: none; transition: opacity .2s; }
+.swHead { position: absolute; left: calc(var(--u) * 4.4); right: calc(var(--u) * 4.4); top: calc(var(--u) * 2.6); height: calc(var(--u) * 10); display: flex; align-items: center; gap: calc(var(--u) * 2.6); }
+.swArt { position: relative; flex: none; width: calc(var(--u) * 10); height: calc(var(--u) * 10); border-radius: calc(var(--u) * .5); overflow: hidden; background: var(--slot); opacity: 0; transition: opacity .2s; }
+.swArt.ok { opacity: 1; }
+.swArt img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.swT { min-width: 0; display: flex; flex-direction: column; gap: calc(var(--u) * .6); }
+.swT h2 { margin: 0; font-size: calc(var(--u) * 3); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.swT span { font-size: calc(var(--u) * 1.6); color: var(--fg2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.swRule { position: absolute; left: calc(var(--u) * 3); right: calc(var(--u) * 3); top: calc(var(--u) * 14.8); height: 1px; background: var(--fg2); opacity: .5; }
+.swMenu .setNav { top: calc(var(--u) * 17); bottom: calc(var(--u) * 9); left: calc(var(--u) * 3.6); width: calc(var(--u) * 28); }
+.swMenu .setPane { top: calc(var(--u) * 16.2); bottom: calc(var(--u) * 8.6); left: calc(var(--u) * 34.5); right: calc(var(--u) * 3.4); border-left: none; }
 .swMenu .swPlay { padding: calc(var(--u) * 1) calc(var(--u) * 1) calc(var(--u) * 1.6); }
+.swFoot { position: absolute; left: calc(var(--u) * 3); right: calc(var(--u) * 3); bottom: 0; height: calc(var(--u) * 7.4); border-top: 1px solid var(--line);
+  display: flex; align-items: center; justify-content: flex-end; gap: calc(var(--u) * 2.6); font-size: calc(var(--u) * 1.65); padding-right: calc(var(--u) * 1); }
+html.touchmode .swFoot .hint { padding: calc(var(--u) * .55) calc(var(--u) * 1.5); border-radius: 999px; background: var(--slot); }
 /* button icons */
 .btn .gs { width: 78%; height: 78%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .btn.wide { width: auto; min-width: calc(var(--u) * 2.25); padding: 0 calc(var(--u) * .55); border-radius: calc(var(--u) * .6); font-size: calc(var(--u) * 1.05); letter-spacing: .02em; box-sizing: border-box; }
@@ -607,7 +616,7 @@ html.calm #bgfx { display: none; }
 .setNav {
   position: absolute; top: calc(var(--u) * 11.6); bottom: calc(var(--u) * 8); left: calc(var(--u) * 4);
   width: calc(var(--u) * 24); display: flex; flex-direction: column; gap: calc(var(--u) * .3);
-  overflow-y: auto; overflow-x: visible; scrollbar-width: none; padding: calc(var(--u) * .8) 0 calc(var(--u) * .8) calc(var(--u) * .8); margin-left: calc(var(--u) * -.8); margin-top: calc(var(--u) * -.8);
+  overflow-y: auto; overflow-x: visible; scrollbar-width: none; padding: calc(var(--u) * .8) calc(var(--u) * .9) calc(var(--u) * .8) calc(var(--u) * .8); margin-left: calc(var(--u) * -.8); margin-top: calc(var(--u) * -.8);
 }
 .setNav::-webkit-scrollbar { display: none; }
 .navItem {
@@ -746,7 +755,7 @@ html[data-theme=white] .dbtn.sel { background: #fff; }
 <div id="dim"></div>
 
 <header id="top">
-  <div id="avatar"><span id="avatarDefault"></span><img id="avatarImg" alt=""></div>
+  <div id="avatar" class="g"><span id="avatarDefault"></span><img id="avatarImg" alt=""><span id="avatarName"></span></div>
   <div id="status">
     <span id="clock"><span id="hm">--:--</span><span id="ampm"></span></span>
     <span id="net"></span>
@@ -823,6 +832,7 @@ const ICONS = {
   paper:  '<path d="M5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v12.5a1.5 1.5 0 0 0 3 0V9h-3"/><path d="M5 4.5v14a1.5 1.5 0 0 0 1.5 1.5h12.5"/><path d="M8 8.5h6M8 12h6M8 15.5h4"/>',
   bt:     '<path d="M7.5 8l9 8-4.5 4V4l4.5 4-9 8"/>',
   pen:    '<path d="M14.5 5.5l4 4L8.5 19.5H4.5v-4z"/><path d="M12.5 7.5l4 4"/>',
+  globe:  '<circle cx="12" cy="12" r="8.3"/><path d="M3.9 12h16.2M12 3.7c2.4 2.3 3.6 5.1 3.6 8.3s-1.2 6-3.6 8.3c-2.4-2.3-3.6-5.1-3.6-8.3s1.2-6 3.6-8.3z"/>',
   person: '<circle cx="12" cy="9.2" r="3.7"/><path d="M5 20a7 7 0 0 1 14 0"/>',
 };
 const svg = (name, cls = 'ic') => `<svg viewBox="0 0 24 24" class="${cls}">${ICONS[name]}</svg>`;
@@ -1141,7 +1151,7 @@ const Hm = { items: [], idx: 0, zone: 'row', dockIdx: 0, launched: false, mode: 
 const DOCK_ALL = [
   { id: 'all',      label: 'All Software', icon: 'grid',    red: true, run: () => openAll({}) , fixed: true },
   { id: 'news',     label: 'News',         icon: 'paper',   color: 'var(--c-red)',    run: () => openNews() },
-  { id: 'web',      label: 'Web',          icon: 'news',    color: 'var(--c-green)',  cat: 'browser' },
+  { id: 'web',      label: 'Web',          icon: 'globe',    color: 'var(--c-green)',  cat: 'browser' },
   { id: 'store',    label: 'Play Store',   icon: 'bag',     color: 'var(--c-red)',    cat: 'market' },
   { id: 'album',    label: 'Album',        icon: 'album',   color: 'var(--c-blue)',   run: () => openAlbum() },
   { id: 'music',    label: 'Music',        icon: 'music',   color: 'var(--c-teal)',   cat: 'music' },
@@ -1232,6 +1242,7 @@ function refreshSel() {
     it.el.classList.toggle('nbR', on && i === Hm.idx + 1);
   });
   dockEls.forEach((b, i) => b.classList.toggle('sel', !ov && Hm.zone === 'dock' && i === Hm.dockIdx));
+  const av = $('#avatar'); av.classList.toggle('sel', !ov && Hm.zone === 'user'); $('#avatarName').textContent = userName();
   updateTitle(); updateDockLabel(); updateHints();
 }
 function updateTitle() {
@@ -1342,12 +1353,24 @@ function launch(pkg, node) {
 }
 
 function homePad(b) {
+  if (Hm.zone === 'user') {
+    switch (b) {
+      case 'down': case 'b': Hm.zone = Hm.items.length ? 'row' : 'dock'; b === 'b' ? Snd.back() : Snd.tick(); buzz(); refreshSel(); break;
+      case 'a': Snd.select(); retrigger($('#avatar'), 'wiggle'); setTimeout(openUserPage, 180); break;
+      case 'y': Snd.select(); openAll({}); break;
+      case 'minus': Snd.select(); openSettings(); break;
+      case 'l': setMode('games'); break;
+      case 'r': setMode('ent'); break;
+      default: Snd.bump();
+    }
+    return;
+  }
   if (Hm.zone === 'row') {
     switch (b) {
       case 'left': moveRow(-1); break;
       case 'right': moveRow(1); break;
       case 'down': Hm.zone = 'dock'; Snd.tick(); buzz(); refreshSel(); break;
-      case 'up': Snd.bump(); break;
+      case 'up': Hm.zone = 'user'; Snd.tick(); buzz(); refreshSel(); break;
       case 'a': activateRow(Hm.idx); break;
       case 'plus': case 'x': rowOptions(); break;
       case 'l': setMode('games'); break;
@@ -1450,6 +1473,7 @@ function updateHints() {
   const top = topOverlay();
   const cur = Hm.items[Hm.idx];
   const list = top ? top.hints()
+    : Hm.zone === 'user' ? [['a', 'My Page']]
     : Hm.zone === 'dock' ? (DOCK[Hm.dockIdx].fixed ? [['a', 'OK']] : [['plus', 'Options'], ['a', 'OK']])
     : cur && cur.type === 'app' ? [['plus', 'Options'], ['a', 'Start']]
     : cur && cur.type === 'svc' ? [['plus', 'Options'], ['a', 'Browse']] : [['a', 'OK']];
@@ -1940,8 +1964,20 @@ function openTitle(sv, x) {
 function openPaneSheet(o) {
   const ov = el('section', o.modal ? 'ov back' : 'ov full');
   const box = o.modal ? el('div', 'swMenu') : ov;
-  box.innerHTML = o.head + '<nav class="setNav psNav"></nav><div class="setPane psPane"></div>';
+  box.innerHTML = (o.head || '') + '<nav class="setNav psNav"></nav><div class="setPane psPane"></div>';
+  if (o.headNode) box.prepend(o.headNode);
   if (o.modal) ov.appendChild(box);
+  let footHints = null;
+  if (o.ownHints) {   // the panel carries its own button hints, like the console's software menu
+    footHints = el('div', 'swFoot');
+    box.appendChild(footHints);
+    document.body.classList.add('swOpen');
+  }
+  const drawHints = () => {
+    if (!footHints) return;
+    footHints.innerHTML = '';
+    [['b', 'Back'], ['a', 'OK']].forEach(([b, l]) => { const h = el('span', 'hint', glyph(b) + esc(l)); onPress(h, () => window.onPad(b, false, true)); footHints.appendChild(h); });
+  };
   const nav = $('.psNav', box), pane = $('.psPane', box);
   let cat = Math.max(0, o.cats.findIndex(c => c.name === o.start)), focus = o.focusPane ? 'pane' : 'nav', items = [], sel = 0;
   const navBar = el('i', 'navBar'); nav.appendChild(navBar);
@@ -1968,6 +2004,7 @@ function openPaneSheet(o) {
   if (o.modal) onPress(ov, ev => { if (ev.target === ov) popOverlay(); });
   pushOverlay({
     el: ov, full: !o.modal,
+    onClose: () => { if (o.ownHints) document.body.classList.remove('swOpen'); },
     pad(b) {
       if (focus === 'nav') {
         if (b === 'up' || b === 'down') { const n = cat + (b === 'up' ? -1 : 1); if (n < 0 || n >= o.cats.length) { Snd.bump(); return; } cat = n; sel = 0; Snd.tick(); buzz(); render(); }
@@ -1981,8 +2018,9 @@ function openPaneSheet(o) {
         else Snd.bump();
       }
     },
-    hints: () => [['b', 'Back'], ['a', 'OK']],
+    hints: () => o.ownHints ? [] : [['b', 'Back'], ['a', 'OK']],
   });
+  drawHints();
   render();
   return api;
 }
@@ -2079,13 +2117,18 @@ function openUserPage() {
 function appOptions(pkg, start) {
   const a = BY[pkg]; if (!a) return;
   const head = el('div', 'swHead');
-  const art = el('div', 'swArt'); artBox(pkg, 256, art);
-  head.appendChild(art);
-  head.appendChild(el('div', 'swT', `<h2>${esc(a.label)}</h2><span>${esc(a.label !== a.orig ? a.orig : (a.game ? 'Game' : 'App'))} · ${esc(pkg)}</span>`));
+  const art = el('div', 'swArt'), img = el('img');
+  img.alt = ''; img.decoding = 'async';
+  img.onload = () => art.classList.add('ok');
+  img.onerror = () => art.remove();      // no picture: no icon at all
+  img.src = artUrl(pkg, 256);
+  art.appendChild(img); head.appendChild(art);
+  head.appendChild(el('div', 'swT', `<h2>${esc(a.label)}</h2><span>${esc(a.label !== a.orig ? a.orig : (a.game ? 'Game' : 'App'))}</span>`));
+  const wrap = el('div'); wrap.append(head, el('div', 'swRule'));
   let sheet;
   sheet = openPaneSheet({
-    modal: true, start,
-    head: head.outerHTML + '<div class="swRule"></div>',
+    modal: true, start, ownHints: true,
+    headNode: wrap,
     cats: [
       { name: 'Software Update', build(pane) {
         const r = [paneRow(pane, 'Via Google Play', { desc: 'Opens this game in the Play Store, where you can update it.', val: '<span class="chev">›</span>',
@@ -2116,7 +2159,7 @@ function appOptions(pkg, start) {
         const x = playStats()[pkg];
         if (!x) { pane.appendChild(el('div', 'empty paneEmpty', 'Not played from NSXL yet.')); return []; }
         const box = el('div', 'swPlay');
-        box.innerHTML = `<div class="pStat"><b>${esc(fmtPlay(x.ms))}</b><span>Play time</span></div><div class="pStat"><b>${x.n || 1}</b><span>${(x.n || 1) === 1 ? 'Session' : 'Sessions'}</span></div><div class="pStat"><b>${esc(ago(x.last))}</b><span>Last played</span></div>`;
+        box.innerHTML = `<div class="pStat"><b>${esc(fmtPlayShort(x.ms))}</b><span>Play time</span></div><div class="pStat"><b>${x.n || 1}</b><span>${(x.n || 1) === 1 ? 'Session' : 'Sessions'}</span></div><div class="pStat"><b>${esc(ago(x.last))}</b><span>Last played</span></div>`;
         pane.appendChild(box);
         return [paneRow(pane, 'Reset play activity for this game', { danger: true, run: () => { nb('playReset', pkg); toast('Play time cleared'); sheet.refresh(); } })];
       } },
@@ -3153,7 +3196,11 @@ function mockArt(pkg) {
    ========================================================= */
 function boot() {
   $('#padInd .padIcon').innerHTML = svg('pad');
-  onPress($('#avatar'), () => { Snd.select(); retrigger($('#avatar'), 'wiggle'); setTimeout(openUserPage, 220); });
+  onPress($('#avatar'), () => {
+    const was = Hm.zone === 'user' && $('#avatar').classList.contains('sel');
+    Hm.zone = 'user'; refreshSel();
+    if (cfg.oneTap || was) { Snd.select(); retrigger($('#avatar'), 'wiggle'); setTimeout(openUserPage, 220); } else { Snd.tick(); buzz(); }
+  });
   loadApps();
   DOCK = DOCK_ALL.filter(d => d.id !== 'ent' || cfg.entTab); renderDock();
   renderRow();
