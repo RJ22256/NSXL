@@ -72,7 +72,16 @@ You can also build it yourself with Android Studio, or run `./gradlew assembleDe
 3. In any game, tap the glowing tab on the screen edge (drag it to move it). You can also add the **NSXL Menu** tile to Quick Settings, or tap the NSXL notification.
 4. Use the D-pad or touch. **B** goes back or closes the menu.
 
-Brightness needs one more permission ("Modify system settings"); the menu asks the first time you use it. Android doesn't let apps read a controller's Home button while a game is open, so the menu can't open from a button press.
+Brightness needs one more permission ("Modify system settings"); the menu asks the first time you use it.
+
+### Optional controller shortcut
+
+Open the menu from your controller instead of the screen:
+
+1. In **Settings → In-Game Menu**, pick a **Controller shortcut**: hold **−**, press **−** and **+** together, hold **+**, click both sticks, the Guide button, or double-press Guide.
+2. Choose **Controller shortcut access → Turn on**, find **NSXL controller shortcut** in Android's Accessibility settings and switch it on. If the switch is greyed out, open NSXL's **App info → ⋮ → Allow restricted settings** first (Android 13+ asks this for apps installed outside the Play Store).
+
+This uses an accessibility service, because that's the only way Android lets an app see controller buttons while a game is open. It only watches controller buttons and can't read your screen. Your game still receives every button, except the Guide button when you use the Guide-button shortcut. With it on, the quick menu also gets **Take screenshot** and **Sleep**.
 
 ## Entertainment with TMDB
 

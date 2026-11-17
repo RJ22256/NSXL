@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">NSXL</string>
+    <string name="shortcut_label">NSXL controller shortcut</string>
+    <string name="shortcut_desc">Opens the NSXL quick menu over your game when you press the controller shortcut you chose in NSXL settings. It only watches controller buttons and never reads what is on your screen. Also lets the quick menu take screenshots and put your device to sleep.</string>
 </resources>

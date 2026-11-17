@@ -399,6 +399,26 @@ final class LauncherBridge {
     }
 
     @JavascriptInterface
+    public boolean shortcutEnabled() {
+        return ShortcutService.instance != null;
+    }
+
+    @JavascriptInterface
+    public void setShortcut(String mode) {
+        a.prefs.edit().putString("shortcut", mode).apply();
+    }
+
+    @JavascriptInterface
+    public void openAccessibility() {
+        start(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+    }
+
+    @JavascriptInterface
+    public void openAppInfoSelf() {
+        start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", a.getPackageName(), null)));
+    }
+
+    @JavascriptInterface
     public void overlayTest() {
         a.runOnUiThread(() -> {
             if (Settings.canDrawOverlays(a)) OverlayService.start(a, OverlayService.ACTION_SHOW);
