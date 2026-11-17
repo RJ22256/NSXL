@@ -4,6 +4,10 @@ on:
   push:
   workflow_dispatch:
 
+# Releases are made from tags like v1.1.0: push the tag and this attaches the APK.
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -27,3 +31,18 @@ jobs:
         with:
           name: NSXL-v1.0.${{ github.run_number }}
           path: app/build/outputs/apk/debug/*.apk
+
+      - name: Publish release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          cp app/build/outputs/apk/debug/*.apk "NSXL-${TAG}.apk"
+          NOTES=".github/release-notes/${TAG}.md"
+          if [ -f "$NOTES" ]; then ARGS=(--notes-file "$NOTES"); else ARGS=(--generate-notes); fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "NSXL-${TAG}.apk" --clobber
+          else
+            gh release create "$TAG" "NSXL-${TAG}.apk" --title "NSXL ${TAG}" --latest "${ARGS[@]}"
+          fi
