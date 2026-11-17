@@ -176,12 +176,15 @@ body.intro #foot { animation: fadeUp .5s .4s both; }
 @keyframes rise { from { opacity: 0; transform: translateY(calc(var(--u) * 3)) scale(.97); } to { opacity: 1; transform: none; } }
 @keyframes fadeDown { from { opacity: 0; transform: translateY(calc(var(--u) * -1.5)); } to { opacity: 1; transform: none; } }
 @keyframes fadeUp { from { opacity: 0; transform: translateY(calc(var(--u) * 1.5)); } to { opacity: 1; transform: none; } }
-body.leaving #home, body.leaving .ov { animation: leave .28s cubic-bezier(.5,0,.9,.5) both; }
-body.leaving #top, body.leaving #foot { animation: fadeOut .2s both; }
+/* launch: the home screen eases back while the chosen tile lifts, then Android grows the app out of it */
+body.leaving #top, body.leaving #foot, body.leaving #dock { animation: fadeOut .22s ease-out both; }
+body.leaving .tile:not(.launching), body.leaving #home > :not(#rowWrap), body.leaving .ov { animation: recede .3s cubic-bezier(.2,.7,.3,1) both; }
+body.leaving .ring b, body.leaving #bgfx i, body.leaving .tile .title { animation-play-state: paused !important; }
+@keyframes recede { to { opacity: .25; transform: scale(.97); } }
 @keyframes leave { to { opacity: 0; transform: scale(1.07); } }
 @keyframes fadeOut { to { opacity: 0; } }
-.tile.launching, .art.launching { z-index: 3; animation: launchTile .28s cubic-bezier(.5,0,.9,.5) both; }
-@keyframes launchTile { 40% { transform: scale(.96); } 100% { transform: scale(1.14); } }
+.tile.launching, .art.launching { z-index: 3; animation: launchTile .3s cubic-bezier(.2,.7,.3,1) both; will-change: transform; }
+@keyframes launchTile { 0% { transform: scale(1); } 30% { transform: scale(.965); } 100% { transform: scale(1.04); } }
 .ov.full.show .cell { animation: cellIn .42s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(min(var(--i, 0), 20) * 16ms); }
 @keyframes cellIn { from { opacity: 0; transform: translateY(calc(var(--u) * 2)) scale(.96); } to { opacity: 1; transform: none; } }
 .hint:active { transform: scale(.94); }
@@ -269,7 +272,6 @@ html[data-theme=video] { --flash: #000000; }
 #hm .col { animation: colon 2s ease-in-out infinite; padding: 0 .03em; }
 @keyframes colon { 50% { opacity: .3; } }
 /* launch: screen flashes to the theme colour like the console */
-body.leaving::after { content: ''; position: fixed; inset: 0; z-index: 60; background: var(--flash, #fff); animation: flashIn .3s .06s both; pointer-events: none; }
 @keyframes flashIn { from { opacity: 0; } to { opacity: 1; } }
 /* sliding category marker in settings */
 .navBar { position: absolute; left: calc(var(--u) * -.6); width: calc(var(--u) * .3); border-radius: 2px; background: var(--accent);
@@ -676,7 +678,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true,
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true, entTab: true, launchFx: 'zoom',
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => { store.set('cfg', cfg); queueMicrotask(() => cloudSnap()); };
@@ -1024,7 +1026,7 @@ function onPress(node, tap, long) {
 const MAX_HOME = 12;
 const Hm = { items: [], idx: 0, zone: 'row', dockIdx: 0, launched: false, mode: 'games', saved: {} };
 
-const DOCK = [
+const DOCK_ALL = [
   { id: 'all',      label: 'All Software', icon: 'grid',    red: true, run: () => openAll({}) , fixed: true },
   { id: 'chat',     label: 'Messages',     icon: 'chat',    color: 'var(--c-orange)', cat: 'messaging' },
   { id: 'web',      label: 'Web',          icon: 'news',    color: 'var(--c-green)',  cat: 'browser' },
@@ -1036,7 +1038,13 @@ const DOCK = [
   { id: 'settings', label: 'Settings',     icon: 'gear',    color: 'var(--grey)',     run: () => openSettings(), fixed: true },
   { id: 'power',    label: 'Power',        icon: 'power',   color: 'var(--grey)',     run: () => openPower(), fixed: true },
 ];
-let dockEls = [];
+let DOCK = DOCK_ALL.slice(), dockEls = [];
+function syncDock() {
+  DOCK = DOCK_ALL.filter(d => d.id !== 'ent' || cfg.entTab);
+  if (!cfg.entTab && Hm.mode === 'ent') setMode('games', true);
+  Hm.dockIdx = Math.min(Hm.dockIdx, DOCK.length - 1);
+  renderDock(); refreshSel();
+}
 const dockApp = d => { const p = store.get('dockApps', {})[d.id]; return p && BY[p] ? p : null; };
 const dockLabelText = d => { if (d.id === 'ent') return Hm.mode === 'ent' ? 'Back to Games' : 'Entertainment'; const p = dockApp(d); return p ? BY[p].label : d.label; };
 
@@ -1200,14 +1208,21 @@ function rowOptions() {
 let launchLock = false;
 function launch(pkg, node) {
   if (launchLock) return; launchLock = true; setTimeout(() => { launchLock = false; }, 900);
-  Snd.launch(); buzz('confirm');
-  const played = store.get('played', {}); played[pkg] = Date.now(); store.set('played', played);
-  Hm.launched = true;
+  const style = cfg.calm && cfg.launchFx === 'zoom' ? 'fade' : cfg.launchFx;
+  // Measure the tile before anything moves, so the app grows out of exactly where it sits.
   let r = { left: 0, top: 0, width: 0, height: 0 };
-  if (node) { r = node.getBoundingClientRect(); node.classList.add('launching'); }
+  if (node && style === 'zoom') r = node.getBoundingClientRect();
+  Snd.launch(); buzz('confirm');
   Music.pause();
-  document.body.classList.add('leaving');
-  setTimeout(() => nb('launch', pkg, r.left, r.top, r.width, r.height), 230);
+  Hm.launched = true;
+  if (style === 'instant') { nb('launch', pkg, 0, 0, 0, 0); }
+  else {
+    if (node) node.classList.add('launching');
+    document.body.classList.add('leaving');
+    // One short beat for the tile to react, then hand over to Android's own window animation.
+    requestAnimationFrame(() => setTimeout(() => nb('launch', pkg, r.left, r.top, r.width, r.height), 70));
+  }
+  setTimeout(() => { const played = store.get('played', {}); played[pkg] = Date.now(); store.set('played', played); }, 400);
   setTimeout(() => {   // if the app never opened, come back
     document.body.classList.remove('leaving');
     $$('.launching').forEach(n => n.classList.remove('launching'));
@@ -1605,8 +1620,9 @@ function entServices() {
   SERVICES.forEach(sv => { const pkg = sv.pkgs.find(p => BY[p]); if (pkg && !hidden[sv.id]) out.push({ ...sv, pkg }); });
   return out.sort((a, b) => ((order.indexOf(a.id) + 1) || 999) - ((order.indexOf(b.id) + 1) || 999));
 }
-function setMode(m) {
-  if (Hm.mode === m) { Snd.bump(); return; }
+function setMode(m, quiet) {
+  if (m === 'ent' && !cfg.entTab) { Snd.bump(); return; }
+  if (Hm.mode === m) { if (!quiet) Snd.bump(); return; }
   Hm.saved[Hm.mode] = Hm.idx; Hm.mode = m; Hm.idx = Hm.saved[m] || 0;
   const row = $('#row'); row.classList.remove('slideL', 'slideR'); void row.offsetWidth; row.classList.add(m === 'ent' ? 'slideL' : 'slideR');
   clearTimeout(window.__slideT); window.__slideT = setTimeout(() => row.classList.remove('slideL', 'slideR'), 900);
@@ -1614,6 +1630,7 @@ function setMode(m) {
   Hm.zone = Hm.items.length > 1 || Hm.mode === 'games' ? (Hm.items.length ? 'row' : 'dock') : 'row';
   $('#rowWrap').scrollLeft = 0; refreshSel(); ensureRowVisible(false);
   const dk = dockEls[DOCK.findIndex(d => d.id === 'ent')]; if (dk) dk.classList.toggle('on', m === 'ent');
+  if (quiet) return;
   Snd.tab(); buzz();
   if (m === 'ent' && !entServices().length) toast('No streaming apps found. Install one, or check Streaming settings.');
 }
@@ -1958,6 +1975,8 @@ const SETTINGS = [
       set: v => { cfg.blur = v; saveCfg(); applyTheme(); }, fmt: v => v ? String(v) : 'Off' } : null,
   ] },
   { name: 'Home Screen', rows: () => [
+    { type: 'toggle', label: 'Entertainment', desc: 'Shows the Entertainment button and the R-button switch to your streaming apps. Turn off if you only want games.', key: 'entTab', after: syncDock },
+    { type: 'choice', label: 'Launch animation', desc: 'How games and apps open from the Home screen.', key: 'launchFx', options: [['zoom', 'Zoom from tile'], ['fade', 'Fade'], ['instant', 'Instant']], after: () => nb('setLaunchStyle', cfg.launchFx) },
     { type: 'slider', label: 'Interface size', desc: 'Makes everything bigger or smaller to suit your screen.', min: 0.7, max: 1.3, step: 0.05,
       get: () => cfg.scale || 1, set: v => { cfg.scale = v; saveCfg(); applyTheme(); setTimeout(() => window.dispatchEvent(new Event('resize')), 60); },
       fmt: v => Math.round(v * 100) + '%' },
@@ -2248,6 +2267,7 @@ window.onPad = (b, repeat, fromTouch) => {
   if (top) top.pad(b, repeat); else homePad(b, repeat);
 };
 window.onPauseApp = () => Music.pause();
+nb('setLaunchStyle', cfg.launchFx);
 window.onResumeApp = () => {
   updateStatus();
   if (store.get('ovPending')) {
@@ -2355,7 +2375,7 @@ function boot() {
   $('#padInd .padIcon').innerHTML = svg('pad');
   onPress($('#avatar'), () => { Snd.select(); retrigger($('#avatar'), 'wiggle'); setTimeout(avatarMenu, 220); });
   loadApps();
-  renderDock();
+  DOCK = DOCK_ALL.filter(d => d.id !== 'ent' || cfg.entTab); renderDock();
   renderRow();
   applyTheme();
   nb('setSwapAB', cfg.swapAB); nb('setImmersive', cfg.immersive); nb('setOrientation', cfg.orientation); nb('setShortcut', cfg.shortcut);

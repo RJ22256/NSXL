@@ -41,6 +41,12 @@ final class LauncherBridge {
         a.runOnUiThread(() -> a.launchApp(pkg, x, y, w, h));
     }
 
+    /** "zoom" (grow out of the tile), "fade" or "instant". */
+    @JavascriptInterface
+    public void setLaunchStyle(String style) {
+        a.launchStyle = style == null ? "zoom" : style;
+    }
+
     @JavascriptInterface
     public void appInfo(String pkg) {
         start(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", pkg, null)));

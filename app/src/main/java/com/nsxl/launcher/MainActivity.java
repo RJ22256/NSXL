@@ -131,6 +131,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onStart() {
         super.onStart();
+        if (web != null) web.onResume();
         if (videoEnabled) video.play();
     }
 
@@ -158,8 +159,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onStop() {
-        // Free the video decoder while a game is running.
+        // Free the video decoder and pause the page's animations while a game is running.
         video.stop();
+        if (web != null) web.onPause();
         setStick(null);
         super.onStop();
     }
@@ -344,6 +346,8 @@ public class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ launching
 
+    String launchStyle = "zoom";
+
     void launchApp(String pkg, float x, float y, float w, float h) {
         Intent i = getPackageManager().getLaunchIntentForPackage(pkg);
         if (i == null) {
@@ -351,12 +355,16 @@ public class MainActivity extends Activity {
             return;
         }
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED);
-        Bundle opts = null;
-        if (w > 0 && h > 0 && web != null) {
-            // Zoom the game out of its tile.
+        Bundle opts;
+        if ("instant".equals(launchStyle)) {
+            opts = ActivityOptions.makeCustomAnimation(this, 0, 0).toBundle();
+        } else if (w > 0 && h > 0 && web != null && !"fade".equals(launchStyle)) {
+            // Grow the app's window out of the tile it was started from.
             float d = getResources().getDisplayMetrics().density;
             opts = ActivityOptions.makeScaleUpAnimation(web,
-                    Math.round(x * d), Math.round(y * d), Math.round(w * d), Math.round(h * d)).toBundle();
+                    Math.round(x * d), Math.round(y * d), Math.max(1, Math.round(w * d)), Math.max(1, Math.round(h * d))).toBundle();
+        } else {
+            opts = ActivityOptions.makeCustomAnimation(this, R.anim.launch_fade_in, R.anim.launch_hold).toBundle();
         }
         try {
             startActivity(i, opts);
