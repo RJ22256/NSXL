@@ -29,8 +29,14 @@ final class OverlayWebView extends WebView {
         post(() -> evaluateJavascript(script, null));
     }
 
+    private final int[] lastPad = {-1};
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
+        if (e.getAction() == KeyEvent.ACTION_DOWN) {
+            String kind = PadKeys.noteDevice(prefs, e.getDevice(), lastPad);
+            if (kind != null) js(kind);
+        }
         String b = PadKeys.map(e.getKeyCode(), prefs.getBoolean("swapAB", false));
         if (b == null) return super.dispatchKeyEvent(e);
         if (e.getAction() == KeyEvent.ACTION_DOWN) {
@@ -45,6 +51,8 @@ final class OverlayWebView extends WebView {
         boolean pad = (src & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
                 || (src & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
         if (pad && ev.getActionMasked() == MotionEvent.ACTION_MOVE) {
+            String kind = PadKeys.noteDevice(prefs, ev.getDevice(), lastPad);
+            if (kind != null) js(kind);
             String dir = PadKeys.direction(ev);
             if (dir == null ? stickDir != null : !dir.equals(stickDir)) {
                 stickDir = dir;

@@ -35,6 +35,7 @@ Big game tiles, a round-button dock, a glowing selection ring, ambient music and
 - **NSXL Cloud.** Your device can host its own backup server on your Wi-Fi. Other NSXL devices back up their API keys, theme and music to it and restore from it, and any browser can open it to download or upload backups. PIN-protected.
 - **Cover art from SteamGridDB.** Search for any game and pick from hundreds of community covers, or fetch art for every game at once. You can also use any picture from your phone.
 - **Rename anything.** Give apps the name you want shown on their tile.
+- **Button icons that match your controller.** Xbox, PlayStation (✕ ○ □ △) and Nintendo pads are detected automatically, or pick a style in Settings › Controls. While you're using the touchscreen the button icons hide themselves.
 - **Controllers page.** See what's connected (with battery level), make a controller buzz to find it, and search for and pair new Bluetooth controllers without opening Android settings. Pairing-mode tips for Xbox, PlayStation, Switch and 8BitDo pads are on the same page.
 - **Album.** All your screenshots in one place, sorted by game, with a full-screen viewer you can flick through on the controller. Share them, delete them, or use one as a game's Home tile. Screenshots taken from the in-game menu are tagged with the game you were playing.
 - **News.** Headlines from Eurogamer, IGN, Nintendo Life and more, plus a **Your Games** tab with news about the games you play most. Pick sources or add any RSS feed in Settings › News.
