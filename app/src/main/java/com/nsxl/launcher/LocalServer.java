@@ -210,6 +210,7 @@ final class LocalServer {
         if (p.endsWith(".ttf")) return "font/ttf";
         if (p.endsWith(".txt")) return "text/plain";
         if (p.endsWith(".mp3")) return "audio/mpeg";
+        if (p.endsWith(".wav")) return "audio/wav";
         return "application/octet-stream";
     }
 
