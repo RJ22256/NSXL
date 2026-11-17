@@ -76,9 +76,25 @@ public class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ lifecycle
 
+    static MainActivity current;
+
+    /** A backup was restored (from this device's cloud page or another device): reload video and tell the page. */
+    static void notifyRestored(String json) {
+        MainActivity a = current;
+        if (a == null) return;
+        a.ui.post(() -> {
+            a.video.stop();
+            a.video.setVideoFile(Storage.videoFile(a));
+            if (a.videoEnabled) a.video.play();
+            a.prefs.edit().remove("pendingRestore").apply();
+            a.js("window.onCloudRestore&&window.onCloudRestore(" + json + ")");
+        });
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        current = this;
         prefs = getSharedPreferences("launcher", MODE_PRIVATE);
         swapAB = prefs.getBoolean("swapAB", false);
         immersive = prefs.getBoolean("immersive", true);
@@ -140,6 +156,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
+        if (current == this) current = null;
         try { unregisterReceiver(packageReceiver); } catch (Exception ignored) { }
         video.stop();
         if (web != null) web.destroy();

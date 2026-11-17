@@ -643,10 +643,10 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select',
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '',
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
-const saveCfg = () => store.set('cfg', cfg);
+const saveCfg = () => { store.set('cfg', cfg); queueMicrotask(() => cloudSnap()); };
 if (!store.get('mig.twoTap')) { cfg.oneTap = false; saveCfg(); store.set('mig.twoTap', true); }  // new default: tap to select, tap again to start
 
 /* =========================================================
@@ -860,7 +860,7 @@ function nbAsync(method, ...args) {
   return new Promise((resolve, reject) => {
     const id = 'r' + (++reqN); pending[id] = { resolve, reject };
     nb(method, id, ...args);
-    setTimeout(() => { if (pending[id]) { delete pending[id]; reject('Timed out. Check your connection.'); } }, 45000);
+    setTimeout(() => { if (pending[id]) { delete pending[id]; reject('Timed out. Check your connection.'); } }, method.startsWith('cloud') ? 600000 : 45000);
   });
 }
 window.onAsync = (id, ok, data) => {
@@ -1411,6 +1411,63 @@ function sgdbAll(pkgs, what) {
   });
 }
 
+/* ---------- NSXL Cloud (backup server on this device) ---------- */
+// What a backup carries: API keys, theme and music settings. Files (music, optional wallpaper) are added natively.
+const CLOUD_KEYS = ['theme', 'dim', 'blur', 'scale', 'bgfx', 'calm', 'clock', 'batPct', 'sounds', 'haptics', 'music', 'musicVol', 'musicSrc', 'tmdbKey', 'sgdbKey', 'region'];
+function cloudSnap() {
+  const out = {}; CLOUD_KEYS.forEach(k => { out[k] = cfg[k]; });
+  nb('cloudSnapshot', JSON.stringify(out));
+}
+window.onCloudRestore = meta => {
+  const st = (meta && meta.settings) || {};
+  CLOUD_KEYS.forEach(k => { if (k in st) cfg[k] = st[k]; });
+  saveCfg(); store.set('musicV', Date.now());
+  applyTheme(); Music.restart(); refreshOverlays();
+  showToast('Restored from ' + ((meta && meta.device) || 'backup'), 2800);
+  nb('cloudClearPending');
+};
+const cloudState = () => { try { return JSON.parse(nb('cloudHostState') || '{}'); } catch (e) { return {}; } };
+const when = t => new Date(t).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+function askRemote(then) {
+  openPrompt('Other device’s address', cfg.cloudAddr || '', 'For example 192.168.1.20', addr => {
+    addr = addr.trim(); if (!addr) return;
+    cfg.cloudAddr = addr; saveCfg();
+    openPrompt('PIN', '', '6-digit PIN', pin => { pin = pin.trim(); if (pin) then(addr, pin); }, 'It’s shown on the other device in <b>Settings › Cloud Save</b>.');
+  }, 'On the other device, turn on <b>Host NSXL Cloud</b> in Settings › Cloud Save. Its address and PIN appear there.');
+}
+function cloudFail(title, e) { hideToast(); openDialog(title, String(e), [{ label: 'OK', primary: true }]); }
+function confirmRestore(from, go) {
+  openDialog('Restore from ' + from + '?', 'This replaces your API keys, theme and music on this device.',
+    [{ label: 'Cancel', cancel: true }, { label: 'Restore', primary: true, run: go }]);
+}
+function cloudPushFlow() {
+  askRemote(async (addr, pin) => {
+    showToast('Backing up…', 600000);
+    try { await nbAsync('cloudPush', addr, pin, !!cfg.cloudVideo); showToast('Backed up to ' + addr, 2600); }
+    catch (e) { cloudFail('Backup didn’t work', e); }
+  });
+}
+function cloudPullFlow() {
+  askRemote(async (addr, pin) => {
+    showToast('Connecting…', 30000);
+    try {
+      const list = await nbAsync('cloudList', addr, pin); hideToast();
+      const pull = (name, label) => confirmRestore(label, async () => {
+        showToast('Restoring…', 600000);
+        try { await nbAsync('cloudPull', addr, pin, name); } catch (e) { cloudFail('Restore didn’t work', e); }
+      });
+      openMenu('Restore from ' + addr, [{ label: 'That device’s current setup', run: () => pull('', 'that device') }]
+        .concat(list.map(b => ({ label: b.device + ' · ' + when(b.time), run: () => pull(b.name, b.device) }))));
+    } catch (e) { cloudFail('Couldn’t connect', e); }
+  });
+}
+function cloudLocalFlow(list) {
+  openMenu('Backups stored on this device', list.map(b => ({
+    label: b.device + ' · ' + when(b.time),
+    run: () => confirmRestore(b.device, async () => { showToast('Restoring…', 600000); try { await nbAsync('cloudRestoreLocal', b.name); } catch (e) { cloudFail('Restore didn’t work', e); } }),
+  })));
+}
+
 /* ---------- controller shortcut (accessibility service) ---------- */
 function shortcutHelp() {
   if (nb('shortcutEnabled')) {
@@ -1845,6 +1902,21 @@ const SETTINGS = [
       { type: 'info', label: 'Quick Settings', value: () => 'Add the “NSXL Menu” tile to open it from the shade' },
     ];
   } },
+  { name: 'Cloud Save', rows: () => {
+    const st = cloudState();
+    return [
+      { type: 'action', label: 'Host NSXL Cloud on this device', desc: 'Other devices on your Wi-Fi can back up to this one and restore from it, and you can open it in a browser. Runs while NSXL is open.',
+        value: () => st.running ? 'On' : 'Off',
+        run: () => { const r = JSON.parse(nb('cloudHost', !st.running) || '{}'); refreshOverlays(); toast(r.running ? 'NSXL Cloud is on' : 'NSXL Cloud is off'); } },
+      st.running ? { type: 'info', label: 'Address', value: () => st.address || 'Connect to Wi-Fi first' } : null,
+      st.running ? { type: 'info', label: 'PIN', value: () => st.pin } : null,
+      st.running && st.address ? { type: 'info', label: 'In a browser', value: () => 'http://' + st.address } : null,
+      { type: 'action', label: 'Back up to another device', desc: 'Saves your API keys, theme and music to a device that’s hosting NSXL Cloud.', value: () => '', run: cloudPushFlow },
+      { type: 'action', label: 'Restore from another device', value: () => '', run: cloudPullFlow },
+      (st.stored || []).length ? { type: 'action', label: 'Restore a backup stored here', value: () => st.stored.length + ' saved', run: () => cloudLocalFlow(st.stored) } : null,
+      { type: 'toggle', label: 'Include live wallpaper video', desc: 'Videos can be large, so this is off unless you turn it on.', key: 'cloudVideo' },
+    ];
+  } },
   { name: 'Entertainment', rows: () => [
     { type: 'action', label: 'TMDB API key', desc: 'Free from themoviedb.org › Settings › API.', value: () => cfg.tmdbKey ? 'Set ✓' : 'Add key',
       run: () => openPrompt('TMDB API key', cfg.tmdbKey, 'Paste your API key or read access token', v => { cfg.tmdbKey = v.trim(); saveCfg(); refreshOverlays(); },
@@ -2137,6 +2209,7 @@ function makeMock() {
     isDefaultHome: () => false,
     sdk: () => 34,
     region: () => 'GB',
+    cloudHostState: () => JSON.stringify({ running: true, address: '192.168.1.20:8765', pin: '482913', stored: [{ name: 'x.zip', device: 'Retroid Pocket 5', time: Date.now() - 3600e3 }] }),
     overlayState: () => JSON.stringify({ permission: true, enabled: false, running: false }),
     copyText: () => {},
     openUrl: (u) => toast('Opens ' + u.split('/')[2]),
@@ -2187,6 +2260,8 @@ function boot() {
   nb('setSwapAB', cfg.swapAB); nb('setImmersive', cfg.immersive); nb('setOrientation', cfg.orientation); nb('setShortcut', cfg.shortcut);
   setAvatar();
   updateStatus();
+  cloudSnap();
+  try { const p = nb('cloudPending'); if (p) window.onCloudRestore(JSON.parse(p)); } catch (e) {}
   setInterval(updateClock, 1000);
   setInterval(updateStatus, 15000);
   let lastSL = 0, tilt = 0, tiltRaf = 0;
