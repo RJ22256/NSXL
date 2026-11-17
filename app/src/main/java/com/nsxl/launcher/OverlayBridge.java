@@ -107,6 +107,7 @@ final class OverlayBridge {
     public void screenshot() {
         s.ui.post(() -> {
             s.hideMenu();
+            Album.tag(s);
             s.ui.postDelayed(ShortcutService::takeScreenshot, 450);   // let the menu fade out first
         });
     }

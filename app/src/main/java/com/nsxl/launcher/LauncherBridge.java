@@ -205,6 +205,64 @@ final class LauncherBridge {
         a.typing = on;
     }
 
+    // ---------------------------------------------------------------- Album (screenshots)
+
+    @JavascriptInterface
+    public String albumAccess() {
+        return Album.access(a);
+    }
+
+    @JavascriptInterface
+    public void albumRequest() {
+        a.runOnUiThread(a::albumRequest);
+    }
+
+    @JavascriptInterface
+    public void albumList(final String id) {
+        new Thread(() -> {
+            try { a.asyncResult(id, Album.list(a)); } catch (Exception e) { a.asyncError(id, e); }
+        }, "album").start();
+    }
+
+    @JavascriptInterface
+    public void albumShare(final double shot) {
+        a.runOnUiThread(() -> { try { Album.share(a, (long) shot); } catch (Exception e) { a.jsToast("Couldn't share that screenshot"); } });
+    }
+
+    @JavascriptInterface
+    public void albumOpen(final double shot) {
+        a.runOnUiThread(() -> { try { Album.open(a, (long) shot); } catch (Exception e) { a.jsToast("No gallery app found"); } });
+    }
+
+    @JavascriptInterface
+    public void albumDelete(final double shot) {
+        a.runOnUiThread(() -> a.albumDelete((long) shot));
+    }
+
+    /** Uses a screenshot as a game's Home tile (cropped to a square from the middle). */
+    @JavascriptInterface
+    public void albumAsCover(final String id, final double shot, final String pkg) {
+        new Thread(() -> {
+            try {
+                if (!Storage.saveSquareImage(a, Album.uri((long) shot), Storage.coverFile(a, pkg), 720)) throw new java.io.IOException("Couldn't read that screenshot");
+                a.server.invalidate(pkg);
+                a.asyncResult(id, "true");
+            } catch (Exception e) { a.asyncError(id, e); }
+        }, "album").start();
+    }
+
+    // ---------------------------------------------------------------- News (fetches feeds natively: most news sites don't allow cross-site requests)
+
+    @JavascriptInterface
+    public void fetchText(final String id, final String url) {
+        new Thread(() -> {
+            try {
+                if (url == null || !url.startsWith("https://")) throw new java.io.IOException("Bad address");
+                a.asyncResult(id, JSONObject.quote(Net.getText(url, 3 * 1024 * 1024)));
+            } catch (Exception e) { a.asyncError(id, e); }
+        }, "news").start();
+    }
+
     // ---------------------------------------------------------------- SteamGridDB (async: answers via window.onAsync)
 
     @JavascriptInterface

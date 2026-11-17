@@ -315,6 +315,44 @@ html[data-theme=video] { --flash: #000000; }
 body.full #modeTabs { opacity: 0; pointer-events: none; }
 #row.slideL .tile { animation: fromR .42s cubic-bezier(.2,.8,.2,1) both !important; animation-delay: calc(var(--i, 0) * 40ms) !important; }
 #row.slideR .tile { animation: fromL .42s cubic-bezier(.2,.8,.2,1) both !important; animation-delay: calc(var(--i, 0) * 40ms) !important; }
+/* album + news: wide cards */
+.grid.wide { grid-template-columns: repeat(auto-fill, calc(var(--u) * 17)); gap: calc(var(--u) * 1.8) calc(var(--u) * 1.4); }
+.grid.wide .cell { width: calc(var(--u) * 17); }
+.grid.wide .cell .art, .grid.news .cell .art { aspect-ratio: 16 / 9; }
+.grid.wide .clip img, .grid.news .clip img { position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; display: block; }
+.grid.news .clip img.cover { filter: saturate(1.1); object-position: center 30%; }
+.shotApp { position: absolute; z-index: 2; left: calc(var(--u) * .6); bottom: calc(var(--u) * .6); width: calc(var(--u) * 2.4); height: calc(var(--u) * 2.4);
+  border-radius: calc(var(--u) * .6); background: #fff center / cover; box-shadow: 0 2px 8px rgba(0,0,0,.35); }
+.grid.news { grid-template-columns: repeat(auto-fill, calc(var(--u) * 24)); gap: calc(var(--u) * 2.2) calc(var(--u) * 1.8); }
+.grid.news .cell { width: calc(var(--u) * 24); }
+.grid.news .nsrc { margin-top: calc(var(--u) * .8); font-size: calc(var(--u) * 1.1); color: var(--accent); font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grid.news .cell .nm { margin-top: calc(var(--u) * .3); text-align: left; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  font-size: calc(var(--u) * 1.4); line-height: 1.3; color: var(--fg); min-height: 2.6em; }
+.grid.news .cell.sel .nm { color: var(--accent); }
+.ghint { display: block; margin-top: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.35); }
+.ghint .btn, .empty .btn { display: inline-grid; vertical-align: middle; margin: 0 .3em; }
+.tabs { max-width: 64vw; overflow-x: auto; scrollbar-width: none; white-space: nowrap; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs .t { flex: 0 0 auto; }
+/* screenshot viewer */
+.ov.shotView { background: #000; z-index: 40; }
+.shotImg { position: absolute; inset: 0; overflow: hidden; }
+.shotImg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; transition: transform .26s cubic-bezier(.2,.8,.2,1), opacity .26s; }
+.shotImg img.fromR { animation: shotInR .3s cubic-bezier(.2,.8,.2,1) both; } .shotImg img.fromL { animation: shotInL .3s cubic-bezier(.2,.8,.2,1) both; }
+.shotImg img.outL { transform: translateX(-8%); opacity: 0; } .shotImg img.outR { transform: translateX(8%); opacity: 0; }
+@keyframes shotInR { from { transform: translateX(8%); opacity: 0; } } @keyframes shotInL { from { transform: translateX(-8%); opacity: 0; } }
+.shotBar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; align-items: center; gap: calc(var(--u) * 2); color: #fff;
+  padding: calc(var(--u) * 3) var(--side) calc(var(--u) * 7.6); background: linear-gradient(transparent, rgba(0,0,0,.65)); font-size: calc(var(--u) * 1.5); }
+.shotBar .sg { display: flex; align-items: center; gap: calc(var(--u) * .8); font-weight: 600; }
+.shotBar .sg i { width: calc(var(--u) * 2.6); height: calc(var(--u) * 2.6); border-radius: calc(var(--u) * .6); background: #fff center / cover; }
+.shotBar .sn { margin-left: auto; opacity: .7; }
+.ov.shotView::before { content: ''; position: absolute; z-index: 1; left: 0; right: 0; top: 0; height: calc(var(--u) * 12); background: linear-gradient(rgba(0,0,0,.55), transparent); pointer-events: none; }
+body.viewing #top, body.viewing #foot { --fg: #fff; --fg2: rgba(255,255,255,.8); color: #fff; }
+body.viewing #foot::before, body.viewing #top::after { opacity: 0; }
+/* news story */
+.tdet.story .tp { flex: 0 0 calc(var(--u) * 30); aspect-ratio: 16 / 9; align-self: flex-start; }
+.tdet.story h2 { font-size: calc(var(--u) * 2.2); }
+.tdet.story .meta { color: var(--accent); font-weight: 600; }
 /* catalogue posters */
 .grid.posters { grid-template-columns: repeat(auto-fill, calc(var(--u) * 9)); gap: calc(var(--u) * 1.8) calc(var(--u) * 1.3); }
 .grid.posters .cell { width: calc(var(--u) * 9); }
@@ -678,7 +716,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true, entTab: true, launchFx: 'zoom',
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true, entTab: true, launchFx: 'zoom', newsSrc: null, newsCustom: [],
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => { store.set('cfg', cfg); queueMicrotask(() => cloudSnap()); };
@@ -711,6 +749,7 @@ const ICONS = {
   home:   '<path d="M4.5 11 12 4.6l7.5 6.4v8a1 1 0 0 1-1 1h-4.2v-5.4H9.7V20H5.5a1 1 0 0 1-1-1z"/>',
   check:  '<path d="M5 12.6l4.4 4.4L19 7.4"/>',
   film:   '<rect x="3.5" y="5" width="17" height="14" rx="2.6"/><path d="M10.2 9.3v5.4l4.5-2.7z" fill="currentColor"/>',
+  paper:  '<path d="M5 4.5h11a1.5 1.5 0 0 1 1.5 1.5v12.5a1.5 1.5 0 0 0 3 0V9h-3"/><path d="M5 4.5v14a1.5 1.5 0 0 0 1.5 1.5h12.5"/><path d="M8 8.5h6M8 12h6M8 15.5h4"/>',
   person: '<circle cx="12" cy="9.2" r="3.7"/><path d="M5 20a7 7 0 0 1 14 0"/>',
 };
 const svg = (name, cls = 'ic') => `<svg viewBox="0 0 24 24" class="${cls}">${ICONS[name]}</svg>`;
@@ -1028,10 +1067,11 @@ const Hm = { items: [], idx: 0, zone: 'row', dockIdx: 0, launched: false, mode: 
 
 const DOCK_ALL = [
   { id: 'all',      label: 'All Software', icon: 'grid',    red: true, run: () => openAll({}) , fixed: true },
+  { id: 'news',     label: 'News',         icon: 'paper',   color: 'var(--c-red)',    run: () => openNews() },
   { id: 'chat',     label: 'Messages',     icon: 'chat',    color: 'var(--c-orange)', cat: 'messaging' },
   { id: 'web',      label: 'Web',          icon: 'news',    color: 'var(--c-green)',  cat: 'browser' },
   { id: 'store',    label: 'Play Store',   icon: 'bag',     color: 'var(--c-red)',    cat: 'market' },
-  { id: 'album',    label: 'Album',        icon: 'album',   color: 'var(--c-blue)',   cat: 'gallery' },
+  { id: 'album',    label: 'Album',        icon: 'album',   color: 'var(--c-blue)',   run: () => openAlbum() },
   { id: 'music',    label: 'Music',        icon: 'music',   color: 'var(--c-teal)',   cat: 'music' },
   { id: 'pads',     label: 'Controllers',  icon: 'pad',     color: 'var(--grey)',     settings: 'bluetooth' },
   { id: 'ent',      label: 'Entertainment', icon: 'film',   color: '#8a5cf6',         run: () => { setMode(Hm.mode === 'ent' ? 'games' : 'ent'); Hm.zone = 'row'; refreshSel(); }, fixed: true },
@@ -1524,7 +1564,7 @@ window.onScreenOff = () => { $('#sleepFx').classList.remove('on'); };
 
 /* ---------- NSXL Cloud (backup server on this device) ---------- */
 // What a backup carries: API keys, theme and music settings. Files (music, optional wallpaper) are added natively.
-const CLOUD_KEYS = ['theme', 'dim', 'blur', 'scale', 'bgfx', 'calm', 'clock', 'batPct', 'sounds', 'haptics', 'music', 'musicVol', 'musicSrc', 'tmdbKey', 'sgdbKey', 'region'];
+const CLOUD_KEYS = ['theme', 'dim', 'blur', 'scale', 'bgfx', 'calm', 'clock', 'batPct', 'sounds', 'haptics', 'music', 'musicVol', 'musicSrc', 'tmdbKey', 'sgdbKey', 'region', 'newsSrc', 'newsCustom', 'entTab', 'launchFx'];
 function cloudSnap() {
   const out = {}; CLOUD_KEYS.forEach(k => { out[k] = cfg[k]; });
   nb('cloudSnapshot', JSON.stringify(out));
@@ -1772,6 +1812,301 @@ function openTitle(sv, x) {
   });
   paint();
 }
+/* =========================================================
+   Album: your screenshots, grouped by game
+   ========================================================= */
+const shotThumb = s => NATIVE ? '/shot/' + s.id + '/thumb' : mockShot(s, 480);
+const shotFull = s => NATIVE ? '/shot/' + s.id + '/full' : mockShot(s, 1280);
+function shotGame(s) {
+  if (s.tag && BY[s.tag]) return s.tag;
+  const tail = String(s.name || '').replace(/\.[a-z0-9]+$/i, '').replace(/^screenshot[s]?[_\- ]?/i, '').replace(/^[\d_\-. ]+/, '').trim();
+  if (!tail) return null;
+  if (BY[tail]) return tail;
+  const t = tail.replace(/_/g, ' ').toLowerCase();
+  const hit = Object.values(BY).find(a => a.label.toLowerCase() === t || (a.orig || '').toLowerCase() === t);
+  return hit ? hit.pkg : null;
+}
+const shotDate = ms => { const d = new Date(ms); return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + ', ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }); };
+
+function openAlbum() {
+  const ov = el('section', 'ov full');
+  ov.innerHTML = `<div class="ovTitle">${svg('album')}<span>Album</span></div><div class="ovRule"></div><div class="ovRule bottom"></div>
+    <div class="tabs"></div><div class="svcHead"></div><div class="grid wide"></div>`;
+  const grid = $('.grid', ov), head = $('.svcHead', ov), tabsEl = $('.tabs', ov);
+  let shots = [], tabs = [], tab = 0, list = [], cells = [], sel = 0, access = 'full', loading = true;
+  function buildTabs() {
+    const count = {};
+    shots.forEach(s => { s.game = shotGame(s); const k = s.game || '_other'; count[k] = (count[k] || 0) + 1; });
+    const games = Object.keys(count).filter(k => k !== '_other').sort((a, b) => count[b] - count[a]).slice(0, 6);
+    tabs = [{ id: '_all', label: 'All' }].concat(games.map(p => ({ id: p, label: BY[p].label })));
+    if (games.length && count._other) tabs.push({ id: '_other', label: 'Other' });
+    tab = Math.min(tab, tabs.length - 1);
+    tabsEl.innerHTML = (tabs.length > 1 ? '<i class="btn">L</i>' : '') + tabs.map((t, i) => `<span class="t${i === tab ? ' on' : ''}" data-i="${i}">${esc(t.label)}</span>`).join('') + (tabs.length > 1 ? '<i class="btn">R</i>' : '');
+    $$('.t', tabsEl).forEach(t => onPress(t, () => switchTab(+t.dataset.i)));
+  }
+  function build() {
+    const id = tabs[tab] ? tabs[tab].id : '_all';
+    list = id === '_all' ? shots : shots.filter(s => (s.game || '_other') === id);
+    grid.innerHTML = '';
+    cells = list.map((s, i) => {
+      const c = el('div', 'cell'), art = el('div', 'art g'), clip = el('div', 'clip');
+      c.style.setProperty('--i', i);
+      const img = el('img'); img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.src = shotThumb(s); img.onerror = () => img.remove();
+      clip.appendChild(img); art.appendChild(clip);
+      if (s.game && tabs[tab].id === '_all') { const b = el('span', 'shotApp'); b.style.backgroundImage = `url("/icon/${s.game}")`; art.appendChild(b); }
+      c.appendChild(art); c.appendChild(el('div', 'nm', esc(shotDate(s.date))));
+      onPress(c, () => { const was = sel === i && c.classList.contains('sel'); sel = i; paint(); if (cfg.oneTap || was) view(); else { Snd.tick(); buzz(); } }, () => { sel = i; paint(); shotOptions(list[i]); });
+      grid.appendChild(c); return c;
+    });
+    if (access === 'none') grid.appendChild(el('div', 'empty', 'NSXL needs permission to see your screenshots.<br><span class="ghint">Press <i class="btn">' + BTN.a + '</i> to allow access</span>'));
+    else if (!list.length) grid.appendChild(el('div', 'empty', 'No screenshots yet.<br><span class="ghint">Take one from the in-game menu (Power › Take screenshot) or with your phone\'s screenshot buttons.</span>'));
+    head.textContent = access === 'none' ? 'Screenshots' : list.length + (list.length === 1 ? ' screenshot' : ' screenshots') + (access === 'partial' ? ' · only the photos you chose' : '');
+    sel = clamp(sel, 0, Math.max(0, cells.length - 1)); paint(true);
+  }
+  function paint(noScroll) {
+    cells.forEach((c, i) => { c.classList.toggle('sel', i === sel); c.firstChild.classList.toggle('sel', i === sel); });
+    if (!noScroll && cells[sel]) cells[sel].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  const cols = () => { if (cells.length < 2) return 1; const t0 = cells[0].offsetTop; let n = 0; for (const c of cells) { if (c.offsetTop !== t0) break; n++; } return n; };
+  const move = d => { let n = sel + d; if (d > 1 && n >= cells.length && Math.floor(sel / cols()) < Math.floor((cells.length - 1) / cols())) n = cells.length - 1; if (n < 0 || n >= cells.length) { Snd.bump(); return; } sel = n; Snd.tick(); buzz(); paint(); };
+  const switchTab = i => { if (loading || i < 0 || i >= tabs.length || i === tab) { Snd.bump(); return; } grid.classList.remove('fromL', 'fromR'); grid.classList.add(i > tab ? 'fromR' : 'fromL'); tab = i; sel = 0; Snd.tick(); $$('.t', tabsEl).forEach(t => t.classList.toggle('on', +t.dataset.i === tab)); build(); grid.scrollTop = 0; };
+  const view = () => { if (list[sel]) { Snd.select(); openShot(list, sel, i => { sel = i; paint(); }, reload); } };
+  const ask = () => { Snd.select(); nb('albumRequest'); };
+  window.onAlbumAccess = a => { access = a; if (a === 'none') { build(); toast('Album needs access to your photos'); } else reload(); };
+  async function reload() {
+    access = nb('albumAccess') || 'full';
+    if (access === 'none') { loading = false; shots = []; buildTabs(); build(); return; }
+    try { shots = await nbAsync('albumList'); } catch (e) { shots = []; toast(String(e)); }
+    loading = false; buildTabs(); build();
+  }
+  pushOverlay({
+    el: ov, full: true,
+    pad(b) {
+      if (b === 'left') move(-1); else if (b === 'right') move(1);
+      else if (b === 'up') move(-cols()); else if (b === 'down') move(cols());
+      else if (b === 'a') { if (access === 'none') ask(); else view(); }
+      else if (b === 'x' || b === 'plus') { if (list[sel]) { Snd.select(); shotOptions(list[sel]); } else Snd.bump(); }
+      else if (b === 'l') switchTab(tab - 1); else if (b === 'r') switchTab(tab + 1);
+      else if (b === 'y') { Snd.select(); reload(); }
+      else if (b === 'b') popOverlay();
+    },
+    hints: () => access === 'none' ? [['b', 'Back'], ['a', 'Allow access']] : [['b', 'Back'], ['y', 'Refresh'], ['x', 'Options'], ['a', 'View']],
+  });
+  window.__albumReload = reload;
+  for (let i = 0; i < 12; i++) { const c = el('div', 'cell skel'); c.style.setProperty('--i', i); c.innerHTML = '<div class="art"></div><div class="nm">·</div>'; grid.appendChild(c); }
+  reload();
+}
+
+function openShot(list, start, onMove, reload) {
+  let i = start;
+  const ov = el('section', 'ov full shotView');
+  ov.innerHTML = `<div class="shotImg"></div><div class="shotBar"><span class="sg"></span><span class="sd"></span><span class="sn"></span></div>`;
+  const box = $('.shotImg', ov);
+  function show(dir) {
+    const s = list[i];
+    const img = el('img'); img.alt = ''; img.src = shotFull(s);
+    if (dir) img.classList.add(dir > 0 ? 'fromR' : 'fromL');
+    const old = box.firstChild; if (old) { old.classList.add(dir > 0 ? 'outL' : 'outR'); setTimeout(() => old.remove(), 260); }
+    box.appendChild(img);
+    $('.sg', ov).innerHTML = s.game ? `<i style="background-image:url('/icon/${esc(s.game)}')"></i>${esc(BY[s.game].label)}` : '';
+    $('.sd', ov).textContent = shotDate(s.date);
+    $('.sn', ov).textContent = (i + 1) + ' / ' + list.length;
+    onMove && onMove(i);
+  }
+  const go = d => { const n = i + d; if (n < 0 || n >= list.length) { Snd.bump(); return; } i = n; Snd.tick(); buzz(); show(d); };
+  let sx = null;
+  ov.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, { passive: true });
+  ov.addEventListener('touchend', e => { if (sx == null) return; const dx = e.changedTouches[0].clientX - sx; sx = null; if (Math.abs(dx) > 50) go(dx < 0 ? 1 : -1); }, { passive: true });
+  document.body.classList.add('viewing');
+  pushOverlay({
+    el: ov, full: true, onClose: () => document.body.classList.remove('viewing'),
+    pad(b) {
+      if (b === 'left' || b === 'l') go(-1); else if (b === 'right' || b === 'r') go(1);
+      else if (b === 'x' || b === 'plus' || b === 'a') { Snd.select(); shotOptions(list[i], () => { popOverlay(true); reload && reload(); }); }
+      else if (b === 'b') popOverlay();
+    },
+    hints: () => [['b', 'Back'], ['a', 'Options']],
+  });
+  show(0);
+}
+
+function shotOptions(s, afterDelete) {
+  const coverFor = pkg => nbAsync('albumAsCover', s.id, pkg).then(() => { refreshArt(pkg); toast('New tile set for ' + BY[pkg].label); }).catch(e => toast(String(e)));
+  openMenu(s.game ? BY[s.game].label : 'Screenshot', [
+    { label: 'Share…', run: () => nb('albumShare', s.id) },
+    s.game ? { label: 'Use as tile for ' + BY[s.game].label, run: () => coverFor(s.game) } : null,
+    { label: s.game ? 'Use as tile for another game…' : 'Use as a game\'s tile…', run: () => openAll({ mode: 'pick', title: 'Use this screenshot for…', onPick: coverFor }) },
+    { label: 'Open in Gallery', run: () => nb('albumOpen', s.id) },
+    { label: 'Delete', run: () => {
+        window.onAlbumDeleted = ok => { if (ok) { toast('Screenshot deleted'); if (afterDelete) afterDelete(); else if (window.__albumReload) window.__albumReload(); } };
+        nb('albumDelete', s.id);
+      } },
+  ]);
+}
+function refreshArt(pkg) {
+  const bust = '?v=' + Date.now();
+  $$('img').forEach(im => { const src = im.getAttribute('src') || ''; if (src.startsWith('/art/' + pkg)) im.src = '/art/' + pkg + bust; });
+  if (typeof renderRow === 'function') renderRow();
+}
+
+/* =========================================================
+   News: gaming headlines, plus news about the games you play
+   ========================================================= */
+const NEWS_SOURCES = [
+  { id: 'eurogamer', name: 'Eurogamer', url: 'https://www.eurogamer.net/feed' },
+  { id: 'ign', name: 'IGN', url: 'https://feeds.feedburner.com/ign/all' },
+  { id: 'nlife', name: 'Nintendo Life', url: 'https://www.nintendolife.com/feeds/latest' },
+  { id: 'push', name: 'Push Square', url: 'https://www.pushsquare.com/feeds/latest' },
+  { id: 'polygon', name: 'Polygon', url: 'https://www.polygon.com/rss/index.xml' },
+  { id: 'rps', name: 'Rock Paper Shotgun', url: 'https://www.rockpapershotgun.com/feed/' },
+];
+const tGet = r => r.get ? !!r.get() : !!cfg[r.key];
+const tSet = (r, v) => { if (r.set) r.set(v); else cfg[r.key] = v; };
+const newsToggle = (id, label, desc) => ({ type: 'toggle', label, desc, key: '_n_' + id, get: () => newsOn(id), set: v => { cfg.newsSrc = Object.assign({}, cfg.newsSrc || {}, { [id]: v }); } });
+const NEWS_DEFAULT = { mine: true, eurogamer: true, ign: true, nlife: true, push: false, polygon: false, rps: false };
+const newsOn = id => (cfg.newsSrc && id in cfg.newsSrc) ? cfg.newsSrc[id] : !!NEWS_DEFAULT[id];
+const newsSources = () => NEWS_SOURCES.concat((cfg.newsCustom || []).map((u, i) => ({ id: 'c' + i, name: u.split('/')[2].replace(/^www\./, ''), url: u, custom: true })));
+
+function decodeHtml(s) { const t = document.createElement('textarea'); t.innerHTML = s; return t.value; }
+function parseFeed(xml, src) {
+  const doc = new DOMParser().parseFromString(xml, 'text/xml');
+  if (doc.getElementsByTagName('parsererror').length) throw new Error(src.name + ': not a news feed');
+  const items = [...doc.getElementsByTagName('item')].concat([...doc.getElementsByTagName('entry')]).slice(0, 30);
+  return items.map(it => {
+    const node = n => it.getElementsByTagName(n)[0];
+    const text = n => { const x = node(n); return x ? x.textContent.trim() : ''; };
+    let link = text('link'); if (!link) { const l = node('link'); link = l ? l.getAttribute('href') || '' : ''; }
+    const date = Date.parse(text('pubDate') || text('published') || text('updated') || text('dc:date')) || 0;
+    const raw = text('description') || text('summary') || text('content:encoded') || text('content');
+    let img = '';
+    for (const tag of ['media:content', 'media:thumbnail', 'enclosure']) {
+      for (const m of it.getElementsByTagName(tag)) { const u = m.getAttribute('url') || ''; const ty = m.getAttribute('type') || m.getAttribute('medium') || 'image'; if (u && /image/.test(ty) || (u && /\.(jpe?g|png|webp)/i.test(u))) { img = u; break; } }
+      if (img) break;
+    }
+    if (!img) { const m = raw.match(/<img[^>]+src=["']([^"']+)/i); if (m) img = m[1]; }
+    img = decodeHtml(img).replace(/^http:\/\//, 'https://');
+    let title = decodeHtml(text('title')), source = text('source') || src.name;
+    if (src.google) { const k = title.lastIndexOf(' - '); if (k > 0) { source = source || title.slice(k + 3); title = title.slice(0, k); } }
+    const summary = src.google ? '' : decodeHtml(raw.replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim().slice(0, 420);
+    return { title, link, date, img: img.startsWith('https://') ? img : '', summary, source, pkg: src.pkg || '' };
+  }).filter(x => x.title && x.link && x.link.startsWith('https://'));
+}
+async function loadFeed(src, force) {
+  const key = 'news.' + src.id, c = store.get(key, null);
+  if (!force && c && Date.now() - c.t < 3600e3) return c.items;
+  try {
+    const items = parseFeed(await nbAsync('fetchText', src.url), src);
+    store.set(key, { t: Date.now(), items });
+    return items;
+  } catch (e) { if (c) return c.items; throw e; }
+}
+function myGameFeeds() {
+  const played = store.get('played', {});
+  const games = Object.values(BY).filter(a => a.game).sort((a, b) => (played[b.pkg] || b.installed || 0) - (played[a.pkg] || a.installed || 0)).slice(0, 8);
+  const lang = (navigator.language || 'en-GB'), reg = regionCode();
+  return games.map(a => ({ id: 'g.' + a.pkg, name: a.label, pkg: a.pkg, google: true,
+    url: `https://news.google.com/rss/search?q=${encodeURIComponent('"' + (a.orig || a.label) + '" game')}&hl=${encodeURIComponent(lang)}&gl=${reg}&ceid=${reg}:${lang.split('-')[0]}` }));
+}
+const ago = ms => { if (!ms) return ''; const m = Math.round((Date.now() - ms) / 60000); if (m < 1) return 'Just now'; if (m < 60) return m + ' min ago'; const h = Math.round(m / 60); if (h < 24) return h + (h === 1 ? ' hour ago' : ' hours ago'); const d = Math.round(h / 24); return d < 7 ? d + (d === 1 ? ' day ago' : ' days ago') : new Date(ms).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }); };
+
+function openNews() {
+  const ov = el('section', 'ov full');
+  ov.innerHTML = `<div class="ovTitle">${svg('paper')}<span>News</span></div><div class="ovRule"></div><div class="ovRule bottom"></div>
+    <div class="tabs"></div><div class="svcHead"></div><div class="grid news"></div>`;
+  const grid = $('.grid', ov), head = $('.svcHead', ov), tabsEl = $('.tabs', ov);
+  const srcs = newsSources().filter(s => newsOn(s.id) || s.custom);
+  const tabs = [{ id: 'latest', label: 'Latest' }].concat(newsOn('mine') ? [{ id: 'mine', label: 'Your Games' }] : []).concat(srcs.map(s => ({ id: s.id, label: s.name })));
+  let tab = 0, data = {}, list = [], cells = [], sel = 0, loading = true, errors = [];
+  tabsEl.innerHTML = '<i class="btn">L</i>' + tabs.map((t, i) => `<span class="t${i === tab ? ' on' : ''}" data-i="${i}">${esc(t.label)}</span>`).join('') + '<i class="btn">R</i>';
+  $$('.t', tabsEl).forEach(t => onPress(t, () => switchTab(+t.dataset.i)));
+  function build() {
+    const id = tabs[tab].id;
+    const pool = id === 'latest' ? srcs.flatMap(s => data[s.id] || []) : id === 'mine' ? (data.mine || []) : (data[id] || []);
+    const seen = new Set();
+    list = pool.filter(x => { const k = x.title.toLowerCase(); if (seen.has(k)) return false; seen.add(k); return true; }).sort((a, b) => b.date - a.date).slice(0, 60);
+    grid.innerHTML = '';
+    cells = list.map((x, i) => {
+      const c = el('div', 'cell'), art = el('div', 'art g'), clip = el('div', 'clip');
+      c.style.setProperty('--i', i);
+      const hue = [...x.source].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7);
+      clip.style.background = `linear-gradient(150deg, hsl(${hue},48%,40%), hsl(${(hue + 40) % 360},52%,20%))`;
+      clip.appendChild(el('div', 'pfb', esc(x.source)));
+      const pic = x.img || (x.pkg ? '/art/' + x.pkg : '');
+      if (pic) { const img = el('img'); img.alt = ''; img.loading = 'lazy'; img.decoding = 'async'; img.src = pic; img.onerror = () => img.remove(); if (!x.img) img.className = 'cover'; clip.appendChild(img); }
+      art.appendChild(clip);
+      c.appendChild(art);
+      c.appendChild(el('div', 'nsrc', esc(x.source) + (x.date ? ' · ' + esc(ago(x.date)) : '')));
+      c.appendChild(el('div', 'nm', esc(x.title)));
+      onPress(c, () => { const was = sel === i && c.classList.contains('sel'); sel = i; paint(); if (cfg.oneTap || was) read(); else { Snd.tick(); buzz(); } }, () => { sel = i; paint(); read(); });
+      grid.appendChild(c); return c;
+    });
+    if (!list.length && !loading) grid.appendChild(el('div', 'empty', id === 'mine' ? 'No recent news about your games.' : (errors.length ? 'Couldn\'t load the news.<br><span class="ghint">' + esc(errors[0]) + '</span>' : 'Nothing here yet.')));
+    head.textContent = loading ? 'Loading the latest…' : id === 'mine' ? 'About the games you play most' : list.length + ' stories';
+    sel = clamp(sel, 0, Math.max(0, cells.length - 1)); paint(true);
+  }
+  function paint(noScroll) {
+    cells.forEach((c, i) => { c.classList.toggle('sel', i === sel); c.firstChild.classList.toggle('sel', i === sel); });
+    if (!noScroll && cells[sel]) cells[sel].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  const cols = () => { if (cells.length < 2) return 1; const t0 = cells[0].offsetTop; let n = 0; for (const c of cells) { if (c.offsetTop !== t0) break; n++; } return n; };
+  const move = d => { let n = sel + d; if (d > 1 && n >= cells.length && Math.floor(sel / cols()) < Math.floor((cells.length - 1) / cols())) n = cells.length - 1; if (n < 0 || n >= cells.length) { Snd.bump(); return; } sel = n; Snd.tick(); buzz(); paint(); };
+  const switchTab = i => { if (i < 0 || i >= tabs.length || i === tab) { Snd.bump(); return; } grid.classList.remove('fromL', 'fromR'); grid.classList.add(i > tab ? 'fromR' : 'fromL'); tab = i; sel = 0; Snd.tick(); $$('.t', tabsEl).forEach(t => t.classList.toggle('on', +t.dataset.i === tab)); build(); grid.scrollTop = 0; const on = $$('.t', tabsEl)[tab]; on && on.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' }); };
+  const read = () => { if (list[sel]) { Snd.select(); openStory(list[sel]); } };
+  async function load(force) {
+    loading = true; errors = []; build();
+    const jobs = srcs.map(s => loadFeed(s, force).then(items => { data[s.id] = items; }).catch(e => errors.push(String(e.message || e))));
+    if (newsOn('mine')) jobs.push(Promise.all(myGameFeeds().map(s => loadFeed(s, force).then(it => it.slice(0, 6)).catch(() => []))).then(all => { data.mine = all.flat(); }));
+    // show what's ready as it arrives
+    let shown = 0; const tick = setInterval(() => { const n = Object.keys(data).length; if (n !== shown) { shown = n; build(); } }, 400);
+    await Promise.all(jobs); clearInterval(tick);
+    loading = false; build();
+  }
+  pushOverlay({
+    el: ov, full: true,
+    pad(b) {
+      if (b === 'left') move(-1); else if (b === 'right') move(1);
+      else if (b === 'up') move(-cols()); else if (b === 'down') move(cols());
+      else if (b === 'a') read();
+      else if (b === 'l') switchTab(tab - 1); else if (b === 'r') switchTab(tab + 1);
+      else if (b === 'y') { Snd.select(); load(true); }
+      else if (b === 'b') popOverlay();
+    },
+    hints: () => [['b', 'Back'], ['y', 'Refresh'], ['a', 'Read']],
+  });
+  for (let i = 0; i < 9; i++) { const c = el('div', 'cell skel'); c.style.setProperty('--i', i); c.innerHTML = '<div class="art"></div><div class="nm">·</div>'; grid.appendChild(c); }
+  load(false);
+}
+function openStory(x) {
+  const back = el('div', 'ov back'), d = el('div', 'tdet story');
+  const pic = x.img || (x.pkg ? '/art/' + x.pkg : '');
+  const hue = [...x.source].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 7);
+  d.innerHTML = `<div class="tp" style="background:linear-gradient(150deg, hsl(${hue},48%,40%), hsl(${(hue + 40) % 360},52%,20%))"><div class="pfb">${esc(x.source)}</div>${pic ? `<img alt="" src="${esc(pic)}" onerror="this.remove()">` : ''}</div>
+    <div class="ti"><div class="meta">${esc(x.source)}${x.date ? ' · ' + esc(ago(x.date)) : ''}${x.pkg && BY[x.pkg] ? ' · About ' + esc(BY[x.pkg].label) : ''}</div><h2>${esc(x.title)}</h2>
+      ${x.summary ? `<p class="ovw">${esc(x.summary)}</p>` : ''}<div class="dbtns"></div></div>`;
+  back.appendChild(d);
+  const row = $('.dbtns', d);
+  const btns = [
+    { label: 'Read full story', primary: true, run: () => nb('openUrl', x.link, '') },
+    x.pkg && BY[x.pkg] ? { label: 'Play ' + BY[x.pkg].label, run: () => launch(x.pkg, null) } : null,
+    { label: 'Close', run: () => {} },
+  ].filter(Boolean);
+  let sel = 0;
+  const choose = () => { const bt = btns[sel]; Snd.select(); popOverlay(true); bt.run(); };
+  const els = btns.map((bt, i) => { const e = el('div', 'dbtn g' + (bt.primary ? ' primary' : ''), esc(bt.label)); e.style.setProperty('--i', i); onPress(e, () => { sel = i; paint(); choose(); }); row.appendChild(e); return e; });
+  const paint = () => els.forEach((e, i) => e.classList.toggle('sel', i === sel));
+  onPress(back, ev => { if (ev.target === back) popOverlay(); });
+  pushOverlay({
+    el: back,
+    pad(b) {
+      if (b === 'left') { if (sel > 0) { sel--; Snd.tick(); paint(); } else Snd.bump(); }
+      else if (b === 'right') { if (sel < els.length - 1) { sel++; Snd.tick(); paint(); } else Snd.bump(); }
+      else if (b === 'a') choose(); else if (b === 'b') popOverlay();
+    },
+    hints: () => [['b', 'Back'], ['a', 'OK']],
+  });
+  paint();
+}
+
 function mockCatalog(sv) {
   const words = ['Northbound', 'Comet Season', 'Signal Lost', 'Static City', 'Orbit Kids', 'Hollow Star', 'Ironwood', 'Paper Moons', 'Far Shore', 'Neon Harbour', 'The Long Quiet', 'Gravity Line', 'Deep Field', 'Tin Planet'];
   return Array.from({ length: 70 }, (_, i) => {
@@ -2035,6 +2370,16 @@ const SETTINGS = [
       { type: 'toggle', label: 'Include live wallpaper video', desc: 'Videos can be large, so this is off unless you turn it on.', key: 'cloudVideo' },
     ];
   } },
+  { name: 'News', rows: () => [
+    newsToggle('mine', 'News about your games', 'Headlines about the games you play most, from Google News.'),
+    ...NEWS_SOURCES.map(x => newsToggle(x.id, x.name)),
+    ...(cfg.newsCustom || []).map((u, i) => ({ type: 'action', label: u.split('/')[2].replace(/^www\./, ''), desc: u, value: () => 'Remove',
+      run: () => { cfg.newsCustom.splice(i, 1); saveCfg(); store.set('news.c' + i, null); refreshOverlays(); toast('Feed removed'); } })),
+    { type: 'action', label: 'Add a news feed', desc: 'Any RSS or Atom feed address, for example a favourite site or blog.', value: () => 'Add',
+      run: () => openPrompt('Add a news feed', '', 'https://example.com/feed', v => { v = v.trim(); if (!/^https:\/\/[^\s]+\.[^\s]+/.test(v)) { toast('Use a full https:// address'); return; } cfg.newsCustom = (cfg.newsCustom || []).concat(v); saveCfg(); refreshOverlays(); toast('Feed added'); }) },
+    { type: 'action', label: 'Refresh news', desc: 'Stories are kept for an hour.', value: () => '',
+      run: () => { Object.keys(localStorage).filter(k => k.startsWith('ch.news.')).forEach(k => localStorage.removeItem(k)); toast('News will reload'); } },
+  ] },
   { name: 'Entertainment', rows: () => [
     { type: 'action', label: 'TMDB API key', desc: 'Free from themoviedb.org › Settings › API.', value: () => cfg.tmdbKey ? 'Set ✓' : 'Add key',
       run: () => openPrompt('TMDB API key', cfg.tmdbKey, 'Paste your API key or read access token', v => { cfg.tmdbKey = v.trim(); saveCfg(); refreshOverlays(); },
@@ -2127,7 +2472,7 @@ function openSettings(startCat) {
     return e;
   }
   function fillVal(r, v) {
-    if (r.type === 'toggle') v.innerHTML = `<span class="sw${cfg[r.key] ? ' on' : ''}"><i></i></span>`;
+    if (r.type === 'toggle') v.innerHTML = `<span class="sw${tGet(r) ? ' on' : ''}"><i></i></span>`;
     else if (r.type === 'choice') { const o = r.options.find(x => x[0] === cfg[r.key]) || r.options[0]; v.innerHTML = `<span class="arr">‹</span>${esc(o[1])}<span class="arr">›</span>`; }
     else if (r.type === 'slider') { const val = r.get(), p = (val - r.min) / (r.max - r.min) * 100; v.innerHTML = `<span class="bar"><i style="width:${p}%"></i></span><span class="num">${esc(r.fmt(val))}</span>`; }
     else if (r.type === 'action') v.innerHTML = `${esc(r.value ? r.value() : '')}<span class="chev">›</span>`;
@@ -2136,7 +2481,7 @@ function openSettings(startCat) {
   function refreshRow(i) { const r = rows[i], e = rowEls[i]; if (r && e && r.type !== 'themes') fillVal(r, $('.val', e)); }
   function activate(r) {
     pressFx(rowEls[row]);
-    if (r.type === 'toggle') { cfg[r.key] = !cfg[r.key]; saveCfg(); r.after && r.after(); cfg[r.key] ? Snd.on() : Snd.off(); buzz(); refreshRow(row); }
+    if (r.type === 'toggle') { tSet(r, !tGet(r)); saveCfg(); r.after && r.after(); tGet(r) ? Snd.on() : Snd.off(); buzz(); refreshRow(row); }
     else if (r.type === 'choice') adjust(r, 1);
     else if (r.type === 'action') { Snd.select(); r.run(); }
     else if (r.type === 'slider') adjust(r, 1);
@@ -2154,8 +2499,8 @@ function openSettings(startCat) {
       r.set(+v.toFixed(3)); Snd.step(); refreshRow(row); return true;
     }
     if (r.type === 'toggle') {
-      const want = d > 0; if (cfg[r.key] === want) { Snd.bump(); return true; }
-      cfg[r.key] = want; saveCfg(); r.after && r.after(); want ? Snd.on() : Snd.off(); refreshRow(row); return true;
+      const want = d > 0; if (tGet(r) === want) { Snd.bump(); return true; }
+      tSet(r, want); saveCfg(); r.after && r.after(); want ? Snd.on() : Snd.off(); refreshRow(row); return true;
     }
     if (r.type === 'themes') {
       const n = tIdx + d;
@@ -2346,7 +2691,30 @@ function makeMock() {
     sgdbSearch: (id, key, term) => setTimeout(() => window.onAsync(id, true, [{ id: 1, name: term, year: 2024 }, { id: 2, name: term + ' Deluxe', year: 2025 }]), 300),
     sgdbGrids: (id) => setTimeout(() => window.onAsync(id, true, apps.filter(a => a.art).map((a, i) => ({ url: mockArt(a.pkg), thumb: mockArt(a.pkg), width: 1024, height: 1024, style: ['alternate', 'material', 'blurred', 'white_logo'][i % 4] }))), 300),
     sgdbApply: (id) => setTimeout(() => window.onAsync(id, true, true), 300),
+    albumAccess: () => window.__albumAccess || 'full',
+    albumRequest: () => setTimeout(() => { window.__albumAccess = 'full'; window.onAlbumAccess('full'); }, 400),
+    albumList: (id) => setTimeout(() => window.onAsync(id, true, Array.from({ length: 23 }, (_, i) => ({ id: i + 1, name: i % 3 === 2 ? 'Screenshot_2026111' + i + '.png' : 'Screenshot_20261117_1200' + i + '_' + games[i % 3 === 0 ? 0 : 2][0] + '.jpg', date: Date.now() - i * 5.3e6, w: 1920, h: 1080 }))), 250),
+    albumShare: () => toast('Opens the share sheet'), albumOpen: () => toast('Opens your gallery app'),
+    albumDelete: () => setTimeout(() => window.onAlbumDeleted(true), 300),
+    albumAsCover: (id) => setTimeout(() => window.onAsync(id, true, true), 300),
+    fetchText: (id, url) => setTimeout(() => window.onAsync(id, true, mockFeed(url)), 300 + Math.random() * 900),
   };
+}
+function mockShot(s, w) {
+  const c = document.createElement('canvas'); c.width = w; c.height = Math.round(w * 9 / 16); const x = c.getContext('2d');
+  const h = (s.id * 47) % 360, g = x.createLinearGradient(0, 0, c.width, c.height);
+  g.addColorStop(0, `hsl(${h},70%,55%)`); g.addColorStop(1, `hsl(${(h + 70) % 360},65%,25%)`); x.fillStyle = g; x.fillRect(0, 0, c.width, c.height);
+  x.fillStyle = 'rgba(255,255,255,.18)'; for (let i = 0; i < 6; i++) { x.beginPath(); x.arc(((s.id * 97 + i * 211) % 100) / 100 * c.width, ((s.id * 61 + i * 137) % 100) / 100 * c.height, c.width * (.05 + i * .02), 0, 7); x.fill(); }
+  x.fillStyle = 'rgba(255,255,255,.9)'; x.font = `700 ${Math.round(c.width / 18)}px Montserrat, sans-serif`; x.fillText('Shot ' + s.id, c.width * .05, c.height * .9);
+  return c.toDataURL('image/jpeg', .8);
+}
+function mockFeed(url) {
+  const host = url.includes('google') ? 'google' : url.split('/')[2];
+  const heads = ['New trailer shows off a huge open world', 'Studio confirms a surprise sequel', 'Patch 2.1 fixes performance on handhelds', 'Hands-on: the best racer in years',
+    'Indie hit is coming to Android next month', 'Ten hidden gems you might have missed', 'Review: a gorgeous, cosy adventure', 'Developer explains the new progression system'];
+  const items = heads.map((t, i) => `<item><title>${t}${host === 'google' ? ' - Games Weekly' : ''}</title><link>https://${host}/story/${i}</link>
+    <pubDate>${new Date(Date.now() - (i * 3 + host.length) * 3.6e6).toUTCString()}</pubDate><description>&lt;p&gt;A short summary of the story so the page has something to show in the preview. It goes on for a sentence or two.&lt;/p&gt;</description></item>`).join('');
+  return `<?xml version="1.0"?><rss><channel><title>${host}</title>${items}</channel></rss>`;
 }
 function mockArt(pkg) {
   const a = (window.__mockApps || []).find(x => x.pkg === pkg);

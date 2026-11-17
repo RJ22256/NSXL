@@ -62,6 +62,12 @@ final class LocalServer {
                 String type = ctx.getSharedPreferences("launcher", Context.MODE_PRIVATE).getString("musicMime", "audio/mpeg");
                 return new WebResourceResponse(type, null, 200, "OK", headers(), new java.io.FileInputStream(f));
             }
+            if (path.startsWith("/shot/")) {   // /shot/<id>/thumb or /shot/<id>/full
+                String[] parts = path.substring(6).split("/");
+                long id = Long.parseLong(parts[0]);
+                boolean full = parts.length > 1 && "full".equals(parts[1]);
+                return image(full ? Album.full(ctx, id, 1920) : Album.thumb(ctx, id, 480), "image/jpeg");
+            }
             if (path.equals("/avatar")) {
                 File f = Storage.avatarFile(ctx);
                 return f.exists() ? image(readAll(new FileInputStream(f)), "image/jpeg") : notFound();
