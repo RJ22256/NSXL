@@ -31,6 +31,14 @@ final class LauncherBridge {
 
     // ---------------------------------------------------------------- apps
 
+    /** The controller family to label buttons for: the one connected now, else the last one used, else "none". */
+    @JavascriptInterface
+    public String padFamily() {
+        String now = PadKeys.connectedFamily();
+        if (now == null) return "none";
+        return a.getSharedPreferences("launcher", android.content.Context.MODE_PRIVATE).getString("padFamily", now);
+    }
+
     @JavascriptInterface
     public String getApps() {
         return AppList.json(a);

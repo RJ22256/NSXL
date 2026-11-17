@@ -1,5 +1,6 @@
 package com.nsxl.launcher;
 
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
 
@@ -45,5 +46,45 @@ final class PadKeys {
             return Math.abs(x) >= Math.abs(y) ? (x < 0 ? "left" : "right") : (y < 0 ? "up" : "down");
         }
         return null;
+    }
+
+    // ---------------------------------------------------------------- which button labels to show
+
+    /** "xbox", "ps", "nintendo" or "generic", from the controller's maker and name. */
+    static String family(InputDevice d) {
+        if (d == null) return "generic";
+        int v = d.getVendorId();
+        String n = d.getName() == null ? "" : d.getName().toLowerCase(java.util.Locale.ROOT);
+        if (v == 0x054C || n.contains("dualsense") || n.contains("dualshock") || n.contains("playstation")
+                || n.contains("ps4") || n.contains("ps5") || n.equals("wireless controller")) return "ps";
+        if (v == 0x057E || n.contains("pro controller") || n.contains("joy-con") || n.contains("nintendo")) return "nintendo";
+        if (v == 0x045E || n.contains("xbox") || n.contains("x-box")) return "xbox";
+        return "generic";
+    }
+
+    static boolean isPad(InputDevice d) {
+        if (d == null || d.isVirtual()) return false;
+        int s = d.getSources();
+        return (s & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD
+                || (s & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK;
+    }
+
+    /** The family of the first connected controller, or null when none is connected. */
+    static String connectedFamily() {
+        for (int id : InputDevice.getDeviceIds()) {
+            InputDevice d = InputDevice.getDevice(id);
+            if (isPad(d)) return family(d);
+        }
+        return null;
+    }
+
+    /** Remembers the controller in use and tells the page when it changes. Returns the JS to run, or null. */
+    static String noteDevice(android.content.SharedPreferences prefs, InputDevice d, int[] lastId) {
+        if (!isPad(d)) return null;
+        if (d.getId() == lastId[0]) return null;
+        lastId[0] = d.getId();
+        String fam = family(d);
+        prefs.edit().putString("padFamily", fam).apply();
+        return "window.onPadKind&&window.onPadKind('" + fam + "')";
     }
 }

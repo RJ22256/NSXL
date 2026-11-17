@@ -315,6 +315,14 @@ html[data-theme=video] { --flash: #000000; }
 body.full #modeTabs { opacity: 0; pointer-events: none; }
 #row.slideL .tile { animation: fromR .42s cubic-bezier(.2,.8,.2,1) both !important; animation-delay: calc(var(--i, 0) * 40ms) !important; }
 #row.slideR .tile { animation: fromL .42s cubic-bezier(.2,.8,.2,1) both !important; animation-delay: calc(var(--i, 0) * 40ms) !important; }
+/* button icons */
+.btn .gs { width: 78%; height: 78%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.btn.wide { width: auto; min-width: calc(var(--u) * 2.25); padding: 0 calc(var(--u) * .55); border-radius: calc(var(--u) * .6); font-size: calc(var(--u) * 1.05); letter-spacing: .02em; box-sizing: border-box; }
+html[data-glyphs=ps] .btn[data-b=l], html[data-glyphs=ps] .btn[data-b=r] { border-radius: calc(var(--u) * .6); }
+html.touchmode .btn, html.touchmode .padonly { display: none !important; }
+html:not(.touchmode) .touchonly { display: none !important; }
+#hints .hint { transition: opacity .2s; }
+html.touchmode #hints .hint { padding: calc(var(--u) * .55) calc(var(--u) * 1.5); border-radius: 999px; background: var(--slot); }
 /* controllers page */
 .padSide { position: absolute; top: calc(var(--u) * 11.6); bottom: calc(var(--u) * 8); left: calc(var(--u) * 4); width: calc(var(--u) * 25); display: flex; flex-direction: column; gap: calc(var(--u) * 2.4); overflow-y: auto; scrollbar-width: none; }
 .padCount { display: flex; flex-direction: column; gap: calc(var(--u) * .3); font-size: calc(var(--u) * 1.5); color: var(--fg2); padding-top: calc(var(--u) * 1); }
@@ -737,7 +745,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true, entTab: true, launchFx: 'zoom', newsSrc: null, newsCustom: [],
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true, entTab: true, launchFx: 'zoom', glyphs: 'auto', touchHide: true, newsSrc: null, newsCustom: [],
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => { store.set('cfg', cfg); queueMicrotask(() => cloudSnap()); };
@@ -1346,6 +1354,55 @@ function syncFull() { document.body.classList.toggle('full', stack.some(o => o.f
 function refreshOverlays() { stack.forEach(o => o.refresh && o.refresh()); }
 
 const BTN = { a: 'A', b: 'B', x: 'X', y: 'Y', plus: '+', minus: '−', l: 'L', r: 'R' };
+/* =========================================================
+   Button icons: match the controller in use (Xbox, PlayStation,
+   Nintendo or generic), and hide them while you're using touch.
+   ========================================================= */
+const GSVG = {
+  cross: '<svg viewBox="0 0 24 24" class="gs"><path d="M6.8 6.8l10.4 10.4M17.2 6.8L6.8 17.2"/></svg>',
+  circle: '<svg viewBox="0 0 24 24" class="gs"><circle cx="12" cy="12" r="6"/></svg>',
+  square: '<svg viewBox="0 0 24 24" class="gs"><rect x="6.4" y="6.4" width="11.2" height="11.2" rx=".8"/></svg>',
+  triangle: '<svg viewBox="0 0 24 24" class="gs"><path d="M12 5.8l6.6 11.3H5.4z"/></svg>',
+  menu: '<svg viewBox="0 0 24 24" class="gs"><path d="M6.5 8h11M6.5 12h11M6.5 16h11"/></svg>',
+  view: '<svg viewBox="0 0 24 24" class="gs"><rect x="5" y="5.5" width="9.5" height="7.5" rx="1.3"/><path d="M9.5 13v4.2a1.3 1.3 0 0 0 1.3 1.3h6.9a1.3 1.3 0 0 0 1.3-1.3v-5a1.3 1.3 0 0 0-1.3-1.3h-3.2"/></svg>',
+  create: '<svg viewBox="0 0 24 24" class="gs"><path d="M8.5 17.5v-6M12 17.5v-11M15.5 17.5v-8"/></svg>',
+};
+const GFACES = {
+  xbox:     { S: 'A', E: 'B', W: 'X', N: 'Y', l: 'LB', r: 'RB', plus: GSVG.menu, minus: GSVG.view },
+  ps:       { S: GSVG.cross, E: GSVG.circle, W: GSVG.square, N: GSVG.triangle, l: 'L1', r: 'R1', plus: GSVG.menu, minus: GSVG.create },
+  nintendo: { S: 'B', E: 'A', W: 'Y', N: 'X', l: 'L', r: 'R', plus: '+', minus: '−' },
+  generic:  { S: 'A', E: 'B', W: 'X', N: 'Y', l: 'L', r: 'R', plus: '+', minus: '−' },
+};
+const GLYPH_NAMES = { xbox: 'Xbox', ps: 'PlayStation', nintendo: 'Nintendo', generic: 'Generic (A B X Y)' };
+const Input = { mode: 'pad', fam: 'generic' };
+const glyphFam = () => (cfg.glyphs && cfg.glyphs !== 'auto' && GFACES[cfg.glyphs]) ? cfg.glyphs : (GFACES[Input.fam] ? Input.fam : 'generic');
+function glyphInner(b) {
+  // Logical buttons sit at fixed places on the pad: a = bottom, b = right, x = left, y = top (swapped when Swap A and B is on).
+  let pos = { a: 'S', b: 'E', x: 'W', y: 'N' }[b];
+  if (pos && cfg.swapAB) pos = { S: 'E', E: 'S', W: 'N', N: 'W' }[pos];
+  const v = GFACES[glyphFam()][pos || b];
+  return v == null ? esc(String(b).toUpperCase()) : v;
+}
+const glyphWide = inner => !inner.startsWith('<') && inner.length > 1;
+function glyph(b) { const g = glyphInner(b); return `<i class="btn${glyphWide(g) ? ' wide' : ''}" data-b="${b}">${g}</i>`; }
+function refreshGlyphs() {
+  $$('.btn[data-b]').forEach(e => { const g = glyphInner(e.dataset.b); e.innerHTML = g; e.classList.toggle('wide', glyphWide(g)); });
+  document.documentElement.dataset.glyphs = glyphFam();
+}
+function setInputMode(m) {
+  Input.mode = m;
+  document.documentElement.classList.toggle('touchmode', m === 'touch' && cfg.touchHide !== false);
+}
+window.onPadKind = fam => { Input.fam = fam; setInputMode('pad'); refreshGlyphs(); };
+(function initInput() {
+  const f = nb('padFamily');
+  if (f && f !== 'none') Input.fam = f;
+  setInputMode(f === 'none' ? 'touch' : 'pad');
+  document.documentElement.dataset.glyphs = glyphFam();
+  document.addEventListener('pointerdown', () => { if (Input.mode !== 'touch') setInputMode('touch'); }, true);
+})();
+
+
 function updateHints() {
   const top = topOverlay();
   const cur = Hm.items[Hm.idx];
@@ -1358,7 +1415,7 @@ function updateHints() {
   box.dataset.sig = sig; box.innerHTML = '';
   retrigger(box, 'swap');
   list.forEach(([btn, label]) => {
-    const s = el('span', 'hint', `<i class="btn">${BTN[btn]}</i>${esc(label)}`);
+    const s = el('span', 'hint', `${glyph(btn)}${esc(label)}`);
     onPress(s, () => window.onPad(btn, false, true));
     box.appendChild(s);
   });
@@ -1585,7 +1642,7 @@ window.onScreenOff = () => { $('#sleepFx').classList.remove('on'); };
 
 /* ---------- NSXL Cloud (backup server on this device) ---------- */
 // What a backup carries: API keys, theme and music settings. Files (music, optional wallpaper) are added natively.
-const CLOUD_KEYS = ['theme', 'dim', 'blur', 'scale', 'bgfx', 'calm', 'clock', 'batPct', 'sounds', 'haptics', 'music', 'musicVol', 'musicSrc', 'tmdbKey', 'sgdbKey', 'region', 'newsSrc', 'newsCustom', 'entTab', 'launchFx'];
+const CLOUD_KEYS = ['theme', 'dim', 'blur', 'scale', 'bgfx', 'calm', 'clock', 'batPct', 'sounds', 'haptics', 'music', 'musicVol', 'musicSrc', 'tmdbKey', 'sgdbKey', 'region', 'newsSrc', 'newsCustom', 'entTab', 'launchFx', 'glyphs', 'touchHide', 'swapAB'];
 function cloudSnap() {
   const out = {}; CLOUD_KEYS.forEach(k => { out[k] = cfg[k]; });
   nb('cloudSnapshot', JSON.stringify(out));
@@ -1743,7 +1800,7 @@ function openCatalog(sv) {
   needTmdb(() => {
     const ov = el('section', 'ov full');
     ov.innerHTML = `<div class="ovTitle">${svg('film')}<span>${esc(sv.name)}</span></div><div class="ovRule"></div><div class="ovRule bottom"></div>
-      <div class="tabs"><i class="btn">L</i><span class="t on" data-t="all">All</span><span class="t" data-t="movie">Movies</span><span class="t" data-t="tv">TV Shows</span><i class="btn">R</i></div>
+      <div class="tabs">${glyph('l')}<span class="t on" data-t="all">All</span><span class="t" data-t="movie">Movies</span><span class="t" data-t="tv">TV Shows</span>${glyph('r')}</div>
       <div class="svcHead">Popular now · ${esc(regionCode())}</div><div class="grid posters"></div>`;
     const grid = $('.grid', ov), head = $('.svcHead', ov);
     const TABS = ['all', 'movie', 'tv'];
@@ -1856,7 +1913,7 @@ function openControllers() {
     else if (!st.permission) out.push({ key: 'perm', label: 'Allow NSXL to find controllers', desc: 'Lets NSXL search for and pair Bluetooth controllers right here.', val: 'Allow', run: () => nb('padsPermission') });
     else if (!st.enabled) out.push({ key: 'bt', label: 'Bluetooth is off', desc: 'Turn it on to pair a wireless controller.', val: 'Turn on', run: () => nb('padsEnable') });
     out.push({ head: conn.length ? 'Connected' : 'No controllers connected' });
-    conn.forEach(c => out.push({ key: 'c' + c.id, label: c.name, pad: true, desc: c.rumble ? 'Press A to make it buzz' : '', val: c.battery != null ? c.battery + '%' : 'Connected', on: true,
+    conn.forEach(c => out.push({ key: 'c' + c.id, label: c.name, pad: true, desc: c.rumble ? 'Select it to make it buzz' : '', val: c.battery != null ? c.battery + '%' : 'Connected', on: true,
       run: () => { if (c.rumble) { nb('padsRumble', c.id); toast('Buzzing ' + c.name); } else Snd.bump(); } }));
     if (st.enabled) {
       const paired = (st.paired || []).filter(d => !connNames.has(d.name.toLowerCase()) && (d.pad || showAll));
@@ -1954,7 +2011,7 @@ function openAlbum() {
     tabs = [{ id: '_all', label: 'All' }].concat(games.map(p => ({ id: p, label: BY[p].label })));
     if (games.length && count._other) tabs.push({ id: '_other', label: 'Other' });
     tab = Math.min(tab, tabs.length - 1);
-    tabsEl.innerHTML = (tabs.length > 1 ? '<i class="btn">L</i>' : '') + '<div class="tscroll">' + tabs.map((t, i) => `<span class="t${i === tab ? ' on' : ''}" data-i="${i}">${esc(t.label)}</span>`).join('') + '</div>' + (tabs.length > 1 ? '<i class="btn">R</i>' : '');
+    tabsEl.innerHTML = (tabs.length > 1 ? glyph('l') : '') + '<div class="tscroll">' + tabs.map((t, i) => `<span class="t${i === tab ? ' on' : ''}" data-i="${i}">${esc(t.label)}</span>`).join('') + '</div>' + (tabs.length > 1 ? glyph('r') : '');
     $$('.t', tabsEl).forEach(t => onPress(t, () => switchTab(+t.dataset.i)));
   }
   function build() {
@@ -1971,7 +2028,7 @@ function openAlbum() {
       onPress(c, () => { const was = sel === i && c.classList.contains('sel'); sel = i; paint(); if (cfg.oneTap || was) view(); else { Snd.tick(); buzz(); } }, () => { sel = i; paint(); shotOptions(list[i]); });
       grid.appendChild(c); return c;
     });
-    if (access === 'none') grid.appendChild(el('div', 'empty', 'NSXL needs permission to see your screenshots.<br><span class="ghint">Press <i class="btn">' + BTN.a + '</i> to allow access</span>'));
+    if (access === 'none') grid.appendChild(el('div', 'empty', 'NSXL needs permission to see your screenshots.<br><span class="ghint padonly">Press ' + glyph('a') + ' to allow access</span><span class="ghint touchonly">Tap Allow access at the bottom</span>'));
     else if (!list.length) grid.appendChild(el('div', 'empty', 'No screenshots yet.<br><span class="ghint">Take one from the in-game menu (Power › Take screenshot) or with your phone\'s screenshot buttons.</span>'));
     head.textContent = access === 'none' ? 'Screenshots' : list.length + (list.length === 1 ? ' screenshot' : ' screenshots') + (access === 'partial' ? ' · only the photos you chose' : '');
     sel = clamp(sel, 0, Math.max(0, cells.length - 1)); paint(true);
@@ -2134,7 +2191,7 @@ function openNews() {
   const srcs = newsSources().filter(s => newsOn(s.id) || s.custom);
   const tabs = [{ id: 'latest', label: 'Latest' }].concat(newsOn('mine') ? [{ id: 'mine', label: 'Your Games' }] : []).concat(srcs.map(s => ({ id: s.id, label: s.name })));
   let tab = 0, data = {}, list = [], cells = [], sel = 0, loading = true, errors = [];
-  tabsEl.innerHTML = '<i class="btn">L</i><div class="tscroll">' + tabs.map((t, i) => `<span class="t${i === tab ? ' on' : ''}" data-i="${i}">${esc(t.label)}</span>`).join('') + '</div><i class="btn">R</i>';
+  tabsEl.innerHTML = glyph('l') + '<div class="tscroll">' + tabs.map((t, i) => `<span class="t${i === tab ? ' on' : ''}" data-i="${i}">${esc(t.label)}</span>`).join('') + '</div>' + glyph('r');
   $$('.t', tabsEl).forEach(t => onPress(t, () => switchTab(+t.dataset.i)));
   function build() {
     const id = tabs[tab].id;
@@ -2259,7 +2316,7 @@ function openAll(opts) {
   const ov = el('section', 'ov full');
   ov.innerHTML = `<div class="ovTitle">${svg('grid')}<span>${esc(opts.title || 'All Software')}</span></div>
     <div class="ovRule"></div><div class="ovRule bottom"></div>
-    <div class="tabs"><i class="btn">L</i><span class="t" data-t="games">Games</span><span class="t" data-t="all">All Apps</span><i class="btn">R</i></div>
+    <div class="tabs">${glyph('l')}<span class="t" data-t="games">Games</span><span class="t" data-t="all">All Apps</span>${glyph('r')}</div>
     <div class="grid"></div>`;
   const grid = $('.grid', ov);
   let tab = opts.mode ? 'all' : (APPS.some(isGameish) ? 'games' : 'all');
@@ -2444,7 +2501,10 @@ const SETTINGS = [
       run: () => { store.set('hidden', {}); renderRow(); toast('Removed games restored'); } },
   ] },
   { name: 'Controls', rows: () => [
-    { type: 'toggle', label: 'Swap A and B buttons', desc: 'Use this if confirm/back feel reversed on your controller.', key: 'swapAB', after: () => nb('setSwapAB', cfg.swapAB) },
+    { type: 'toggle', label: 'Swap A and B buttons', desc: 'Use this if confirm/back feel reversed on your controller.', key: 'swapAB', after: () => { nb('setSwapAB', cfg.swapAB); refreshGlyphs(); } },
+    { type: 'choice', label: 'Button icons', desc: () => 'Automatic matches the controller you\'re using' + (cfg.glyphs === 'auto' || !cfg.glyphs ? ' (now: ' + GLYPH_NAMES[glyphFam()] + ').' : '.'), key: 'glyphs',
+      options: [['auto', 'Automatic'], ['xbox', 'Xbox'], ['ps', 'PlayStation'], ['nintendo', 'Nintendo'], ['generic', 'Generic']], after: refreshGlyphs },
+    { type: 'toggle', label: 'Hide button icons when using touch', desc: 'They come back as soon as you press a button on a controller.', key: 'touchHide', get: () => cfg.touchHide !== false, set: v => { cfg.touchHide = v; }, after: () => setInputMode(Input.mode) },
     { type: 'action', label: 'Pair a controller', value: () => 'Bluetooth', run: () => nb('openSettings', 'bluetooth') },
   ] },
   { name: 'In-Game Menu', rows: () => {
@@ -2572,7 +2632,8 @@ function openSettings(startCat) {
       });
       return e;
     }
-    e.innerHTML = `<span class="lbl">${esc(r.label)}${r.desc ? `<span class="desc">${esc(r.desc)}</span>` : ''}</span><span class="val"></span>`;
+    const desc = typeof r.desc === 'function' ? r.desc() : r.desc;
+    e.innerHTML = `<span class="lbl">${esc(r.label)}${desc ? `<span class="desc">${esc(desc)}</span>` : ''}</span><span class="val"></span>`;
     fillVal(r, $('.val', e));
     onPress(e, ev => {
       row = i; focus = 'pane'; paint();
@@ -2595,7 +2656,7 @@ function openSettings(startCat) {
     else if (r.type === 'action') v.innerHTML = `${esc(r.value ? r.value() : '')}<span class="chev">›</span>`;
     else if (r.type === 'info') v.textContent = r.value();
   }
-  function refreshRow(i) { const r = rows[i], e = rowEls[i]; if (r && e && r.type !== 'themes') fillVal(r, $('.val', e)); }
+  function refreshRow(i) { const r = rows[i], e = rowEls[i]; if (r && e && r.type !== 'themes') { fillVal(r, $('.val', e)); if (typeof r.desc === 'function' && $('.desc', e)) $('.desc', e).textContent = r.desc(); } }
   function activate(r) {
     pressFx(rowEls[row]);
     if (r.type === 'toggle') { tSet(r, !tGet(r)); saveCfg(); r.after && r.after(); tGet(r) ? Snd.on() : Snd.off(); buzz(); refreshRow(row); }
@@ -2720,6 +2781,7 @@ window.toast = toast;
    ========================================================= */
 let lastPad = { b: '', t: 0 };
 window.onPad = (b, repeat, fromTouch) => {
+  if (!fromTouch && Input.mode !== 'pad') setInputMode('pad');
   if ($('#bootFx').classList.contains('on') && window.__bootSkip) { window.__bootSkip(); return; }
   const now = performance.now();
   if (!repeat && !fromTouch && b === lastPad.b && now - lastPad.t < 70) return;  // drop duplicate d-pad events

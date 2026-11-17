@@ -379,8 +379,16 @@ public class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ controller input
 
+    private final int[] lastPad = {-1};
+
+    private void notePad(InputDevice d) {
+        String js = PadKeys.noteDevice(getSharedPreferences("launcher", MODE_PRIVATE), d, lastPad);
+        if (js != null) js(js);
+    }
+
     @Override
     public boolean dispatchKeyEvent(KeyEvent e) {
+        if (e.getAction() == KeyEvent.ACTION_DOWN) notePad(e.getDevice());
         if (typing && !KeyEvent.isGamepadButton(e.getKeyCode())) return super.dispatchKeyEvent(e);
         String b = mapKey(e.getKeyCode());
         if (b == null) return super.dispatchKeyEvent(e);
@@ -425,6 +433,7 @@ public class MainActivity extends Activity {
         boolean pad = (src & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK
                 || (src & InputDevice.SOURCE_GAMEPAD) == InputDevice.SOURCE_GAMEPAD;
         if (pad && ev.getActionMasked() == MotionEvent.ACTION_MOVE) {
+            notePad(ev.getDevice());
             float hx = ev.getAxisValue(MotionEvent.AXIS_HAT_X), hy = ev.getAxisValue(MotionEvent.AXIS_HAT_Y);
             float x = ev.getAxisValue(MotionEvent.AXIS_X), y = ev.getAxisValue(MotionEvent.AXIS_Y);
             String dir = null;

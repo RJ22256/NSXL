@@ -109,6 +109,10 @@ body.open #card { opacity: 1; transform: none; }
 body.open #hints { opacity: 1; }
 .hint { display: flex; align-items: center; gap: calc(var(--u) * .6); cursor: pointer; }
 .btn { width: calc(var(--u) * 2.2); height: calc(var(--u) * 2.2); border-radius: 50%; background: #fff; color: #000; display: grid; place-items: center; font-size: calc(var(--u) * 1.2); font-weight: 700; font-style: normal; text-shadow: none; }
+
+.btn .gs { width: 78%; height: 78%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.btn.wide { width: auto; min-width: calc(var(--u) * 2.2); padding: 0 calc(var(--u) * .5); border-radius: calc(var(--u) * .55); font-size: calc(var(--u) * 1); box-sizing: border-box; }
+html.touchmode .btn { display: none !important; }
 #toast { position: fixed; left: 50%; top: calc(var(--u) * 10); transform: translate(-50%, -10px); opacity: 0; background: rgba(20,20,24,.92); color: #fff; padding: calc(var(--u) * 1) calc(var(--u) * 2.2); border-radius: 999px; font-size: calc(var(--u) * 1.5); transition: all .25s; pointer-events: none; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 #sleepFx { position: fixed; inset: 0; z-index: 50; display: none; place-items: center; background: #000; }
@@ -369,10 +373,58 @@ function adjust(d) {
   if (r.type === 'tiles' || r.type === 'group') { const n = sub + d; if (n < 0 || n >= r.items.length) { bump(); return true; } sub = n; tick(); paintCard(); return true; }
   return false;
 }
+/* =========================================================
+   Button icons: match the controller in use (Xbox, PlayStation,
+   Nintendo or generic), and hide them while you're using touch.
+   ========================================================= */
+const GSVG = {
+  cross: '<svg viewBox="0 0 24 24" class="gs"><path d="M6.8 6.8l10.4 10.4M17.2 6.8L6.8 17.2"/></svg>',
+  circle: '<svg viewBox="0 0 24 24" class="gs"><circle cx="12" cy="12" r="6"/></svg>',
+  square: '<svg viewBox="0 0 24 24" class="gs"><rect x="6.4" y="6.4" width="11.2" height="11.2" rx=".8"/></svg>',
+  triangle: '<svg viewBox="0 0 24 24" class="gs"><path d="M12 5.8l6.6 11.3H5.4z"/></svg>',
+  menu: '<svg viewBox="0 0 24 24" class="gs"><path d="M6.5 8h11M6.5 12h11M6.5 16h11"/></svg>',
+  view: '<svg viewBox="0 0 24 24" class="gs"><rect x="5" y="5.5" width="9.5" height="7.5" rx="1.3"/><path d="M9.5 13v4.2a1.3 1.3 0 0 0 1.3 1.3h6.9a1.3 1.3 0 0 0 1.3-1.3v-5a1.3 1.3 0 0 0-1.3-1.3h-3.2"/></svg>',
+  create: '<svg viewBox="0 0 24 24" class="gs"><path d="M8.5 17.5v-6M12 17.5v-11M15.5 17.5v-8"/></svg>',
+};
+const GFACES = {
+  xbox:     { S: 'A', E: 'B', W: 'X', N: 'Y', l: 'LB', r: 'RB', plus: GSVG.menu, minus: GSVG.view },
+  ps:       { S: GSVG.cross, E: GSVG.circle, W: GSVG.square, N: GSVG.triangle, l: 'L1', r: 'R1', plus: GSVG.menu, minus: GSVG.create },
+  nintendo: { S: 'B', E: 'A', W: 'Y', N: 'X', l: 'L', r: 'R', plus: '+', minus: '−' },
+  generic:  { S: 'A', E: 'B', W: 'X', N: 'Y', l: 'L', r: 'R', plus: '+', minus: '−' },
+};
+const GLYPH_NAMES = { xbox: 'Xbox', ps: 'PlayStation', nintendo: 'Nintendo', generic: 'Generic (A B X Y)' };
+const Input = { mode: 'pad', fam: 'generic' };
+const glyphFam = () => (cfg.glyphs && cfg.glyphs !== 'auto' && GFACES[cfg.glyphs]) ? cfg.glyphs : (GFACES[Input.fam] ? Input.fam : 'generic');
+function glyphInner(b) {
+  // Logical buttons sit at fixed places on the pad: a = bottom, b = right, x = left, y = top (swapped when Swap A and B is on).
+  let pos = { a: 'S', b: 'E', x: 'W', y: 'N' }[b];
+  if (pos && cfg.swapAB) pos = { S: 'E', E: 'S', W: 'N', N: 'W' }[pos];
+  const v = GFACES[glyphFam()][pos || b];
+  return v == null ? esc(String(b).toUpperCase()) : v;
+}
+const glyphWide = inner => !inner.startsWith('<') && inner.length > 1;
+function glyph(b) { const g = glyphInner(b); return `<i class="btn${glyphWide(g) ? ' wide' : ''}" data-b="${b}">${g}</i>`; }
+function refreshGlyphs() {
+  document.querySelectorAll('.btn[data-b]').forEach(e => { const g = glyphInner(e.dataset.b); e.innerHTML = g; e.classList.toggle('wide', glyphWide(g)); });
+  document.documentElement.dataset.glyphs = glyphFam();
+}
+function setInputMode(m) {
+  Input.mode = m;
+  document.documentElement.classList.toggle('touchmode', m === 'touch' && cfg.touchHide !== false);
+}
+window.onPadKind = fam => { Input.fam = fam; setInputMode('pad'); refreshGlyphs(); };
+(function initInput() {
+  const f = nb('padFamily');
+  if (f && f !== 'none') Input.fam = f;
+  setInputMode(f === 'none' ? 'touch' : 'pad');
+  document.documentElement.dataset.glyphs = glyphFam();
+  document.addEventListener('pointerdown', () => { if (Input.mode !== 'touch') setInputMode('touch'); }, true);
+})();
+
 function updateHints() {
   const list = focus === 'card' ? [['b', 'Back'], ['a', 'OK']] : [['b', 'Close'], ['a', 'OK']];
   const box = $('#hints'); box.innerHTML = '';
-  list.forEach(([b, l]) => { const s = el('span', 'hint', `<i class="btn">${b.toUpperCase()}</i>${l}`); s.addEventListener('click', () => window.onPad(b)); box.appendChild(s); });
+  list.forEach(([b, l]) => { const s = el('span', 'hint', `${glyph(b)}${l}`); s.addEventListener('click', () => window.onPad(b, false, true)); box.appendChild(s); });
 }
 
 /* ---- sleep with a little goodnight ---- */
@@ -388,6 +440,7 @@ let closing = false;
 function close() { if (closing) return; closing = true; backS(); document.body.classList.remove('open'); setTimeout(() => { closing = false; nb('close'); }, 230); }
 function go(method, ...args) { document.body.classList.remove('open'); setTimeout(() => nb(method, ...args), 160); }
 window.onOpen = () => {
+  Object.assign(cfg, store.get('cfg', {})); refreshGlyphs(); setInputMode(Input.mode);
   closing = false; refresh(); focus = 'dock';
   renderDock(); paint(true);
   requestAnimationFrame(() => { document.body.classList.add('open'); placeCard(); });
@@ -395,7 +448,8 @@ window.onOpen = () => {
 };
 $('#shade').addEventListener('click', close);
 
-window.onPad = (b, rep) => {
+window.onPad = (b, rep, fromTouch) => {
+  if (!fromTouch && Input.mode !== 'pad') setInputMode('pad');
   if (!document.body.classList.contains('open')) return;
   if (focus === 'dock') {
     if (b === 'left' || b === 'right') { const n = idx + (b === 'left' ? -1 : 1); if (n < 0 || n >= ITEMS.length) { bump(); return; } idx = n; tick(); paint(true); }
