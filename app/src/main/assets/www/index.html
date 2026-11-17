@@ -465,10 +465,12 @@ html.calm #bgfx { display: none; }
 /* settings */
 .setNav {
   position: absolute; top: calc(var(--u) * 11.6); bottom: calc(var(--u) * 8); left: calc(var(--u) * 4);
-  width: calc(var(--u) * 24); display: flex; flex-direction: column; gap: calc(var(--u) * .5);
+  width: calc(var(--u) * 24); display: flex; flex-direction: column; gap: calc(var(--u) * .3);
+  overflow-y: auto; overflow-x: visible; scrollbar-width: none; padding: calc(var(--u) * .8) 0 calc(var(--u) * .8) calc(var(--u) * .8); margin-left: calc(var(--u) * -.8); margin-top: calc(var(--u) * -.8);
 }
+.setNav::-webkit-scrollbar { display: none; }
 .navItem {
-  position: relative; padding: calc(var(--u) * 1.3) calc(var(--u) * 2); font-size: calc(var(--u) * 1.9);
+  position: relative; flex: 0 0 auto; padding: calc(var(--u) * 1.05) calc(var(--u) * 2); font-size: calc(var(--u) * 1.8);
   border-radius: calc(var(--u) * .7); cursor: pointer; isolation: isolate; --rr: calc(var(--u) * .7);
 }
 .navItem.cur { color: var(--accent); }
@@ -641,7 +643,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto',
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true,
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => store.set('cfg', cfg);
@@ -1805,6 +1807,26 @@ const SETTINGS = [
     { type: 'toggle', label: 'Swap A and B buttons', desc: 'Use this if confirm/back feel reversed on your controller.', key: 'swapAB', after: () => nb('setSwapAB', cfg.swapAB) },
     { type: 'action', label: 'Pair a controller', value: () => 'Bluetooth', run: () => nb('openSettings', 'bluetooth') },
   ] },
+  { name: 'In-Game Menu', rows: () => {
+    const st = (() => { try { return JSON.parse(nb('overlayState') || '{}'); } catch (e) { return {}; } })();
+    const on = !!(st.enabled && st.permission);
+    const cfgSend = () => nb('overlayConfig', cfg.ovSide, cfg.ovAlpha, !cfg.ovHandle);
+    return [
+      { type: 'action', label: 'In-game menu', desc: 'A quick menu you can open over any game: switch games, volume, brightness, music, controllers.',
+        value: () => on ? 'On' : 'Off',
+        run: () => {
+          if (on) { nb('overlayEnable', false); toast('In-game menu off'); setTimeout(refreshOverlays, 300); return; }
+          const r = NATIVE ? nb('overlayEnable', true) : 'ok';
+          if (r === 'permission') { store.set('ovPending', true); toast('Allow “Display over other apps” for NSXL, then come back'); }
+          else { cfgSend(); toast('In-game menu on'); setTimeout(refreshOverlays, 300); }
+        } },
+      { type: 'toggle', label: 'Show side button', desc: 'A small glowing tab on the screen edge. Tap it in a game to open the menu; drag to move it.', key: 'ovHandle', after: cfgSend },
+      { type: 'choice', label: 'Side button position', key: 'ovSide', options: [['right', 'Right edge'], ['left', 'Left edge']], after: cfgSend },
+      { type: 'slider', label: 'Side button visibility', min: 0.2, max: 1, step: 0.05, get: () => cfg.ovAlpha, set: v => { cfg.ovAlpha = v; saveCfg(); cfgSend(); }, fmt: v => Math.round(v * 100) + '%' },
+      { type: 'action', label: 'Try it now', value: () => '', run: () => { if (!on) { toast('Turn the in-game menu on first'); return; } nb('overlayTest'); } },
+      { type: 'info', label: 'Quick Settings', value: () => 'Add the “NSXL Menu” tile to open it from the shade' },
+    ];
+  } },
   { name: 'Entertainment', rows: () => [
     { type: 'action', label: 'TMDB API key', desc: 'Free from themoviedb.org › Settings › API.', value: () => cfg.tmdbKey ? 'Set ✓' : 'Add key',
       run: () => openPrompt('TMDB API key', cfg.tmdbKey, 'Paste your API key or read access token', v => { cfg.tmdbKey = v.trim(); saveCfg(); refreshOverlays(); },
@@ -1938,6 +1960,7 @@ function openSettings(startCat) {
   function paint() {
     navEls.forEach((e, i) => { e.classList.toggle('cur', i === cat); e.classList.toggle('sel', focus === 'nav' && i === cat); });
     const ce = navEls[cat]; if (ce) { navBar.style.top = (ce.offsetTop + ce.offsetHeight * .2) + 'px'; navBar.style.height = (ce.offsetHeight * .6) + 'px'; }
+    if (ce && focus === 'nav') ce.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
     rowEls.forEach((e, i) => e.classList.toggle('sel', focus === 'pane' && i === row && rows[i].type !== 'themes'));
     rowEls.forEach((e, i) => {
       if (rows[i].type !== 'themes') return;
@@ -2037,6 +2060,13 @@ window.onPad = (b, repeat, fromTouch) => {
 window.onPauseApp = () => Music.pause();
 window.onResumeApp = () => {
   updateStatus();
+  if (store.get('ovPending')) {
+    try {
+      const st = JSON.parse(nb('overlayState') || '{}');
+      if (st.permission) { store.set('ovPending', false); nb('overlayEnable', true); nb('overlayConfig', cfg.ovSide, cfg.ovAlpha, !cfg.ovHandle); toast('In-game menu on'); }
+    } catch (e) {}
+  }
+  refreshOverlays();
   document.body.classList.remove('leaving');
   $$('.launching').forEach(n => n.classList.remove('launching'));
   Music.resume();
@@ -2089,6 +2119,7 @@ function makeMock() {
     isDefaultHome: () => false,
     sdk: () => 34,
     region: () => 'GB',
+    overlayState: () => JSON.stringify({ permission: true, enabled: false, running: false }),
     copyText: () => {},
     openUrl: (u) => toast('Opens ' + u.split('/')[2]),
     version: () => '1.0 (preview)',

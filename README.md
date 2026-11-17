@@ -29,6 +29,7 @@ Big game tiles, a round-button dock, a glowing selection ring, ambient music and
 - **Game row.** Your games, emulators and streaming apps sorted by when you last played them. Up to 12 sit on Home; everything else is one press away in **All Software**.
 - **Switch-style motion.** Tiles slide in on start-up, selections pop, games zoom out of their tile when you launch them, and the selection ring sweeps a highlight round the selected item.
 - **Entertainment mode.** Press the film button on the dock (or **R**) and the Home row becomes your streaming apps. Pick one to see up to 50 of the most popular films and shows on that service in your region, with All / Movies / TV tabs, ratings and summaries, plus buttons to open the app or search for the title in it. Data from TMDB.
+- **In-game quick menu.** A PS5-style menu you can open over any game: Home, Switch Game, Music, Sound, Brightness, Accessories, Network and Power, in the NSXL style. Open it from a small glowing tab on the screen edge, the **NSXL Menu** Quick Settings tile, or the NSXL notification.
 - **Cover art from SteamGridDB.** Search for any game and pick from hundreds of community covers, or fetch art for every game at once. You can also use any picture from your phone.
 - **Rename anything.** Give apps the name you want shown on their tile.
 - **Ambient music.** A calm built-in soundtrack that's generated on your device, or any music file you choose. It pauses while you play.
@@ -63,6 +64,15 @@ You can also build it yourself with Android Studio, or run `./gradlew assembleDe
 1. Make a free account at [steamgriddb.com](https://www.steamgriddb.com) and copy your API key from **Preferences → API**.
 2. In NSXL, open **Settings → Cover Art** and paste the key.
 3. Choose **Fetch covers for my games** (or **Fetch covers for my streaming apps**), or press **+** on any game or streaming app and pick **Find cover on SteamGridDB…**.
+
+## In-game quick menu
+
+1. Open **Settings → In-Game Menu** and turn **In-game menu** on.
+2. Android asks you to allow NSXL to **display over other apps**. Allow it, then come back to NSXL.
+3. In any game, tap the glowing tab on the screen edge (drag it to move it). You can also add the **NSXL Menu** tile to Quick Settings, or tap the NSXL notification.
+4. Use the D-pad or touch. **B** goes back or closes the menu.
+
+Brightness needs one more permission ("Modify system settings"); the menu asks the first time you use it. Android doesn't let apps read a controller's Home button while a game is open, so the menu can't open from a button press.
 
 ## Entertainment with TMDB
 
