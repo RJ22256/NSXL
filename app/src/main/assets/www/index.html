@@ -1154,7 +1154,7 @@ const Hm = { items: [], idx: 0, zone: 'row', dockIdx: 0, launched: false, mode: 
 const DOCK_ALL = [
   { id: 'all',      label: 'All Software', icon: 'grid',    red: true, run: () => openAll({}) , fixed: true },
   { id: 'news',     label: 'News',         icon: 'paper',   color: 'var(--c-red)',    run: () => openNews() },
-  { id: 'web',      label: 'Web',          icon: 'globe',    color: 'var(--c-green)',  run: () => nb('openBrowser', '') },
+  { id: 'web',      label: 'Web',          icon: 'globe',    color: 'var(--c-green)',  run: () => nb('openBrowser', '', Input.mode === 'pad') },
   { id: 'store',    label: 'Play Store',   icon: 'bag',     color: 'var(--c-red)',    cat: 'market' },
   { id: 'album',    label: 'Album',        icon: 'album',   color: 'var(--c-blue)',   run: () => openAlbum() },
   { id: 'music',    label: 'Music',        icon: 'music',   color: 'var(--c-teal)',   cat: 'music' },
@@ -2541,7 +2541,7 @@ function openStory(x) {
   back.appendChild(d);
   const row = $('.dbtns', d);
   const btns = [
-    { label: 'Read full story', primary: true, run: () => cfg.inAppLinks === false ? nb('openUrl', x.link, '') : nb('openBrowser', x.link) },
+    { label: 'Read full story', primary: true, run: () => cfg.inAppLinks === false ? nb('openUrl', x.link, '') : nb('openBrowser', x.link, Input.mode === 'pad') },
     x.pkg && BY[x.pkg] ? { label: 'Play ' + BY[x.pkg].label, run: () => launch(x.pkg, null) } : null,
     { label: 'Close', run: () => {} },
   ].filter(Boolean);

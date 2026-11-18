@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Home behind NSXL Web: eases back while the browser opens, and settles forward when it closes. -->
+<set xmlns:android="http://schemas.android.com/apk/res/android"
+    android:interpolator="@android:interpolator/decelerate_cubic"
+    android:duration="300">
+    <scale android:fromXScale="1.03" android:toXScale="1" android:fromYScale="1.03" android:toYScale="1"
+        android:pivotX="50%" android:pivotY="50%" />
+    <alpha android:fromAlpha="0.6" android:toAlpha="1" />
+</set>
