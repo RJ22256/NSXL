@@ -91,6 +91,7 @@ namespace Nsxl.Native
                 case "media.cmd": return await Media.Command(Str(m, "c"));
                 // the game in front
                 case "fg.get": return Foreground.Get();
+                case "fg.set": return Foreground.Bring(Convert.ToInt64(m["hwnd"]));
                 case "proc.kill": Process.GetProcessById(Int(m, "pid")).Kill(); return true;
                 default: throw new Exception("Unknown command " + cmd);
             }
@@ -393,6 +394,18 @@ namespace Nsxl.Native
         [DllImport("user32.dll")] static extern IntPtr GetForegroundWindow();
         [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hWnd, StringBuilder s, int n);
+
+        [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
+        [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+
+        /// Brings a window (the quick menu) to the front even while a game has focus.
+        /// Windows only lets the app with the last input do that; a tap of Alt counts as input.
+        public static bool Bring(long hwnd)
+        {
+            keybd_event(0x12, 0, 0, UIntPtr.Zero);
+            keybd_event(0x12, 0, 2, UIntPtr.Zero);
+            return SetForegroundWindow(new IntPtr(hwnd));
+        }
 
         public static object Get()
         {

@@ -191,13 +191,19 @@ function overlayOpen() {
       overlayWin.setAlwaysOnTop(true, 'screen-saver');
       overlayWin.loadURL('nsxl://app/overlay.html');
       overlayWin.on('blur', () => { if (overlayWin && overlayWin.isVisible()) overlayClose(); });
-      overlayWin.webContents.once('did-finish-load', () => { overlayWin.show(); overlayWin.focus(); overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {}); });
+      overlayWin.webContents.once('did-finish-load', () => { overlayWin.show(); grabFocus(); overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {}); });
       return;
     }
     overlayWin.setBounds(d.bounds);
-    overlayWin.show(); overlayWin.focus();
+    overlayWin.show(); grabFocus();
     overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {});
   });
+}
+function grabFocus() {
+  overlayWin.focus();
+  const h = overlayWin.getNativeWindowHandle();
+  const hwnd = h.length >= 8 ? Number(h.readBigUInt64LE(0)) : h.readUInt32LE(0);
+  if (!overlayWin.isFocused()) native.call('fg.set', { hwnd }, 3000).catch(() => {});
 }
 function overlayClose() { if (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible()) overlayWin.hide(); }
 function bringHome() {

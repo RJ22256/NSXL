@@ -77,6 +77,15 @@ Big game tiles, a round-button dock, a glowing selection ring, play time, news, 
 
 The same home screen for your PC games, in [`pc/`](pc). It finds your **Steam** and **Epic Games** games by itself, lets you add any other game or app, and launches each one through the right store. It works with Xbox, PlayStation and Switch Pro controllers, or a keyboard and mouse. It includes NSXL Web, the controller-friendly browser, and you can right-click any game for its options.
 
+It also has:
+- **A quick menu over games.** Press View + Menu, or Ctrl+Alt+Space.
+- **Xbox mode.** NSXL can be the home app Windows starts into (Windows 11 24H2 or later).
+- **A Music page** that controls Spotify, including your playlists.
+- **Bluetooth controller pairing** inside NSXL.
+- **A Private Internet Access VPN switch.**
+
+The Windows-only parts live in [`pc/native`](pc/native): a small helper for Bluetooth, volume, brightness, media and Xbox buttons, and the Xbox mode home app package.
+
 Download it from [**Releases**](https://github.com/RJ22256/NSXL/releases?q=pc-v&expanded=true): pick **NSXL-Setup** to install it, or **NSXL-Portable** to run it without installing. Windows releases are tagged `pc-v…`. Every change also builds one under [**Actions**](https://github.com/RJ22256/NSXL/actions/workflows/pc.yml) › latest run › **Artifacts**.
 
 To run it from source: `cd pc && npm install && npm start`.
