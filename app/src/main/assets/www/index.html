@@ -815,6 +815,22 @@ html[data-theme=white] .dbtn.sel { background: #fff; }
 .cell.lift { z-index: 5; }
 .cell.lift .art { transform: translateY(calc(var(--u) * -.8)) scale(1.06); box-shadow: 0 calc(var(--u) * 1.2) calc(var(--u) * 2.4) var(--shadow), 0 0 0 calc(var(--u) * .25) var(--accent); transition: transform .18s, box-shadow .18s; }
 .cell.dropAt .art { box-shadow: 0 0 0 calc(var(--u) * .25) var(--accent); }
+
+.tile.lift { transform: translateY(calc(var(--u) * -1.2)) scale(1.04); box-shadow: 0 calc(var(--u) * 1.6) calc(var(--u) * 3) var(--shadow), 0 0 0 calc(var(--u) * .3) var(--accent) !important; transition: transform .18s, box-shadow .18s; z-index: 4; }
+.tile.dropAt { box-shadow: 0 0 0 calc(var(--u) * .3) var(--accent) !important; }
+
+.fHome .fSortChip { position: absolute; top: calc(var(--oy) + var(--u) * 7.4); left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: calc(var(--u) * .6);
+  padding: calc(var(--u) * .6) calc(var(--u) * 1.2); border-radius: calc(var(--u) * 2); background: var(--slot); color: var(--fg2); font-size: calc(var(--u) * 1.4); cursor: pointer; }
+.fHome .fSortChip svg.ic { width: calc(var(--u) * 1.7); height: calc(var(--u) * 1.7); }
+.fHome .fRowWrap { position: absolute; left: 0; right: 0; top: calc(var(--oy) + var(--u) * 13.5); height: calc(var(--tile) + var(--u) * 4);
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+.fHome .fRowWrap::-webkit-scrollbar { display: none; }
+.fHome .fRow { display: flex; gap: var(--gap); padding: calc(var(--u) * 2) var(--side); width: max-content; min-width: 100%; box-sizing: border-box; }
+.fHome .fRow .tile { animation: tileIn .5s cubic-bezier(.2,.8,.2,1) both; animation-delay: calc(min(var(--i, 0), 8) * 45ms); }
+.fHome .fRow .tile.sel { animation: tileSel .32s cubic-bezier(.3,1.6,.5,1); }
+.fHome .fTitle { position: absolute; left: 0; top: calc(var(--oy) + var(--u) * 11.9); font-size: calc(var(--u) * 1.85); font-weight: 500; color: var(--accent);
+  white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .12s; }
+.fHome .fEmpty { width: calc(100vw - var(--side) * 2); align-self: center; text-align: center; color: var(--fg2); font-size: calc(var(--u) * 1.9); line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -1164,10 +1180,28 @@ function renameApp(pkg) {
 }
 const isGameish = a => a.game || !!store.get('added', {})[a.pkg];
 
+// games put in a folder live only in that folder
+function inFolders() { const s = new Set(); if (PC) store.get('folders', []).forEach(f => (f.apps || []).forEach(p => s.add(p))); return s; }
 function homeList() {
-  const added = store.get('added', {}), hidden = store.get('hidden', {}), played = store.get('played', {});
+  const added = store.get('added', {}), hidden = store.get('hidden', {}), played = store.get('played', {}), inF = inFolders();
   const key = p => Math.max(played[p] || 0, added[p] || 0, (BY[p] && BY[p].installed) || 0);
-  return APPS.filter(a => (a.game || added[a.pkg]) && !hidden[a.pkg]).map(a => a.pkg).sort((x, y) => key(y) - key(x));
+  return APPS.filter(a => (a.game || added[a.pkg]) && !hidden[a.pkg] && !inF.has(a.pkg)).map(a => a.pkg).sort((x, y) => key(y) - key(x));
+}
+// what Home shows, in order: games (most recent first, or your own order) and folders. Folder keys are "folder:<id>".
+function homeKeys() {
+  const games = homeList(), fl = PC ? store.get('folders', []).filter(f => f.home).map(f => 'folder:' + f.id) : [];
+  const order = store.get('homeOrder', null);
+  let all = games.concat(fl);
+  if (order) {
+    const pos = new Map(order.map((k, i) => [k, i]));
+    all = all.filter(k => !pos.has(k)).concat(all.filter(k => pos.has(k)).sort((a, b) => pos.get(a) - pos.get(b)));   // new ones first
+  }
+  let n = 0;
+  return all.filter(k => k.startsWith('folder:') || ++n <= MAX_HOME);
+}
+function saveHomeOrder(keys) {
+  const prev = store.get('homeOrder', null) || homeKeys();
+  store.set('homeOrder', keys.concat(prev.filter(k => !keys.includes(k))));
 }
 function setOnHome(pkg, on) {
   const added = store.get('added', {}), hidden = store.get('hidden', {});
@@ -1300,19 +1334,21 @@ function dockOptions(i) {
 
 function renderRow() {
   const ent = Hm.mode === 'ent';
-  const all = ent ? entServices().map(x => x.pkg) : homeList(), shown = ent ? all : all.slice(0, MAX_HOME);
+  const shown = ent ? entServices().map(x => x.pkg) : homeKeys();
   const row = $('#row'); row.innerHTML = '';
-  Hm.items = [];
+  Hm.items = []; Hm.moving = false;
   shown.forEach(pkg => {
+    if (pkg.startsWith('folder:')) {
+      const f = folderBy(pkg.slice(7)); if (!f) return;
+      const t = el('div', 'tile g fold'); folderArt(f, t);
+      t.style.setProperty('--i', Hm.items.length);
+      row.appendChild(t); Hm.items.push({ type: 'folder', id: f.id, key: pkg, el: t }); return;
+    }
     const t = el('div', 'tile g'); artBox(pkg, 512, t);
     t.style.setProperty('--i', Hm.items.length);
-    row.appendChild(t); Hm.items.push(ent ? { type: 'svc', pkg, svc: { ...svcFor(pkg), pkg }, el: t } : { type: 'app', pkg, el: t });
+    row.appendChild(t); Hm.items.push(ent ? { type: 'svc', pkg, svc: { ...svcFor(pkg), pkg }, el: t } : { type: 'app', pkg, key: pkg, el: t });
   });
-  if (PC && !ent) folders().filter(f => f.home).forEach(f => {
-    const t = el('div', 'tile g fold'); folderArt(f, t);
-    t.style.setProperty('--i', Hm.items.length);
-    row.appendChild(t); Hm.items.push({ type: 'folder', id: f.id, el: t });
-  });
+  if (!ent) homeDrag();
   for (let i = Hm.items.length; i < 4; i++) {
     const s = el('div', 'tile slot'); s.style.setProperty('--i', i);
     onPress(s, () => { Snd.select(); ent ? openSettings(ENT_CAT()) : openAll({ mode: 'add', title: 'Add software to Home' }); });
@@ -1338,6 +1374,7 @@ function refreshSel() {
     it.el.classList.toggle('sel', on && i === Hm.idx);
     it.el.classList.toggle('nbL', on && i === Hm.idx - 1);
     it.el.classList.toggle('nbR', on && i === Hm.idx + 1);
+    it.el.classList.toggle('lift', on && !!Hm.moving && i === Hm.idx);
   });
   dockEls.forEach((b, i) => b.classList.toggle('sel', !ov && Hm.zone === 'dock' && i === Hm.dockIdx));
   const av = $('#avatar'); av.classList.toggle('sel', !ov && Hm.zone === 'user'); $('#avatarName').textContent = userName();
@@ -1408,6 +1445,7 @@ function nudge(node, d) {
   setTimeout(() => node.classList.remove(c), 260);
 }
 function tapRow(i) {
+  if (Hm.moving) { finishHomeMove(); return; }
   const wasSel = Hm.zone === 'row' && Hm.idx === i;
   selectRow(i);
   if (cfg.oneTap || wasSel) activateRow(i); else { Snd.tick(); buzz(); }
@@ -1452,7 +1490,51 @@ function launch(pkg, node) {
   }, 2500);
 }
 
+/* ---------- arrange Home yourself ---------- */
+const movable = it => it && (it.type === 'app' || it.type === 'folder');
+function startHomeMove(key) {
+  closeAll();
+  if (Hm.mode !== 'games') setMode('games', true);
+  const i = Hm.items.findIndex(it => it.key === key);
+  if (i < 0) { toast('That isn\'t on Home'); return; }
+  selectRow(i); Hm.moving = true; Snd.select(); refreshSel();
+  toast('Move it with ◀ ▶, then press A');
+}
+function homeMoveBy(d) {
+  const i = Hm.idx, j = i + d, a = Hm.items[i], b = Hm.items[j];
+  if (!movable(b)) { Snd.bump(); nudge(a.el, d); return; }
+  Hm.items[i] = b; Hm.items[j] = a;
+  const row = $('#row'); if (d > 0) row.insertBefore(b.el, a.el); else row.insertBefore(a.el, b.el);
+  Hm.idx = j; Snd.tick(); buzz(); refreshSel(); ensureRowVisible();
+}
+function finishHomeMove() {
+  Hm.moving = false; Snd.select();
+  saveHomeOrder(Hm.items.filter(movable).map(it => it.key));
+  renderRow(); toast('Home arranged');
+}
+function homeDrag() {   // mouse: drag a tile onto another spot
+  let from = -1;
+  Hm.items.forEach((it, i) => {
+    if (!movable(it)) return;
+    it.el.draggable = true;
+    it.el.addEventListener('dragstart', e => { from = i; e.dataTransfer.effectAllowed = 'move'; it.el.classList.add('lift'); });
+    it.el.addEventListener('dragend', () => { from = -1; $$('#row .lift, #row .dropAt').forEach(x => x.classList.remove('lift', 'dropAt')); });
+    it.el.addEventListener('dragover', e => { if (from < 0) return; e.preventDefault(); it.el.classList.add('dropAt'); });
+    it.el.addEventListener('dragleave', () => it.el.classList.remove('dropAt'));
+    it.el.addEventListener('drop', e => {
+      e.preventDefault(); if (from < 0 || from === i) return;
+      const keys = Hm.items.filter(movable).map(x => x.key), [k] = keys.splice(from, 1);
+      keys.splice(i, 0, k); from = -1; saveHomeOrder(keys); renderRow(); selectRow(i); Snd.select();
+    });
+  });
+}
 function homePad(b) {
+  if (Hm.moving) {
+    if (b === 'left' || b === 'right') homeMoveBy(b === 'left' ? -1 : 1);
+    else if (b === 'a' || b === 'b') finishHomeMove();
+    else Snd.bump();
+    return;
+  }
   if (Hm.zone === 'user') {
     switch (b) {
       case 'down': case 'b': Hm.zone = Hm.items.length ? 'row' : 'dock'; b === 'b' ? Snd.back() : Snd.tick(); buzz(); refreshSel(); break;
@@ -1573,6 +1655,7 @@ function updateHints() {
   const top = topOverlay();
   const cur = Hm.items[Hm.idx];
   const list = top ? top.hints()
+    : Hm.moving ? [['a', 'Put here']]
     : Hm.zone === 'user' ? [['a', 'My Page']]
     : Hm.zone === 'dock' ? (DOCK[Hm.dockIdx].fixed ? [['a', 'OK']] : [['plus', 'Options'], ['a', 'OK']])
     : cur && cur.type === 'app' ? [['plus', 'Options'], ['a', 'Start']]
@@ -2246,7 +2329,8 @@ function appOptions(pkg, start) {
         const onHome = homeList().includes(pkg);
         return [
           onHome ? paneRow(pane, 'Remove from Home', { desc: 'It stays in All Software.', run: () => { setOnHome(pkg, false); toast('Removed from Home'); sheet.refresh(); } })
-                 : paneRow(pane, 'Add to Home', { run: () => { setOnHome(pkg, true); toast('Added to Home'); sheet.refresh(); } }),
+                 : inFolders().has(pkg) ? null : paneRow(pane, 'Add to Home', { run: () => { setOnHome(pkg, true); toast('Added to Home'); sheet.refresh(); } }),
+          onHome && homeKeys().includes(pkg) ? paneRow(pane, 'Move on Home', { desc: 'Put it where you want it on the Home row.', run: () => startHomeMove(pkg) }) : null,
           PC ? paneRow(pane, 'Folders', { desc: 'Group it with other games.', val: (n => n ? n + (n === 1 ? ' folder' : ' folders') : 'None')(folders().filter(f => f.apps.includes(pkg)).length) + ' <span class="chev">›</span>',
             run: () => folderPicker(pkg, () => sheet.refresh()) }) : null,
           paneRow(pane, 'Rename', { val: esc(a.label), run: () => { popOverlay(true); renameApp(pkg); } }),
@@ -2719,8 +2803,8 @@ function openAll(opts) {
   }
   function build() {
     if (tab === 'folders') return buildFolders();
-    const onHome = new Set(homeList());
-    list = tab === 'games' ? APPS.filter(isGameish) : APPS.slice();
+    const onHome = new Set(homeList()), inF = multi || opts.mode === 'pick' ? new Set() : inFolders();
+    list = (tab === 'games' ? APPS.filter(isGameish) : APPS.slice()).filter(a => !inF.has(a.pkg));
     grid.innerHTML = '';
     cells = list.map((a, i) => {
       const c = el('div', 'cell'), art = el('div', 'art g');
@@ -2738,7 +2822,7 @@ function openAll(opts) {
     });
     grid.classList.toggle('still', still); still = false;
     if (!list.length) grid.appendChild(el('div', 'empty', tab === 'games'
-      ? 'No games found yet.<br>Switch to <b>All Apps</b> (R) and add any app to Home.'
+      ? (inF.size ? 'Everything here is in a folder.<br>Find them under <b>Folders</b>.' : 'No games found yet.<br>Switch to <b>All Apps</b> (R) and add any app to Home.')
       : 'No apps found.'));
     $$('.t', ov).forEach(t => t.classList.toggle('on', t.dataset.t === tab));
     sel = clamp(sel, 0, Math.max(0, cells.length - 1));
@@ -2844,12 +2928,6 @@ function newFolder(then) {
     toast('Folder “' + v + '” made'); if (then) then(f);
   });
 }
-function folderAddGames(id) {
-  const f = folderBy(id); if (!f) return;
-  openAll({ mode: 'multi', title: 'Add to “' + f.name + '”', selected: new Set(f.apps.filter(p => BY[p])), onDone: set => {
-    editFolder(id, f => { f.apps = f.apps.filter(p => set.has(p)).concat([...set].filter(p => !f.apps.includes(p))); });
-  } });
-}
 function folderSortMenu(id) {
   const f = folderBy(id); if (!f) return;
   openMenu('Sort games by', FOLDER_SORTS.map(([k, l]) => ({ label: ((f.sort || 'custom') === k ? '✓  ' : '') + l,
@@ -2858,9 +2936,9 @@ function folderSortMenu(id) {
 function folderOptions(id) {
   const f = folderBy(id); if (!f) return;
   openMenu(f.name, [
-    { label: 'Add or remove games…', run: () => folderAddGames(id) },
     { label: 'Sort games…', run: () => folderSortMenu(id) },
     { label: 'Rename', run: () => openPrompt('Rename folder', f.name, 'Folder name', v => { v = v.trim(); if (v) editFolder(id, f => { f.name = v; }); }) },
+    f.home ? { label: 'Move on Home', run: () => startHomeMove('folder:' + id) } : null,
     { label: f.home ? 'Remove from Home' : 'Show on Home', run: () => { editFolder(id, f => { f.home = !f.home; }); toast(f.home ? 'Removed from Home' : 'Folder added to Home'); } },
     { label: 'Delete folder', danger: true, run: () => openDialog('Delete “' + f.name + '”?', 'The games stay in All Software. Only the folder goes.',
         [{ label: 'Cancel', cancel: true }, { label: 'Delete', primary: true, run: () => { editFolder(id, () => 'delete'); while (stack.some(o => o.folder === id)) popOverlay(true); toast('Folder deleted'); } }]) },
@@ -2876,96 +2954,93 @@ function folderPicker(pkg, done) {
   }).concat({ label: 'New folder…', run: () => newFolder(f => { editFolder(f.id, f => { f.apps.push(pkg); }); if (done) done(); }) }));
 }
 
-function openFolder(id) {
-  const ov = el('section', 'ov full');
+function openFolder(id) {   // a Home-style row of just this folder's games
+  const ov = el('section', 'ov full fHome');
   ov.innerHTML = `<div class="ovTitle">${svg('folder')}<span></span></div>
-    <div class="ovRule"></div><div class="ovRule bottom"></div>
-    <div class="tabs fBar"><span class="t" data-a="sort"></span><span class="t" data-a="add">${svg('plus')} Add games</span></div>
-    <div class="grid"></div>`;
-  const grid = $('.grid', ov);
-  let list = [], cells = [], sel = 0, moving = -1, dragFrom = -1, first = true;
-  onPress($('[data-a=sort]', ov), () => { Snd.select(); folderSortMenu(id); });
-  onPress($('[data-a=add]', ov), () => { Snd.select(); folderAddGames(id); });
+    <div class="ovRule bottom"></div>
+    <div class="fSortChip g"></div>
+    <div class="fTitle"></div>
+    <div class="fRowWrap"><div class="fRow"></div></div>`;
+  const row = $('.fRow', ov), wrap = $('.fRowWrap', ov), title = $('.fTitle', ov), chip = $('.fSortChip', ov);
+  let list = [], tiles = [], sel = 0, moving = false, dragFrom = -1;
+  onPress(chip, () => { Snd.select(); folderSortMenu(id); });
 
   function build(keepOrder) {
     const f = folderBy(id); if (!f) return;
     $('.ovTitle span', ov).textContent = f.name;
-    $('[data-a=sort]', ov).innerHTML = svg('sort') + ' ' + esc((FOLDER_SORTS.find(s => s[0] === (f.sort || 'custom')) || FOLDER_SORTS[0])[1]);
+    chip.innerHTML = svg('sort') + '<span>' + esc((FOLDER_SORTS.find(s => s[0] === (f.sort || 'custom')) || FOLDER_SORTS[0])[1]) + '</span>' + glyph('y');
     if (!keepOrder) list = folderApps(f);
-    grid.innerHTML = ''; grid.classList.toggle('still', !first); first = false;
-    cells = list.map((pkg, i) => {
-      const c = el('div', 'cell' + (i === moving ? ' lift' : '')), art = el('div', 'art g');
-      c.style.setProperty('--i', i);
-      artBox(pkg, 256, art);
-      c.appendChild(art); c.appendChild(el('div', 'nm', esc(BY[pkg].label)));
-      onPress(c, () => {
-        if (moving >= 0) { place(i); return; }
-        const was = sel === i && c.classList.contains('sel');
+    row.innerHTML = '';
+    tiles = list.map((pkg, i) => {
+      const t = el('div', 'tile g'); artBox(pkg, 512, t);
+      t.style.setProperty('--i', i);
+      onPress(t, () => {
+        if (moving) { finishMove(); return; }
+        const was = sel === i && t.classList.contains('sel');
         sel = i; paint();
         if (cfg.oneTap || was) act(); else { Snd.tick(); buzz(); }
       }, () => { sel = i; paint(); gameMenu(); });
-      // mouse: drag a game onto another to move it there
-      c.draggable = true;
-      c.addEventListener('dragstart', e => { dragFrom = i; e.dataTransfer.effectAllowed = 'move'; c.classList.add('lift'); });
-      c.addEventListener('dragend', () => { c.classList.remove('lift'); dragFrom = -1; $$('.dropAt', grid).forEach(x => x.classList.remove('dropAt')); });
-      c.addEventListener('dragover', e => { if (dragFrom < 0) return; e.preventDefault(); c.classList.add('dropAt'); });
-      c.addEventListener('dragleave', () => c.classList.remove('dropAt'));
-      c.addEventListener('drop', e => { e.preventDefault(); if (dragFrom < 0 || dragFrom === i) return;
+      // mouse: drag a game onto another spot
+      t.draggable = true;
+      t.addEventListener('dragstart', e => { dragFrom = i; e.dataTransfer.effectAllowed = 'move'; t.classList.add('lift'); });
+      t.addEventListener('dragend', () => { dragFrom = -1; $$('.lift, .dropAt', row).forEach(x => x.classList.remove('lift', 'dropAt')); });
+      t.addEventListener('dragover', e => { if (dragFrom < 0) return; e.preventDefault(); t.classList.add('dropAt'); });
+      t.addEventListener('dragleave', () => t.classList.remove('dropAt'));
+      t.addEventListener('drop', e => { e.preventDefault(); if (dragFrom < 0 || dragFrom === i) return;
         const [p] = list.splice(dragFrom, 1); list.splice(i, 0, p); sel = i; dragFrom = -1; save(); });
-      grid.appendChild(c); return c;
+      row.appendChild(t); return t;
     });
-    const add = el('div', 'cell addCell'), art = el('div', 'art g', svg('plus'));
-    add.style.setProperty('--i', list.length);
-    add.append(art, el('div', 'nm', 'Add games'));
-    onPress(add, () => { if (moving >= 0) { Snd.bump(); return; } sel = cells.length; paint(); Snd.select(); folderAddGames(id); });
-    grid.appendChild(add); cells.push(add);
-    sel = clamp(sel, 0, cells.length - 1);
-    paint(true);
+    chip.style.display = list.length ? '' : 'none';
+    if (!list.length) row.appendChild(el('div', 'fEmpty', 'This folder is empty.<br>Add a game from its <b>Options › Folders</b>.'));
+    sel = clamp(sel, 0, Math.max(0, tiles.length - 1));
+    paint();
   }
-  function paint(noScroll) {
-    cells.forEach((c, i) => { c.classList.toggle('sel', i === sel); c.firstChild.classList.toggle('sel', i === sel); });
-    if (!noScroll) { const c = cells[sel]; if (c) c.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  function paint() {
+    tiles.forEach((t, i) => { t.classList.toggle('sel', i === sel); t.classList.toggle('lift', moving && i === sel); });
+    const t = tiles[sel];
+    if (t) {
+      const r = t.offsetLeft - wrap.scrollLeft, w = wrap.clientWidth;
+      if (r < w * .08 || r + t.offsetWidth > w * .92) wrap.scrollTo({ left: t.offsetLeft - w * .08, behavior: 'smooth' });
+      const name = BY[list[sel]] ? BY[list[sel]].label : '';
+      if (title.dataset.txt !== name) { title.dataset.txt = name; title.innerHTML = '<span>' + esc(name) + '</span>'; retrigger(title, 'swap'); }
+      requestAnimationFrame(() => { title.style.transform = `translateX(${wrap.getBoundingClientRect().left + t.offsetLeft - wrap.scrollLeft}px)`; });
+      title.style.opacity = 1;
+    } else title.style.opacity = 0;
     updateHints();
   }
-  function cols() {
-    if (cells.length < 2) return 1;
-    const t0 = cells[0].offsetTop; let n = 0;
-    for (const c of cells) { if (c.offsetTop !== t0) break; n++; }
-    return Math.max(1, n);
-  }
+  wrap.addEventListener('scroll', () => { const t = tiles[sel]; if (t) title.style.transform = `translateX(${wrap.getBoundingClientRect().left + t.offsetLeft - wrap.scrollLeft}px)`; });
   function save() {   // the order on screen becomes "Your order"
     const f = folderBy(id), was = f && (f.sort || 'custom');
     editFolder(id, f => { f.apps = list.concat(f.apps.filter(p => !list.includes(p))); f.sort = 'custom'; });
     if (was && was !== 'custom') toast('Now sorted by your order');
   }
   function move(d) {
-    const last = moving >= 0 ? list.length - 1 : cells.length - 1;
-    let n = sel + d;
-    if (d > 1 && n > last) n = Math.floor(sel / cols()) < Math.floor(last / cols()) ? last : -1;
-    if (n < 0 || n > last) { Snd.bump(); return; }
-    if (moving >= 0) { const [p] = list.splice(sel, 1); list.splice(n, 0, p); moving = n; sel = n; Snd.tick(); buzz(); build(true); paint(); return; }
+    const n = sel + d;
+    if (n < 0 || n >= tiles.length) { Snd.bump(); if (tiles[sel]) nudge(tiles[sel], d); return; }
+    if (moving) {
+      const [p] = list.splice(sel, 1); list.splice(n, 0, p);
+      const a = tiles[sel], b = tiles[n]; tiles[sel] = b; tiles[n] = a;
+      if (d > 0) row.insertBefore(b, a); else row.insertBefore(a, b);
+    }
     sel = n; Snd.tick(); buzz(); paint();
   }
   function startMove() {
-    if (sel >= list.length) { Snd.bump(); return; }
-    moving = sel; Snd.select(); build(true); paint(); toast('Move it with the arrows, then press A');
+    if (!list.length) { Snd.bump(); return; }
+    moving = true; Snd.select(); paint(); toast('Move it with ◀ ▶, then press A');
   }
-  function place(i) {   // touch/mouse: tap where it should go
-    const [p] = list.splice(moving, 1); list.splice(i, 0, p); sel = i; finishMove();
-  }
-  function finishMove() { moving = -1; Snd.select(); save(); }
+  function finishMove() { moving = false; Snd.select(); save(); }
   function gameMenu() {
     const pkg = list[sel]; if (!pkg) { Snd.bump(); return; }
     openMenu(BY[pkg].label, [
       { label: 'Move', run: startMove },
-      { label: 'Remove from folder', run: () => { editFolder(id, f => { f.apps = f.apps.filter(p => p !== pkg); }); toast('Removed from folder'); } },
+      { label: 'Remove from folder', run: () => { editFolder(id, f => { f.apps = f.apps.filter(p => p !== pkg); }); toast('Removed from folder. It\'s back in All Software.'); } },
       { label: 'Software options…', run: () => appOptions(pkg) },
     ]);
   }
   function act() {
-    if (moving >= 0) { finishMove(); return; }
-    if (sel >= list.length) { Snd.select(); folderAddGames(id); return; }
-    launch(list[sel], cells[sel].firstChild);
+    if (moving) { finishMove(); return; }
+    if (!list.length) { Snd.bump(); return; }
+    launch(list[sel], tiles[sel]);
   }
 
   pushOverlay({
@@ -2974,19 +3049,18 @@ function openFolder(id) {
       switch (b) {
         case 'left': move(-1); break;
         case 'right': move(1); break;
-        case 'up': move(-cols()); break;
-        case 'down': move(cols()); break;
+        case 'up': case 'down': Snd.bump(); break;
         case 'a': act(); break;
-        case 'b': if (moving >= 0) finishMove(); else popOverlay(); break;
-        case 'plus': case 'x': if (moving < 0) { Snd.select(); gameMenu(); } break;
-        case 'y': if (moving < 0) { Snd.select(); folderSortMenu(id); } break;
-        case 'minus': if (moving < 0) { Snd.select(); folderOptions(id); } break;
+        case 'b': if (moving) finishMove(); else popOverlay(); break;
+        case 'plus': case 'x': if (!moving) { Snd.select(); gameMenu(); } break;
+        case 'y': if (!moving) { Snd.select(); folderSortMenu(id); } break;
+        case 'minus': if (!moving) { Snd.select(); folderOptions(id); } break;
       }
     },
-    hints: () => moving >= 0 ? [['a', 'Put here']] : [['b', 'Back'], ['minus', 'Folder'], ['y', 'Sort'], ['plus', 'Options'], ['a', sel >= list.length ? 'Add' : 'Start']],
-    refresh: () => { if (moving < 0) build(); },
+    hints: () => moving ? [['a', 'Put here']] : list.length ? [['b', 'Back'], ['minus', 'Folder'], ['y', 'Sort'], ['plus', 'Options'], ['a', 'Start']] : [['b', 'Back'], ['minus', 'Folder']],
+    refresh: () => { if (!moving) build(); },
   });
-  build();
+  requestAnimationFrame(() => build());
 }
 
 /* ---------- power ---------- */
@@ -3069,6 +3143,9 @@ const SETTINGS = [
       set: v => { cfg.blur = v; saveCfg(); applyTheme(); }, fmt: v => v ? String(v) : 'Off' } : null,
   ] },
   { name: 'Home Screen', rows: () => [
+    { type: 'choice', label: 'Home order', desc: 'Your order: arrange games with Options › Move on Home, or drag them with a mouse.', key: '_homeOrder',
+      get: () => store.get('homeOrder', null) ? 'custom' : 'recent',
+      set: v => { store.set('homeOrder', v === 'custom' ? homeKeys() : null); renderRow(); }, options: [['recent', 'Recently played first'], ['custom', 'Your order']] },
     { type: 'toggle', label: 'Entertainment', desc: 'Shows the Entertainment button and the R-button switch to your streaming apps. Turn off if you only want games.', key: 'entTab', after: syncDock },
     { type: 'choice', label: 'Launch animation', desc: 'How games and apps open from the Home screen.', key: 'launchFx', options: [['zoom', 'Zoom from tile'], ['fade', 'Fade'], ['instant', 'Instant']], after: () => nb('setLaunchStyle', cfg.launchFx) },
     { type: 'slider', label: 'Interface size', desc: 'Makes everything bigger or smaller to suit your screen.', min: 0.7, max: 1.3, step: 0.05,
