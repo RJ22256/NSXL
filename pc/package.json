@@ -10,7 +10,8 @@
   "scripts": {
     "sync-ui": "node scripts/sync-ui.js",
     "start": "npm run sync-ui && electron .",
-    "dist": "npm run sync-ui && electron-builder --win nsis portable --publish never"
+    "dist": "npm run sync-ui && electron-builder --win nsis portable --publish never",
+    "native": "powershell -ExecutionPolicy Bypass -File native/build.ps1 -Version %npm_package_version%"
   },
   "devDependencies": {
     "electron": "^33.2.0",
@@ -19,12 +20,36 @@
   "build": {
     "appId": "com.nsxl.pc",
     "productName": "NSXL",
-    "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "preload.js", "browser-preload.js", "lib/**", "www/**", "build/icon.png", "package.json"],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "browser-preload.js",
+      "lib/**",
+      "www/**",
+      "build/icon.png",
+      "package.json"
+    ],
     "win": {
       "icon": "build/icon.png",
       "artifactName": "NSXL-${version}-${arch}-${target}.${ext}",
-      "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }]
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "nsis": {
       "oneClick": false,
@@ -35,6 +60,17 @@
       "shortcutName": "NSXL",
       "artifactName": "NSXL-Setup-${version}.${ext}"
     },
-    "portable": { "artifactName": "NSXL-Portable-${version}.${ext}" }
+    "portable": {
+      "artifactName": "NSXL-Portable-${version}.${ext}"
+    },
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": ".",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ]
   }
 }

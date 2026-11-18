@@ -36,6 +36,10 @@ jobs:
       - name: Install
         run: npm install --no-audit --no-fund
 
+      - name: Build the Windows helper and the Xbox mode package
+        shell: pwsh
+        run: ./native/build.ps1 -Version $env:NSXL_VERSION
+
       - name: Smoke test (opens NSXL and checks Home loads with no errors)
         shell: bash
         run: |

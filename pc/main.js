@@ -13,6 +13,9 @@ const path = require('path');
 const { spawn, exec } = require('child_process');
 const { Readable } = require('stream');
 const lib = require('./lib/library');
+const Native = require('./lib/native');
+const Pia = require('./lib/pia');
+const Spotify = require('./lib/spotify');
 
 const WWW = path.join(__dirname, 'www');
 const DATA = app.getPath('userData');
@@ -24,6 +27,10 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'nsxl', privileges: { standard: 
 if (!app.requestSingleInstanceLock()) { app.quit(); }
 
 let win = null;
+
+// Windows extras ship in resources/ (built by native/build.ps1)
+const RES = app.isPackaged ? process.resourcesPath : path.join(__dirname, 'resources');
+const native = new Native(path.join(RES, 'native', 'nsxl-native.exe'));
 
 // ------------------------------------------------------------------ small stores
 
@@ -76,14 +83,14 @@ function playFinish() {
 
 let shots = {};
 function listShots() {
-  const home = app.getPath('home'), out = [];
+  const home = app.getPath('home'), out = [], shotTags = readJson('shotTags.json', {});
   const add = (dir, tag) => {
     let files = [];
     try { files = fs.readdirSync(dir); } catch (e) { return; }
     for (const f of files) {
       if (!/\.(png|jpe?g|webp)$/i.test(f)) continue;
       const p = path.join(dir, f);
-      try { const st = fs.statSync(p); out.push({ p, name: f, date: st.mtimeMs, tag }); } catch (e) { }
+      try { const st = fs.statSync(p); out.push({ p, name: f, date: st.mtimeMs, tag: tag || shotTags[f] }); } catch (e) { }
     }
   };
   add(path.join(app.getPath('pictures'), 'Screenshots'));
@@ -133,6 +140,123 @@ async function copyWithProgress(src, dest, onPct) {
 
 // ------------------------------------------------------------------ the bridge
 
+// ------------------------------------------------------------------ controllers (Bluetooth through the helper)
+
+const pads = { supported: true, permission: true, enabled: false, scanning: false, pairing: null, connected: [], paired: [], found: [] };
+const pushPads = () => js('window.onPads&&window.onPads(' + JSON.stringify(pads) + ')');
+async function refreshPads() {
+  try {
+    const r = await native.call('bt.radio');
+    pads.supported = r.present; pads.enabled = r.on;
+    pads.paired = r.on ? await native.call('bt.paired') : [];
+  } catch (e) { pads.supported = false; }
+  pushPads();
+}
+native.on('bt.found', m => {
+  if (!pads.found.some(d => d.addr === m.addr) && !pads.paired.some(d => d.addr === m.addr)) { pads.found.push({ addr: m.addr, name: m.name, pad: !!m.pad }); pushPads(); }
+});
+native.on('bt.scan', m => { pads.scanning = !!m.scanning; pushPads(); });
+
+// ------------------------------------------------------------------ battery (the page reads it) and VPN
+
+let battery = { level: null, charging: false };
+const pia = new Pia(st => { js('window.onVpn&&window.onVpn(' + JSON.stringify(st) + ')'); if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.executeJavaScript('window.onVpn&&window.onVpn(' + JSON.stringify(st) + ')').catch(() => {}); });
+
+// ------------------------------------------------------------------ music: Windows media session + Spotify account
+
+const spotify = new Spotify(prefs, (u, o) => net.fetch(u, o), u => shell.openExternal(u));
+async function music(withArt) {
+  const out = { connected: spotify.connected, hasClientId: !!spotify.clientId, session: null, spotify: null, error: null };
+  try { out.session = await native.call('media.get', { art: !!withArt }, 8000); } catch (e) { }
+  if (spotify.connected) { try { out.spotify = await spotify.player(); } catch (e) { out.error = e.message; } }
+  return out;
+}
+
+// ------------------------------------------------------------------ the quick menu (over games)
+
+let overlayWin = null, overlayGame = null;
+function overlayOpen() {
+  if (overlayWin && overlayWin.isVisible()) { overlayClose(); return; }
+  if (win && win.isFocused() && !process.argv.includes('--smoke')) return;   // on NSXL Home already: its own menus are there
+  native.call('fg.get', {}, 3000).catch(() => null).then(fg => {
+    overlayGame = fg && fg.pid && fg.pid !== process.pid && !/^(NSXL|electron)$/i.test(fg.name || '') ? fg : overlayGame;
+    const { screen } = require('electron');
+    const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    if (!overlayWin || overlayWin.isDestroyed()) {
+      overlayWin = new BrowserWindow({
+        ...d.bounds, show: false, frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false,
+        backgroundColor: '#00000000', title: 'NSXL quick menu',
+        webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false },
+      });
+      overlayWin.setAlwaysOnTop(true, 'screen-saver');
+      overlayWin.loadURL('nsxl://app/overlay.html');
+      overlayWin.on('blur', () => { if (overlayWin && overlayWin.isVisible()) overlayClose(); });
+      overlayWin.webContents.once('did-finish-load', () => { overlayWin.show(); overlayWin.focus(); overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {}); });
+      return;
+    }
+    overlayWin.setBounds(d.bounds);
+    overlayWin.show(); overlayWin.focus();
+    overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {});
+  });
+}
+function overlayClose() { if (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible()) overlayWin.hide(); }
+function bringHome() {
+  overlayClose();
+  if (!win) return;
+  if (win.isMinimized()) win.restore();
+  win.show(); win.setAlwaysOnTop(true); win.focus(); win.setAlwaysOnTop(false);
+}
+native.on('pad', m => {
+  const want = prefs.get('menuButton', 'viewmenu');
+  if (m.combo === want || (want === 'both' && (m.combo === 'guide' || m.combo === 'viewmenu'))) overlayOpen();
+});
+native.on('pads', () => js('window.updateStatus&&updateStatus()'));
+
+async function screenshot() {
+  overlayClose();
+  await new Promise(r => setTimeout(r, 400));
+  const { desktopCapturer, screen } = require('electron');
+  const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const size = { width: Math.round(d.size.width * d.scaleFactor), height: Math.round(d.size.height * d.scaleFactor) };
+  const sources = await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size });
+  const src = sources.find(x => String(x.display_id) === String(d.id)) || sources[0];
+  if (!src) throw new Error('No screen to capture');
+  const dir = path.join(app.getPath('pictures'), 'Screenshots');
+  fs.mkdirSync(dir, { recursive: true });
+  const stamp = new Date().toISOString().replace(/[:T]/g, '-').slice(0, 19);
+  const game = overlayGame && session ? (byPkg[session.pkg] || {}).label : null;
+  const file = path.join(dir, 'NSXL ' + (game ? safe(game) + ' ' : '') + stamp + '.png');
+  fs.writeFileSync(file, src.thumbnail.toPNG());
+  if (session) { const tags = readJson('shotTags.json', {}); tags[path.basename(file)] = session.pkg; writeJson('shotTags.json', tags); }
+  const { Notification } = require('electron');
+  if (Notification.isSupported()) new Notification({ title: 'Screenshot saved', body: 'It\'s in your Album.', silent: true }).show();
+}
+
+// ------------------------------------------------------------------ Xbox mode home app (full screen experience)
+
+let fse = { installed: false, checked: false };
+function fseCheck() {
+  exec('powershell -NoProfile -Command "(Get-AppxPackage -Name NSXL.HomeApp) -ne $null"', { windowsHide: true }, (e, out) => {
+    fse = { installed: /True/i.test(String(out)), checked: true };
+  });
+}
+function fseRun(mode) {
+  const script = path.join(RES, 'fse', 'setup.ps1');
+  if (!fs.existsSync(script)) { toast('The Xbox mode files are missing from this build'); return; }
+  const inner = `-NoProfile -ExecutionPolicy Bypass -File \\"${script}\\" -${mode}`;
+  toast(mode === 'Install' ? 'Windows will ask for permission…' : 'Removing…');
+  exec(`powershell -NoProfile -Command "Start-Process powershell -Verb RunAs -Wait -WindowStyle Hidden -ArgumentList '${inner}'"`, { windowsHide: true }, err => {
+    exec('powershell -NoProfile -Command "(Get-AppxPackage -Name NSXL.HomeApp) -ne $null"', { windowsHide: true }, (e, out) => {
+      fse = { installed: /True/i.test(String(out)), checked: true };
+      js('window.refreshOverlays&&refreshOverlays()');
+      if (mode === 'Install') {
+        if (fse.installed) { toast('NSXL can now be your Xbox mode home app'); shell.openExternal('ms-settings:gaming').catch(() => {}); }
+        else toast(err ? 'Set-up was cancelled' : 'Set-up didn\'t finish. See %TEMP%\\nsxl-xbox-mode.log');
+      } else toast(fse.installed ? 'Couldn\'t remove it' : 'Removed from Xbox mode');
+    });
+  });
+}
+
 const H = {
   platform: () => 'pc',
   version: () => app.getVersion(),
@@ -142,7 +266,8 @@ const H = {
   isDefaultHome: () => true,
   pageReady: () => {},
   getApps: () => { if (!apps.length) scan(); return JSON.stringify(apps.map(a => ({ pkg: a.pkg, label: a.label, game: a.game, installed: a.installed, cover: fs.existsSync(coverFile(a.pkg)) }))); },
-  getStatus: () => JSON.stringify({ net: net.isOnline() ? 'wifi' : 'none', bars: 3, time24: false }),
+  getStatus: () => JSON.stringify({ net: net.isOnline() ? 'wifi' : 'none', bars: 3, time24: false, battery: battery.level, charging: battery.charging, controllers: [] }),
+  reportBattery: (level, charging) => { battery = { level, charging: !!charging }; },
 
   launch: (pkg) => {
     const a = byPkg[pkg];
@@ -294,6 +419,83 @@ const H = {
   canSleep: () => true,
   sleepNow: () => H.power('sleep'),
 
+  // PC only: controllers
+  padsState: () => { refreshPads(); return JSON.stringify(pads); },
+  padsPermission: () => {},
+  padsEnable: () => native.call('bt.power', { on: true }).then(refreshPads).catch(e => toast(e.message)),
+  padsScan: () => { pads.found = []; pads.scanning = true; pushPads(); native.call('bt.scan').catch(e => { pads.scanning = false; pushPads(); toast(e.message); }); },
+  padsStop: () => { native.call('bt.stop').catch(() => {}); },
+  padsPair: (addr) => {
+    pads.pairing = addr; pushPads();
+    native.call('bt.pair', { dev: addr }, 90000)
+      .then(() => { const d = pads.found.find(x => x.addr === addr); toast((d ? d.name : 'Controller') + ' paired'); pads.found = pads.found.filter(x => x.addr !== addr); })
+      .catch(e => toast(e.message))
+      .then(() => { pads.pairing = null; refreshPads(); });
+  },
+  padsForget: (addr) => native.call('bt.unpair', { dev: addr }).then(() => toast('Forgotten')).catch(e => toast(e.message)).then(refreshPads),
+
+  // quick menu (overlay.html uses these)
+  getVolume: () => JSON.stringify(H._vol || { v: 50, max: 100, muted: false }),
+  setVolume: (v) => { native.call('vol.set', { v }).then(r => { H._vol = r; }).catch(() => {}); },
+  toggleMute: () => { native.call('vol.mute').then(r => { H._vol = r; }).catch(() => {}); },
+  getBrightness: () => JSON.stringify(H._bright || { v: 0, max: 100, canWrite: false, auto: false }),
+  setBrightness: (v) => { native.call('bright.set', { v }).catch(() => {}); },
+  setAutoBrightness: () => {},
+  hasShortcutService: () => true,
+  media: (c) => { native.call('media.cmd', { c: c === 'play' ? 'toggle' : c }).catch(e => toast(e.message)); },
+  close: () => overlayClose(),
+  goHome: () => bringHome(),
+  screenshot: () => { screenshot().catch(e => toast("Couldn't take a screenshot: " + e.message)); },
+  closeGame: () => {
+    overlayClose();
+    if (overlayGame && overlayGame.pid) native.call('proc.kill', { pid: overlayGame.pid }).then(() => { overlayGame = null; bringHome(); }).catch(e => toast("Couldn't close it: " + e.message));
+  },
+  gameName: () => (overlayGame ? (overlayGame.title || overlayGame.name || '') : ''),
+  openPanel: (kind) => { overlayClose(); H.openSettings(kind === 'volume' ? 'sound' : kind); },
+  openControllersHome: () => { bringHome(); js('window.openControllers&&openControllers()'); },
+  openMusicHome: () => { bringHome(); js('window.openMusic&&openMusic()'); },
+  sleep: () => H.power('sleep'),
+  hideHandle: () => {}, stopOverlay: () => {}, requestWriteSettings: () => {},
+  menuButton: () => prefs.get('menuButton', 'viewmenu'),
+  setMenuButton: (v) => prefs.set('menuButton', v),
+
+  // music
+  musicState: async (id, withArt) => { try { done(id, await music(withArt)); } catch (e) { fail(id, e); } },
+  spotifyCmd: async (id, cmd, arg) => {
+    try {
+      const S = spotify;
+      if (cmd === 'toggle') { const p = await S.player(); await (p && p.playing ? S.pause() : S.play()); }
+      else if (cmd === 'next') await S.next();
+      else if (cmd === 'prev') await S.prev();
+      else if (cmd === 'shuffle') await S.shuffle(!!arg);
+      else if (cmd === 'repeat') await S.repeat(arg);
+      else if (cmd === 'volume') await S.volume(arg);
+      else if (cmd === 'seek') await S.seek(arg);
+      else if (cmd === 'play') await S.play(arg);
+      else if (cmd === 'liked') await S.playLiked(await S.liked());
+      else if (cmd === 'transfer') await S.transfer(arg);
+      done(id, true);
+    } catch (e) { fail(id, e); }
+  },
+  spotifyLists: async (id) => { try { done(id, await spotify.playlists()); } catch (e) { fail(id, e); } },
+  spotifyDevices: async (id) => { try { done(id, await spotify.devices()); } catch (e) { fail(id, e); } },
+  spotifyInfo: () => JSON.stringify({ connected: spotify.connected, clientId: spotify.clientId, redirect: Spotify.redirect }),
+  spotifySetClient: (cid) => { prefs.set('spotifyClientId', String(cid || '').trim()); spotify.logout(); },
+  spotifyLogin: async (id) => { try { await spotify.login(); bringHome(); done(id, true); } catch (e) { fail(id, e); } },
+  spotifyLogout: () => spotify.logout(),
+
+  // VPN (Private Internet Access)
+  vpnState: () => { pia.refresh().catch(() => {}); return JSON.stringify(pia.state); },
+  vpnSet: async (id, on) => { try { on ? await pia.connect() : await pia.disconnect(); done(id, true); } catch (e) { fail(id, e); } },
+  vpnRegion: async (id, r) => { try { await pia.setRegion(r); await pia.refresh(); done(id, true); } catch (e) { fail(id, e); } },
+  vpnAuto: () => !!prefs.get('vpnOnStart', false),
+  setVpnAuto: (v) => prefs.set('vpnOnStart', !!v),
+
+  // Xbox mode
+  fseState: () => JSON.stringify(fse),
+  fseInstall: () => fseRun('Install'),
+  fseRemove: () => fseRun('Remove'),
+
   // PC only
   addGame: async () => {
     const r = await dialog.showOpenDialog(win, { title: 'Add a game or app', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Games and shortcuts', extensions: ['exe', 'lnk', 'url', 'bat'] }] });
@@ -320,7 +522,7 @@ const H = {
 
   // Android-only features: harmless answers so the page stays happy
   padFamily: () => 'none',
-  overlayState: () => '{}', overlayConfig: () => {}, overlayEnable: () => {}, overlayTest: () => {},
+  overlayState: () => '{}', overlayConfig: () => {}, overlayEnable: () => {}, overlayTest: () => overlayOpen(),
   shortcutEnabled: () => false, setShortcut: () => {}, openAccessibility: () => {},
   cloudHostState: () => '{}', cloudPending: () => '[]', cloudSnapshot: () => '{}', cloudHost: () => {}, cloudClearPending: () => {},
   setSwapAB: () => {}, setTyping: () => {}, setOrientation: () => {}, setImmersive: () => {}, setLaunchStyle: () => {}, haptic: () => {},
@@ -482,7 +684,7 @@ function browserProtocol() {
 // ------------------------------------------------------------------ the window
 
 function createWindow() {
-  const full = prefs.get('fullscreen', true);
+  const full = process.argv.includes('--fse') || prefs.get('fullscreen', true);
   win = new BrowserWindow({
     width: 1280, height: 720, minWidth: 800, minHeight: 450, show: false, fullscreen: full, autoHideMenuBar: true,
     backgroundColor: '#0B0B0F', title: 'NSXL', icon: path.join(__dirname, 'build', 'icon.png'),
@@ -502,7 +704,7 @@ function createWindow() {
   // games take the focus; coming back to NSXL is the "back from the game" moment
   win.on('blur', () => { if (session) session.left = true; js('window.onPauseApp&&window.onPauseApp()'); });
   win.on('focus', () => { playFinish(); js('window.onResumeApp&&window.onResumeApp()'); });
-  win.on('closed', () => { win = null; });
+  win.on('closed', () => { win = null; app.quit(); });
 }
 
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
@@ -511,6 +713,17 @@ app.whenReady().then(() => {
   browserProtocol();
   scan();
   createWindow();
+  // where NSXL lives, for the Xbox mode home app to open it
+  const exePath = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+  if (app.isPackaged) exec(`reg add "HKCU\\Software\\NSXL" /v ExePath /t REG_SZ /d "${exePath}" /f`, { windowsHide: true });
+  native.start();
+  native.call('vol.get').then(r => { H._vol = r; }).catch(() => {});
+  native.call('bright.get').then(r => { H._bright = r; }).catch(() => {});
+  pia.watch();
+  pia.refresh().then(() => { if (prefs.get('vpnOnStart', false) && pia.state.connection !== 'Connected') pia.connect().catch(() => {}); }).catch(() => {});
+  fseCheck();
+  const { globalShortcut } = require('electron');
+  try { globalShortcut.register('Control+Alt+Space', overlayOpen); } catch (e) { }
   powerMonitor.on('resume', () => js('window.onWake&&window.onWake()'));
 });
 
@@ -531,9 +744,22 @@ if (process.argv.includes('--smoke')) {
       await browserWin.webContents.executeJavaScript(`document.getElementById('wv').loadURL('https://example.com/')`).catch(() => {});
       await new Promise(res => setTimeout(res, 5000));
       const web = await browserWin.webContents.executeJavaScript(`document.getElementById('wv').getURL()`);
-      console.log('SMOKE', JSON.stringify({ ...r, browser: b, web, errors }));
-      app.exit(r.pc && r.dock > 0 && /browser\/start\.html/.test(b.url) && /example\.com/.test(web) && !errors.length ? 0 : 1);
+      browserWin.close();
+      // the Windows helper answers, and the quick menu opens
+      const helper = await native.call('ping', {}, 10000).catch(e => 'error: ' + e.message);
+      const volume = await native.call('vol.get', {}, 10000).catch(e => 'error: ' + e.message);
+      const radio = await native.call('bt.radio', {}, 10000).catch(e => 'error: ' + e.message);
+      win.blur(); win.minimize();
+      await new Promise(res => setTimeout(res, 800));
+      overlayOpen();
+      await new Promise(res => setTimeout(res, 4000));
+      const menu = overlayWin ? await overlayWin.webContents.executeJavaScript(`({ open: document.body.classList.contains('open'), items: document.querySelectorAll('#dock .dk').length })`).catch(e => 'error: ' + e.message) : 'no window';
+      if (overlayWin) fs.writeFileSync(path.join(__dirname, 'smoke-menu.png'), (await overlayWin.webContents.capturePage()).toPNG());
+      const fseFiles = fs.existsSync(path.join(RES, 'fse', 'NSXL.HomeApp.msix')) && fs.existsSync(path.join(RES, 'fse', 'NSXL.cer'));
+      console.log('SMOKE', JSON.stringify({ ...r, browser: b, web, helper, volume, radio, menu, fseFiles, errors }));
+      app.exit(r.pc && r.dock > 0 && /browser\/start\.html/.test(b.url) && /example\.com/.test(web) && helper === 'pong' && menu && menu.open && fseFiles && !errors.length ? 0 : 1);
     } catch (err) { console.log('SMOKE failed', err); app.exit(1); }
   }, 9000));
 }
 app.on('window-all-closed', () => app.quit());
+app.on('will-quit', () => { native.stop(); pia.stop(); try { require('electron').globalShortcut.unregisterAll(); } catch (e) { } });

@@ -371,6 +371,43 @@ html.touchmode .swFoot .hint { padding: calc(var(--u) * .55) calc(var(--u) * 1.5
 #pcWall { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; display: none; transform: scale(1.04); }
 html.pc[data-theme=video] #pcWall { display: block; }
 html.noBattery #bat, html.noBattery #batPct { display: none; }
+/* music (PC) */
+.mus .musL { position: absolute; left: var(--side); top: calc(var(--u) * 12.5); width: calc(var(--u) * 25); display: flex; flex-direction: column; gap: calc(var(--u) * .7); }
+.musArt { position: relative; width: calc(var(--u) * 25); height: calc(var(--u) * 25); border-radius: calc(var(--u) * 1.2); overflow: hidden; background: var(--slot); box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 3) var(--shadow); margin-bottom: calc(var(--u) * 1.2); }
+.musArt img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0; transition: opacity .3s; }
+.musArt img.ok { opacity: 1; }
+.musNo { position: absolute; inset: 0; display: grid; place-items: center; color: var(--fg2); }
+.musNo .ic { width: 30%; height: 30%; }
+.musT { font-size: calc(var(--u) * 2.4); font-weight: 600; line-height: 1.2; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.musA { font-size: calc(var(--u) * 1.6); color: var(--fg2); }
+.musSrc { font-size: calc(var(--u) * 1.25); color: var(--accent); font-weight: 600; }
+.mus .musR { position: absolute; left: calc(var(--side) + var(--u) * 29); right: var(--side); top: calc(var(--u) * 12.5); bottom: calc(var(--u) * 8); overflow-y: auto; scrollbar-width: none;
+  display: flex; flex-direction: column; gap: calc(var(--u) * 1.6); padding: calc(var(--u) * .8); }
+.musProg { display: flex; align-items: center; gap: calc(var(--u) * 1.2); font-size: calc(var(--u) * 1.25); color: var(--fg2); font-variant-numeric: tabular-nums; }
+.musProg i, .musVol i { flex: 1; height: calc(var(--u) * .5); border-radius: 999px; background: var(--slot); overflow: hidden; display: block; }
+.musProg b, .musVol b { display: block; height: 100%; border-radius: inherit; background: var(--accent); transition: width .4s linear; }
+.musRow { display: flex; align-items: center; gap: calc(var(--u) * 1.6); }
+.musRow.ctl { justify-content: center; gap: calc(var(--u) * 2.4); }
+.musB { position: relative; isolation: isolate; --rr: 50%; width: calc(var(--u) * 5.4); height: calc(var(--u) * 5.4); border-radius: 50%; border: 0; background: var(--slot); color: var(--fg); display: grid; place-items: center; cursor: pointer; }
+.musB .ic { width: 46%; height: 46%; }
+.musB.on { color: var(--accent); }
+.musRow.ctl .musB:nth-child(3) { width: calc(var(--u) * 7); height: calc(var(--u) * 7); background: var(--fg); color: var(--bg); }
+.musVol, .musDev, .musConnect { position: relative; isolation: isolate; --rr: calc(var(--u) * .8); flex: 1; display: flex; align-items: center; gap: calc(var(--u) * 1.4); padding: calc(var(--u) * 1.1) calc(var(--u) * 1.6);
+  border-radius: calc(var(--u) * .8); background: var(--slot); font-size: calc(var(--u) * 1.4); cursor: pointer; }
+.musVol .ic, .musDev .ic { width: calc(var(--u) * 2.2); height: calc(var(--u) * 2.2); flex: none; }
+.musVol span { min-width: 3.2em; text-align: right; color: var(--fg2); }
+.musDev span { flex: 1; } .musDev em { font-style: normal; color: var(--accent); font-weight: 600; }
+.musConnect { flex-direction: column; align-items: flex-start; gap: calc(var(--u) * .4); padding: calc(var(--u) * 1.6) calc(var(--u) * 2); }
+.musConnect b { font-size: calc(var(--u) * 1.7); } .musConnect span { color: var(--fg2); }
+.musH { font-size: calc(var(--u) * 1.3); font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--fg2); margin-top: calc(var(--u) * .6); }
+.musH.dim { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.musGrid { display: grid; grid-template-columns: repeat(auto-fill, calc(var(--u) * 13)); gap: calc(var(--u) * 1.6); }
+.musP { position: relative; isolation: isolate; --rr: calc(var(--u) * .9); display: flex; flex-direction: column; gap: calc(var(--u) * .6); cursor: pointer; }
+.musP .pa { width: calc(var(--u) * 13); height: calc(var(--u) * 13); border-radius: calc(var(--u) * .9); overflow: hidden; background: linear-gradient(135deg, #5b3cff, #a28bff); color: #fff; display: grid; place-items: center; }
+.musP .pa img { width: 100%; height: 100%; object-fit: cover; }
+.musP .pa .ic { width: 40%; height: 40%; }
+.musP .pn { font-size: calc(var(--u) * 1.3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.musP.sel .pn { color: var(--accent); }
 /* button icons */
 .btn .gs { width: 78%; height: 78%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .btn.wide { width: auto; min-width: calc(var(--u) * 2.25); padding: 0 calc(var(--u) * .55); border-radius: calc(var(--u) * .6); font-size: calc(var(--u) * 1.05); letter-spacing: .02em; box-sizing: border-box; }
@@ -841,6 +878,14 @@ const ICONS = {
   bt:     '<path d="M7.5 8l9 8-4.5 4V4l4.5 4-9 8"/>',
   pen:    '<path d="M14.5 5.5l4 4L8.5 19.5H4.5v-4z"/><path d="M12.5 7.5l4 4"/>',
   globe:  '<circle cx="12" cy="12" r="8.3"/><path d="M3.9 12h16.2M12 3.7c2.4 2.3 3.6 5.1 3.6 8.3s-1.2 6-3.6 8.3c-2.4-2.3-3.6-5.1-3.6-8.3s1.2-6 3.6-8.3z"/>',
+  shuffle: '<path d="M4 7h3.5c2 0 3.2 1 4.5 3l2 4c1.3 2 2.5 3 4.5 3H20M4 17h3.5c1.2 0 2.1-.4 2.9-1.1M14.6 8.1c.8-.7 1.7-1.1 2.9-1.1H20M17.5 4.5L20 7l-2.5 2.5M17.5 14.5L20 17l-2.5 2.5"/>',
+  repeat: '<path d="M5 12V9.5A2.5 2.5 0 0 1 7.5 7H19M16 4l3 3-3 3M19 12v2.5a2.5 2.5 0 0 1-2.5 2.5H5M8 20l-3-3 3-3"/>',
+  heart: '<path d="M12 19.5s-7-4.3-7-9.3A3.9 3.9 0 0 1 12 8a3.9 3.9 0 0 1 7 2.2c0 5-7 9.3-7 9.3z"/>',
+  prev:   '<path d="M6 5v14"/><path d="M19 5.5v13L9 12z" fill="currentColor"/>',
+  play:   '<path d="M8 5.5v13l11-6.5z" fill="currentColor"/>',
+  next:   '<path d="M18 5v14"/><path d="M5 5.5v13L15 12z" fill="currentColor"/>',
+  pause:  '<path d="M8 5.5v13M16 5.5v13" stroke-width="3"/>',
+  sound:  '<path d="M4.5 9.5h3l4.5-4v13l-4.5-4h-3z"/><path d="M15.5 9a4.2 4.2 0 0 1 0 6M18 6.5a7.6 7.6 0 0 1 0 11"/>',
   person: '<circle cx="12" cy="9.2" r="3.7"/><path d="M5 20a7 7 0 0 1 14 0"/>',
 };
 const svg = (name, cls = 'ic') => `<svg viewBox="0 0 24 24" class="${cls}">${ICONS[name]}</svg>`;
@@ -2209,7 +2254,8 @@ function openControllers() {
     <div class="padSide"></div><div class="setPane padPane"></div>`;
   const pane = $('.padPane', ov), side = $('.padSide', ov);
   let st = {}, rows = [], rowEls = [], sel = 0, showAll = false, selKey = null;
-  const read = () => { try { st = JSON.parse(nb('padsState') || '{}'); } catch (e) { st = {}; } };
+  const merge = s => { if (PC) s.connected = (navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : []).map(p => ({ id: p.index, name: p.id.replace(/\s*\(.*?\)\s*/g, ' ').trim() || 'Controller', rumble: !!p.vibrationActuator })); return s; };
+  const read = () => { try { st = merge(JSON.parse(nb('padsState') || '{}')); } catch (e) { st = {}; } };
   function buildRows() {
     const out = [];
     const conn = st.connected || [], connNames = new Set(conn.map(c => c.name.toLowerCase()));
@@ -2218,7 +2264,7 @@ function openControllers() {
     else if (!st.enabled) out.push({ key: 'bt', label: 'Bluetooth is off', desc: 'Turn it on to pair a wireless controller.', val: 'Turn on', run: () => nb('padsEnable') });
     out.push({ head: conn.length ? 'Connected' : 'No controllers connected' });
     conn.forEach(c => out.push({ key: 'c' + c.id, label: c.name, pad: true, desc: c.rumble ? 'Select it to make it buzz' : '', val: c.battery != null ? c.battery + '%' : 'Connected', on: true,
-      run: () => { if (c.rumble) { nb('padsRumble', c.id); toast('Buzzing ' + c.name); } else Snd.bump(); } }));
+      run: () => { if (c.rumble) { if (PC) { const g = navigator.getGamepads()[c.id]; try { g.vibrationActuator.playEffect('dual-rumble', { duration: 350, strongMagnitude: .8, weakMagnitude: .6 }); } catch (e) {} } else nb('padsRumble', c.id); toast('Buzzing ' + c.name); } else Snd.bump(); } }));
     if (st.enabled) {
       const paired = (st.paired || []).filter(d => !connNames.has(d.name.toLowerCase()) && (d.pad || showAll));
       if (paired.length) {
@@ -2268,7 +2314,7 @@ function openControllers() {
     if (!noScroll && rowEls[sel]) rowEls[sel].scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   }
   const move = d => { let n = sel + d; while (n >= 0 && n < rows.length && !rowEls[n]) n += d; if (n < 0 || n >= rows.length) { Snd.bump(); return; } sel = n; Snd.tick(); buzz(); paint(); };
-  window.onPads = s => { st = s || {}; render(); };
+  window.onPads = s => { st = merge(s || {}); render(); };
   pushOverlay({
     el: ov, full: true,
     onClose: () => { nb('padsStop'); window.onPads = null; },
@@ -2940,7 +2986,7 @@ function openSettings(startCat) {
   }
   function fillVal(r, v) {
     if (r.type === 'toggle') v.innerHTML = `<span class="sw${tGet(r) ? ' on' : ''}"><i></i></span>`;
-    else if (r.type === 'choice') { const o = r.options.find(x => x[0] === cfg[r.key]) || r.options[0]; v.innerHTML = `<span class="arr">‹</span>${esc(o[1])}<span class="arr">›</span>`; }
+    else if (r.type === 'choice') { const o = r.options.find(x => x[0] === (r.get ? r.get() : cfg[r.key])) || r.options[0]; v.innerHTML = `<span class="arr">‹</span>${esc(o[1])}<span class="arr">›</span>`; }
     else if (r.type === 'slider') { const val = r.get(), p = (val - r.min) / (r.max - r.min) * 100; v.innerHTML = `<span class="bar"><i style="width:${p}%"></i></span><span class="num">${esc(r.fmt(val))}</span>`; }
     else if (r.type === 'action') v.innerHTML = `${esc(r.value ? r.value() : '')}<span class="chev">›</span>`;
     else if (r.type === 'info') v.textContent = r.value();
@@ -2956,8 +3002,9 @@ function openSettings(startCat) {
   }
   function adjust(r, d) {
     if (r.type === 'choice') {
-      const k = r.options.findIndex(x => x[0] === cfg[r.key]);
-      cfg[r.key] = r.options[(k + d + r.options.length) % r.options.length][0];
+      const k = r.options.findIndex(x => x[0] === (r.get ? r.get() : cfg[r.key]));
+      const nv = r.options[(k + d + r.options.length) % r.options.length][0];
+      if (r.set) r.set(nv); else cfg[r.key] = nv;
       saveCfg(); r.after && r.after(); Snd.tick(); buzz(); refreshRow(row); return true;
     }
     if (r.type === 'slider') {
@@ -3240,7 +3287,7 @@ let pcBattery = null;
 function pcStatus(st) {
   const b = pcBattery;
   const desktop = !b || (b.charging && b.level === 1 && b.chargingTime === 0);
-  if (!desktop) { st.battery = Math.round(b.level * 100); st.charging = b.charging; }
+  if (!desktop) { st.battery = Math.round(b.level * 100); st.charging = b.charging; nb('reportBattery', st.battery, st.charging); }
   st.pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean).length : 0;
   document.documentElement.classList.toggle('noBattery', desktop);
   return st;
@@ -3253,6 +3300,128 @@ function pcControllers() {
     { label: 'Windows game controller settings…', run: () => nb('openSettings', 'joy') },
   ]);
 }
+/* =========================================================
+   Music (PC): what's playing on your PC, plus your Spotify
+   playlists, shuffle, repeat, volume and devices
+   ========================================================= */
+const fmtTime = s => { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function openMusic() {
+  const ov = el('section', 'ov full mus');
+  ov.innerHTML = `<div class="ovTitle">${svg('music')}<span>Music</span></div><div class="ovRule"></div><div class="ovRule bottom"></div>
+    <div class="musL"><div class="musArt"><span class="musNo">${svg('music')}</span><img alt=""></div><div class="musT"></div><div class="musA"></div><div class="musSrc"></div></div>
+    <div class="musR"></div>`;
+  const R = $('.musR', ov), img = $('.musArt img', ov);
+  let state = null, lists = null, rowsEl = [], focus = { r: 0, c: 2 }, timer = 0, lastKey = '', busy = false, closed = false;
+  img.onload = () => img.classList.add('ok'); img.onerror = () => img.classList.remove('ok');
+  const sp = () => state && state.connected && state.spotify && state.spotify.device ? state.spotify : null;
+  const now = () => {
+    const s = sp(), w = state && state.session;
+    if (s && s.title) return { title: s.title, artist: s.artist, art: s.art, playing: s.playing, pos: (s.progress || 0) / 1000, dur: (s.duration || 0) / 1000, src: 'Spotify · ' + (s.device ? s.device.name : '') };
+    if (w && w.title) { const app = /spotify/i.test(w.app || '') ? 'Spotify' : (w.app || '').replace(/\.exe$/i, '').split(/[!\\]/).pop(); return { title: w.title, artist: w.artist, art: w.art, playing: w.playing, pos: w.position, dur: w.duration, src: app }; }
+    return null;
+  };
+  const cmd = c => {
+    if (sp()) nbAsync('spotifyCmd', c).then(() => setTimeout(poll, 350)).catch(e => toast(String(e)));
+    else { nb('media', c === 'toggle' ? 'play' : c); setTimeout(poll, 400); }
+  };
+  function build() {
+    const n = now(), s = sp(), conn = state && state.connected;
+    $('.musT', ov).textContent = n ? n.title : 'Nothing playing';
+    $('.musA', ov).textContent = n ? n.artist || '' : (conn ? 'Start something in Spotify, or pick a playlist.' : 'Play music in Spotify or any app.');
+    $('.musSrc', ov).textContent = n ? n.src : '';
+    const art = n && n.art ? n.art : '';
+    if (art !== img.getAttribute('src')) { img.classList.remove('ok'); if (art) img.src = art; else img.removeAttribute('src'); }
+    R.innerHTML = ''; rowsEl = [];
+    const row = (cls, items) => { const r = el('div', 'musRow ' + cls); items.forEach(i => r.appendChild(i)); R.appendChild(r); rowsEl.push(items); return r; };
+    const btn = (icon, label, run, on) => { const b = el('button', 'musB g' + (on ? ' on' : ''), svg(icon)); b.setAttribute('aria-label', label); b._run = run; onPress(b, () => { Snd.select(); run(); }); return b; };
+    // progress
+    const pr = el('div', 'musProg', `<span>${fmtTime(n && n.pos)}</span><i><b style="width:${n && n.dur ? Math.min(100, n.pos / n.dur * 100) : 0}%"></b></i><span>${fmtTime(n && n.dur)}</span>`);
+    R.appendChild(pr);
+    row('ctl', [
+      btn('shuffle', 'Shuffle', () => s ? cmd2('shuffle', !s.shuffle) : need(), s && s.shuffle),
+      btn('prev', 'Previous', () => cmd('prev')),
+      btn(n && n.playing ? 'pause' : 'play', n && n.playing ? 'Pause' : 'Play', () => cmd('toggle')),
+      btn('next', 'Next', () => cmd('next')),
+      btn('repeat', 'Repeat', () => s ? cmd2('repeat', s.repeat === 'off' ? 'context' : s.repeat === 'context' ? 'track' : 'off') : need(), s && s.repeat !== 'off'),
+    ]);
+    if (s) {
+      const vol = el('div', 'musVol g', `${svg('sound')}<i><b style="width:${s.device.volume || 0}%"></b></i><span>${s.device.volume || 0}%</span>`);
+      vol._adjust = d => { const v = Math.max(0, Math.min(100, (s.device.volume || 0) + d * 5)); s.device.volume = v; build(); clearTimeout(vol._t); vol._t = setTimeout(() => nbAsync('spotifyCmd', 'volume', v).catch(e => toast(String(e))), 250); };
+      onPress(vol, e => { const r = vol.querySelector('i').getBoundingClientRect(); const v = Math.round(clamp((e.clientX - r.left) / r.width, 0, 1) * 100); s.device.volume = v; build(); nbAsync('spotifyCmd', 'volume', v).catch(x => toast(String(x))); });
+      const dev = el('div', 'musDev g', `${svg('sound')}<span>Playing on <b>${esc(s.device.name)}</b></span><em>Change</em>`);
+      dev._run = devices; onPress(dev, () => { Snd.select(); devices(); });
+      row('one', [vol]); row('one', [dev]);
+    }
+    if (!conn) {
+      const c = el('div', 'musConnect g', `<b>Connect Spotify</b><span>See your playlists and use shuffle, repeat, volume and devices.</span>`);
+      c._run = () => openSettings(SETTINGS.findIndex(x => x.name === 'Music'));
+      onPress(c, () => { Snd.select(); c._run(); });
+      row('one', [c]);
+    } else {
+      const h = el('div', 'musH', 'Your playlists'); R.appendChild(h);
+      const grid = el('div', 'musGrid'); R.appendChild(grid);
+      const tiles = [{ name: 'Liked Songs', liked: true }].concat(lists || []).map(p => {
+        const t = el('div', 'musP g');
+        t.innerHTML = `<span class="pa">${p.liked ? svg('heart') : p.art ? `<img alt="" src="${esc(p.art)}">` : svg('music')}</span><span class="pn">${esc(p.name)}</span>`;
+        t._run = () => { (p.liked ? nbAsync('spotifyCmd', 'liked') : nbAsync('spotifyCmd', 'play', p.uri)).then(() => { toast('Playing ' + p.name); setTimeout(poll, 600); }).catch(e => toast(String(e))); };
+        onPress(t, () => { Snd.select(); t._run(); });
+        grid.appendChild(t); return t;
+      });
+      // the grid's rows become rows for the controller
+      requestAnimationFrame(() => {
+        const per = []; let top = null, cur = null;
+        tiles.forEach(t => { if (t.offsetTop !== top) { top = t.offsetTop; cur = []; per.push(cur); } cur.push(t); });
+        rowsEl.splice(rowsEl.length, 0, ...per);
+        paint(true);
+      });
+      if (lists == null) R.appendChild(el('div', 'musH dim', 'Loading…'));
+    }
+    paint(true);
+  }
+  const cmd2 = (c, v) => nbAsync('spotifyCmd', c, v).then(() => setTimeout(poll, 300)).catch(e => toast(String(e)));
+  const need = () => toast('Connect Spotify in Settings › Music for shuffle and repeat');
+  function devices() {
+    nbAsync('spotifyDevices').then(ds => {
+      if (!ds.length) { toast('Open Spotify on a device first'); return; }
+      openMenu('Play on…', ds.map(d => ({ label: d.name + (d.active ? ' ✓' : ''), run: () => cmd2('transfer', d.id) })));
+    }).catch(e => toast(String(e)));
+  }
+  function paint(noScroll) {
+    focus.r = clamp(focus.r, 0, Math.max(0, rowsEl.length - 1));
+    const r = rowsEl[focus.r] || []; focus.c = clamp(focus.c, 0, Math.max(0, r.length - 1));
+    rowsEl.forEach((items, i) => items.forEach((e, j) => e.classList.toggle('sel', i === focus.r && j === focus.c)));
+    const cur = r[focus.c]; if (!noScroll && cur) cur.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+  async function poll() {
+    if (closed || busy) return; busy = true;
+    try {
+      const key = state ? JSON.stringify([state.session && state.session.title, state.spotify && state.spotify.title]) : '';
+      const next = await nbAsync('musicState', !state || key !== lastKey);
+      if (state && next.session && !next.session.art && state.session && next.session.title === state.session.title) next.session.art = state.session.art;
+      state = next; lastKey = JSON.stringify([state.session && state.session.title, state.spotify && state.spotify.title]);
+      if (state.connected && lists == null) nbAsync('spotifyLists').then(l => { lists = l; build(); }).catch(() => { lists = []; build(); });
+      const sel = rowsEl[focus.r] && rowsEl[focus.r][focus.c];
+      build();
+    } catch (e) { } finally { busy = false; }
+  }
+  pushOverlay({
+    el: ov, full: true,
+    onClose: () => { closed = true; clearInterval(timer); },
+    pad(b) {
+      const r = rowsEl[focus.r] || [], cur = r[focus.c];
+      if (b === 'up' || b === 'down') { const n = focus.r + (b === 'up' ? -1 : 1); if (n < 0 || n >= rowsEl.length) { Snd.bump(); return; } const x = cur ? cur.getBoundingClientRect().left : 0; focus.r = n; const nr = rowsEl[n]; let best = 0, bd = 1e9; nr.forEach((e, j) => { const d = Math.abs(e.getBoundingClientRect().left - x); if (d < bd) { bd = d; best = j; } }); focus.c = best; Snd.tick(); buzz(); paint(); }
+      else if (b === 'left' || b === 'right') { if (cur && cur._adjust) { cur._adjust(b === 'left' ? -1 : 1); Snd.tick(); return; } const n = focus.c + (b === 'left' ? -1 : 1); if (n < 0 || n >= r.length) { Snd.bump(); return; } focus.c = n; Snd.tick(); buzz(); paint(); }
+      else if (b === 'a') { if (cur && cur._run) { Snd.select(); cur._run(); } else Snd.bump(); }
+      else if (b === 'x') { Snd.select(); cmd('toggle'); }
+      else if (b === 'l') { Snd.select(); cmd('prev'); } else if (b === 'r') { Snd.select(); cmd('next'); }
+      else if (b === 'b') popOverlay();
+    },
+    hints: () => [['b', 'Back'], ['x', 'Play/Pause'], ['a', 'OK']],
+  });
+  build();
+  poll(); timer = setInterval(poll, 1500);
+}
+
 function pcPower() {
   const sure = (title, msg, kind) => openDialog(title, msg, [{ label: 'Cancel', cancel: true }, { label: title.replace('?', ''), primary: true, run: () => nb('power', kind) }]);
   openMenu('Power', [
@@ -3268,8 +3437,9 @@ if (PC) {
   document.documentElement.classList.add('pc');
   cfg.entTab = false;   // streaming apps are an Android thing
   openPower = pcPower;
-  openControllers = pcControllers;
   const st = DOCK_ALL.find(d => d.id === 'store'); if (st) { st.label = 'Steam Store'; }
+  const mu = DOCK_ALL.find(d => d.id === 'music'); if (mu) { delete mu.cat; mu.run = () => openMusic(); }
+  Object.assign(window, { updateStatus, openControllers, openMusic, refreshOverlays });
   if (navigator.getBattery) navigator.getBattery().then(b => { pcBattery = b; ['levelchange', 'chargingchange'].forEach(e => b.addEventListener(e, updateStatus)); updateStatus(); }).catch(() => {});
 
   // Settings: drop the Android-only parts, add Library and Windows options
@@ -3286,8 +3456,43 @@ if (PC) {
     { type: 'info', label: 'Epic Games', value: () => games(L.epic) },
     { type: 'info', label: 'Added by you', value: () => games(L.custom) },
   ]; } });
+  const sp = () => { try { return JSON.parse(nb('spotifyInfo') || '{}'); } catch (e) { return {}; } };
+  SETTINGS.splice(SETTINGS.findIndex(c => c.name === 'Sound') + 1, 0, { name: 'Music', rows: () => { const S = sp(); return [
+    { type: 'info', label: 'Spotify', value: () => S.connected ? 'Connected ✓' : S.clientId ? 'Not connected' : 'Not set up' },
+    { type: 'action', label: 'Spotify Client ID', desc: 'Create a free app at developer.spotify.com › Dashboard, add the redirect URI below, then paste its Client ID here.',
+      value: () => S.clientId ? 'Set ✓' : 'Add', run: () => openPrompt('Spotify Client ID', S.clientId || '', 'Paste the Client ID', v => { nb('spotifySetClient', v); refreshOverlays(); toast(v.trim() ? 'Client ID saved. Now choose Connect.' : 'Client ID removed'); }) },
+    { type: 'info', label: 'Redirect URI', value: () => S.redirect || 'http://127.0.0.1:8973/callback' },
+    { type: 'action', label: 'Copy redirect URI', value: () => 'Copy', run: () => { nb('copyText', S.redirect || 'http://127.0.0.1:8973/callback'); toast('Copied'); } },
+    S.connected ? { type: 'action', label: 'Disconnect Spotify', value: () => '', run: () => { nb('spotifyLogout'); refreshOverlays(); toast('Spotify disconnected'); } }
+                : { type: 'action', label: 'Connect Spotify', desc: 'Signs in through your web browser. Controlling playback needs Spotify Premium.', value: () => 'Connect',
+                    run: () => { if (!S.clientId) { toast('Add your Spotify Client ID first'); return; } toast('Finish signing in in your browser…'); nbAsync('spotifyLogin').then(() => { toast('Spotify connected'); refreshOverlays(); }).catch(e => toast(String(e))); } },
+    { type: 'info', label: 'Without an account', value: () => 'Play/pause and skip still work' },
+  ]; } });
+  const vpn = () => { try { return JSON.parse(nb('vpnState') || '{}'); } catch (e) { return {}; } };
+  window.onVpn = () => refreshOverlays();
+  SETTINGS.splice(SETTINGS.findIndex(c => c.name === 'System'), 0, { name: 'VPN', rows: () => { const V = vpn(); if (!V.installed) return [
+    { type: 'info', label: 'Private Internet Access', value: () => 'Not installed' },
+    { type: 'action', label: 'Get the PIA app', desc: 'Install it and sign in once; NSXL then switches it on and off for you.', value: () => '', run: () => nb('openBrowser', 'https://www.privateinternetaccess.com/download/windows-vpn') },
+  ]; return [
+    { type: 'toggle', label: 'VPN', desc: 'Private Internet Access · ' + (V.connection || 'Unknown') + (V.ip ? ' · ' + V.ip : ''), key: '_vpn',
+      get: () => V.connection === 'Connected' || V.connection === 'Connecting', set: v => { V.connection = v ? 'Connecting' : 'Disconnecting'; toast(v ? 'Connecting…' : 'Disconnecting…'); nbAsync('vpnSet', v).catch(e => toast(String(e))); } },
+    { type: 'choice', label: 'Region', key: '_vpnRegion', get: () => V.region || 'auto',
+      options: [['auto', 'Fastest']].concat((V.regions || []).filter(r => r !== 'auto').map(r => [r, r.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())])),
+      set: v => { V.region = v; nbAsync('vpnRegion', v).then(() => toast('Region set')).catch(e => toast(String(e))); } },
+    { type: 'toggle', label: 'Connect when NSXL starts', key: '_vpnAuto', get: () => !!nb('vpnAuto'), set: v => nb('setVpnAuto', v) },
+  ]; } });
+  const ctl = SETTINGS.find(c => c.name === 'Controls');
+  if (ctl) { const f = ctl.rows; ctl.rows = () => (f() || []).concat([
+    { type: 'choice', label: 'Quick menu button', desc: 'Opens the quick menu over a game. On a keyboard: Ctrl+Alt+Space. If you pick the Xbox button, turn off "Open Xbox Game Bar using this button" in Windows settings.', key: '_menuBtn',
+      get: () => nb('menuButton') || 'viewmenu', set: v => nb('setMenuButton', v), options: [['viewmenu', 'View + Menu'], ['guide', 'Xbox button'], ['both', 'Either']] },
+  ]); }
   const sys = SETTINGS.find(c => c.name === 'System');
+  const fse = () => { try { return JSON.parse(nb('fseState') || '{}'); } catch (e) { return {}; } };
   if (sys) sys.rows = () => [
+    { type: 'action', label: 'Xbox mode home app', desc: 'Lets Windows open NSXL instead of the Xbox app in Xbox mode (full screen experience). Needs Windows 11 24H2 or later; Windows asks for permission once.',
+      value: () => fse().installed ? 'Set up ✓' : 'Set up', run: () => fse().installed
+        ? openMenu('Xbox mode', [{ label: 'Open Windows gaming settings', run: () => nb('openUrl', 'ms-settings:gaming') }, { label: 'Remove NSXL from Xbox mode', run: () => nb('fseRemove') }])
+        : nb('fseInstall') },
     { type: 'toggle', label: 'Start NSXL with Windows', desc: 'Opens NSXL when you sign in, like a console.', key: '_autostart', get: () => !!nb('autoStart'), set: v => nb('setAutoStart', v) },
     { type: 'toggle', label: 'Full screen', desc: 'F11 also switches it.', key: '_full', get: () => !!nb('isFullscreen'), set: v => nb('setFullscreen', v) },
     { type: 'action', label: 'Windows settings', value: () => '', run: () => nb('openSettings', 'system') },

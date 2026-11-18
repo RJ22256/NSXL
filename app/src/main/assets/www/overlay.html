@@ -146,6 +146,11 @@ const cfg = Object.assign({ sounds: true, haptics: true, clock: 'system' }, stor
 const B = NATIVE ? window.Android : makeMock();
 const nb = (n, ...a) => { try { if (typeof B[n] === 'function') return B[n](...a); } catch (e) { console.warn(n, e); } };
 const J = (n, ...a) => { try { return JSON.parse(nb(n, ...a) || 'null'); } catch (e) { return null; } };
+/** True in NSXL for Windows: the menu opens over PC games. */
+const PC = NATIVE && nb('platform') === 'pc';
+const pending = {}; let reqN = 0;
+const nbAsync = (m, ...a) => new Promise((resolve, reject) => { const id = 'o' + (++reqN); pending[id] = { resolve, reject }; nb(m, id, ...a); setTimeout(() => { if (pending[id]) { delete pending[id]; reject('Timed out'); } }, 15000); });
+window.onAsync = (id, ok, data) => { const p = pending[id]; if (!p) return; delete pending[id]; ok ? p.resolve(data) : p.reject(data); };
 
 /* ---- icons ---- */
 const I = {
@@ -241,7 +246,39 @@ const ITEMS = [
 let idx = 1, focus = 'dock', row = 0, sub = 0, rows = [], dockEls = [];
 
 let extras = false;
+let pcMusic = null, pcVpn = null, closeArmed = 0;
+function pcCards(id) {
+  if (id === 'home') return { title: 'Home', rows: [
+    { type: 'button', icon: 'home', label: 'Go to NSXL Home', sub: 'Your game keeps running in the background', run: () => go('goHome') },
+    { type: 'button', icon: 'cam', label: 'Take screenshot', sub: 'Saved to Pictures › Screenshots and your Album', run: () => go('screenshot') },
+    { type: 'button', icon: 'back', label: 'Back to game', run: close },
+  ] };
+  if (id === 'music') { const m = pcMusic, n = m && (m.spotify && m.spotify.title ? m.spotify : m.session); return { title: 'Music', rows: [
+    { type: 'info', icon: 'music', label: n && n.title ? n.title : 'Nothing playing', value: n && n.artist ? n.artist : '' },
+    { type: 'group', items: [{ icon: 'prev', run: () => nb('media', 'prev') }, { icon: 'play', big: true, run: () => nb('media', 'play') }, { icon: 'next', run: () => nb('media', 'next') }] },
+    { type: 'button', icon: 'music', label: 'Open Music in NSXL', sub: 'Playlists, shuffle, devices and more', run: () => go('openMusicHome') },
+  ] }; }
+  if (id === 'light' && !bright.canWrite) return { title: 'Brightness', rows: [{ type: 'info', icon: 'sun', label: 'Use your monitor\'s buttons for this screen.' }] };
+  if (id === 'pads') { const gp = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : []; return { title: 'Accessories', rows: [
+    ...(gp.length ? gp.map(p => ({ type: 'info', icon: 'pad', label: p.id.replace(/\s*\(.*?\)\s*/g, ' ').trim() || 'Controller', value: 'Connected' })) : [{ type: 'info', label: 'No controllers connected.' }]),
+    { type: 'button', icon: 'bt', label: 'Pair a controller', sub: 'Opens Controllers in NSXL', run: () => go('openControllersHome') },
+  ] }; }
+  if (id === 'net') { const V = pcVpn || {}; return { title: 'Network', rows: [
+    { type: 'info', icon: 'wifi', label: navigator.onLine ? 'Connected to the internet' : 'Not connected' },
+    V.installed ? { type: 'toggle', label: 'VPN (PIA)' + (V.connection && V.connection !== 'Disconnected' ? ' · ' + V.connection : ''), get: () => V.connection === 'Connected' || V.connection === 'Connecting',
+      set: () => { const on = !(V.connection === 'Connected' || V.connection === 'Connecting'); V.connection = on ? 'Connecting' : 'Disconnecting'; nbAsync('vpnSet', on).catch(e => toast(String(e))); } } : null,
+    { type: 'button', icon: 'wifi', label: 'Network settings', run: () => go('openPanel', 'wifi') },
+  ].filter(Boolean) }; }
+  if (id === 'power') { const g = nb('gameName') || ''; return { title: 'Power', rows: [
+    { type: 'button', icon: 'back', label: 'Back to game', run: close },
+    { type: 'button', icon: 'home', label: 'Go to NSXL Home', run: () => go('goHome') },
+    g ? { type: 'button', icon: 'off', label: 'Close ' + g, sub: 'Press A twice. Unsaved progress is lost.', run: () => { if (Date.now() - closeArmed < 3000) go('closeGame'); else { closeArmed = Date.now(); toast('Press A again to close it'); } } } : null,
+    { type: 'button', icon: 'moon', label: 'Sleep', sub: 'Puts the PC to sleep', run: () => go('sleep') },
+  ].filter(Boolean) }; }
+  return null;
+}
 function cardRows(id) {
+  if (PC) { const r = pcCards(id); if (r) return r; }
   if (id === 'home') return { title: 'Home', rows: [
     { type: 'button', icon: 'home', label: 'Go to NSXL Home', sub: 'Your game keeps running in the background', run: () => go('goHome') },
     extras ? { type: 'button', icon: 'cam', label: 'Take screenshot', sub: 'Saved to your Screenshots folder', run: () => go('screenshot') } : null,
@@ -439,7 +476,12 @@ function sleepAnim() {
 let closing = false;
 function close() { if (closing) return; closing = true; backS(); document.body.classList.remove('open'); setTimeout(() => { closing = false; nb('close'); }, 230); }
 function go(method, ...args) { document.body.classList.remove('open'); setTimeout(() => nb(method, ...args), 160); }
+window.onVpn = v => { pcVpn = v; if (document.body.classList.contains('open')) paint(); };
 window.onOpen = () => {
+  if (PC) {
+    nbAsync('musicState', false).then(m => { pcMusic = m; if (ITEMS[idx].id === 'music') paint(); }).catch(() => {});
+    try { pcVpn = JSON.parse(nb('vpnState') || '{}'); } catch (e) { }
+  }
   Object.assign(cfg, store.get('cfg', {})); refreshGlyphs(); setInputMode(Input.mode);
   closing = false; refresh(); focus = 'dock';
   renderDock(); paint(true);
@@ -476,6 +518,32 @@ window.toast = toast;
 window.addEventListener('resize', () => paint(false));
 setInterval(() => { if (document.body.classList.contains('open')) { refresh(); } }, 5000);
 
+if (PC) {   // keyboard and controllers on Windows (the menu has focus while it's open)
+  const K = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b' };
+  document.addEventListener('keydown', e => { if (K[e.key]) { e.preventDefault(); window.onPad(K[e.key]); } });
+  const MAP = { 0: 'a', 1: 'b', 2: 'x', 3: 'y', 4: 'l', 5: 'r', 8: 'minus', 9: 'plus', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 16: 'b' };
+  const held = {}, next = {};
+  let swallow = true;
+  (function poll() {
+    requestAnimationFrame(poll);
+    if (!document.hasFocus() || !document.body.classList.contains('open')) { for (const k in held) delete held[k]; return; }
+    const down = {}, now = performance.now();
+    for (const p of (navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [])) {
+      p.buttons.forEach((bt, i) => { if (MAP[i] && bt.pressed) down[MAP[i]] = 1; });
+      const x = p.axes[0] || 0, y = p.axes[1] || 0;
+      if (x < -.55) down.left = 1; else if (x > .55) down.right = 1;
+      if (y < -.55) down.up = 1; else if (y > .55) down.down = 1;
+    }
+    // the button combo that opened the menu is still held for a moment: ignore it until released
+    if (swallow) { swallow = false; for (const b in down) { held[b] = true; next[b] = now + 1e9; } return; }
+    for (const b in down) {
+      if (!held[b]) { held[b] = true; next[b] = now + 380; if (cfg.swapAB && (b === 'a' || b === 'b')) window.onPad(b === 'a' ? 'b' : 'a'); else window.onPad(b); }
+      else if (/^(up|down|left|right)$/.test(b) && now >= next[b]) { next[b] = now + 90; window.onPad(b, true); }
+    }
+    for (const b in held) if (!down[b]) delete held[b];
+  })();
+  window.addEventListener('focus', () => { swallow = true; });
+}
 function makeMock() {
   document.getElementById('demoGame').style.display = 'block';
   const K = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', Escape: 'b', Backspace: 'b' };

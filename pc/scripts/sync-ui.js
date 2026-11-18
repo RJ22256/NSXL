@@ -4,7 +4,7 @@ const path = require('path');
 const src = path.join(__dirname, '..', '..', 'app', 'src', 'main', 'assets', 'www');
 const dest = path.join(__dirname, '..', 'www');
 fs.rmSync(dest, { recursive: true, force: true });
-fs.cpSync(src, dest, { recursive: true, filter: p => !p.endsWith('overlay.html') && !p.endsWith('cloud.html') });
+fs.cpSync(src, dest, { recursive: true, filter: p => !p.endsWith('cloud.html') });
 // PC-only pages
 fs.mkdirSync(path.join(dest, 'browser'), { recursive: true });
 fs.copyFileSync(path.join(__dirname, '..', 'ui', 'browser-shell.html'), path.join(dest, 'browser', 'shell.html'));
