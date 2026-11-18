@@ -43,6 +43,7 @@ Big game tiles, a round-button dock, a glowing selection ring, play time, news, 
 - **Play time.** NSXL times each game it starts until you come back, leaving out time with the screen off.
 - **Album.** Your screenshots in one place, sorted by game, with a full-screen viewer. Share, delete, or use one as a game's tile.
 - **News.** Headlines from Eurogamer, IGN, Nintendo Life and more, plus **Your Games**: news about the games you play most. Add any RSS feed.
+- **NSXL Web.** The Web button opens a built-in browser made for controllers: the left stick moves a pointer, A clicks, the right stick scrolls (inner panels too), L/R go back and forward, Y types an address, + opens bookmarks and more. Touch works as normal. Full-screen video, uploads, desktop mode and Google, DuckDuckGo or Bing search are included.
 - **Entertainment.** Press **R** (or the film button) and the row becomes your streaming apps, each with up to 50 popular films and shows in your region, from TMDB. Can be turned off.
 
 ### Controllers
@@ -150,6 +151,7 @@ NSXL is a single Android activity: a video layer at the back for the live wallpa
 | [`SteamGridDB.java`](app/src/main/java/com/nsxl/launcher/SteamGridDB.java) | Searches SteamGridDB and downloads covers. |
 | [`VideoWallpaperView.java`](app/src/main/java/com/nsxl/launcher/VideoWallpaperView.java) | Plays the live wallpaper on a silent, centre-cropped loop. |
 | [`OverlayService.java`](app/src/main/java/com/nsxl/launcher/OverlayService.java) | The in-game quick menu, drawn over other apps (its page is [`overlay.html`](app/src/main/assets/www/overlay.html)). |
+| [`BrowserActivity.java`](app/src/main/java/com/nsxl/launcher/BrowserActivity.java) | NSXL Web, the controller-friendly browser (start page: [`browser/start.html`](app/src/main/assets/www/browser/start.html)). |
 | [`Pads.java`](app/src/main/java/com/nsxl/launcher/Pads.java) | Finds, pairs and lists Bluetooth controllers for the Controllers page. |
 | [`Play.java`](app/src/main/java/com/nsxl/launcher/Play.java) | Counts play time for each game. |
 | [`Album.java`](app/src/main/java/com/nsxl/launcher/Album.java) | Reads your screenshots for the Album. |

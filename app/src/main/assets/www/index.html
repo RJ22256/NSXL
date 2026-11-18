@@ -799,7 +799,7 @@ const store = {
   set(k, v) { try { localStorage.setItem('ch.' + k, JSON.stringify(v)); } catch (e) {} },
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
-                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true, entTab: true, launchFx: 'zoom', userName: '', glyphs: 'auto', touchHide: true, newsSrc: null, newsCustom: [],
+                   swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true, entTab: true, launchFx: 'zoom', userName: '', inAppLinks: true, glyphs: 'auto', touchHide: true, newsSrc: null, newsCustom: [],
                    music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => { store.set('cfg', cfg); queueMicrotask(() => cloudSnap()); };
@@ -1154,7 +1154,7 @@ const Hm = { items: [], idx: 0, zone: 'row', dockIdx: 0, launched: false, mode: 
 const DOCK_ALL = [
   { id: 'all',      label: 'All Software', icon: 'grid',    red: true, run: () => openAll({}) , fixed: true },
   { id: 'news',     label: 'News',         icon: 'paper',   color: 'var(--c-red)',    run: () => openNews() },
-  { id: 'web',      label: 'Web',          icon: 'globe',    color: 'var(--c-green)',  cat: 'browser' },
+  { id: 'web',      label: 'Web',          icon: 'globe',    color: 'var(--c-green)',  run: () => nb('openBrowser', '') },
   { id: 'store',    label: 'Play Store',   icon: 'bag',     color: 'var(--c-red)',    cat: 'market' },
   { id: 'album',    label: 'Album',        icon: 'album',   color: 'var(--c-blue)',   run: () => openAlbum() },
   { id: 'music',    label: 'Music',        icon: 'music',   color: 'var(--c-teal)',   cat: 'music' },
@@ -1713,7 +1713,7 @@ window.onScreenOff = () => { $('#sleepFx').classList.remove('on'); };
 
 /* ---------- NSXL Cloud (backup server on this device) ---------- */
 // What a backup carries: API keys, theme and music settings. Files (music, optional wallpaper) are added natively.
-const CLOUD_KEYS = ['theme', 'dim', 'blur', 'scale', 'bgfx', 'calm', 'clock', 'batPct', 'sounds', 'haptics', 'music', 'musicVol', 'musicSrc', 'tmdbKey', 'sgdbKey', 'region', 'newsSrc', 'newsCustom', 'entTab', 'launchFx', 'glyphs', 'touchHide', 'swapAB', 'userName'];
+const CLOUD_KEYS = ['theme', 'dim', 'blur', 'scale', 'bgfx', 'calm', 'clock', 'batPct', 'sounds', 'haptics', 'music', 'musicVol', 'musicSrc', 'tmdbKey', 'sgdbKey', 'region', 'newsSrc', 'newsCustom', 'entTab', 'launchFx', 'glyphs', 'touchHide', 'swapAB', 'userName', 'inAppLinks'];
 function cloudSnap() {
   const out = {}; CLOUD_KEYS.forEach(k => { out[k] = cfg[k]; });
   nb('cloudSnapshot', JSON.stringify(out));
@@ -2541,7 +2541,7 @@ function openStory(x) {
   back.appendChild(d);
   const row = $('.dbtns', d);
   const btns = [
-    { label: 'Read full story', primary: true, run: () => nb('openUrl', x.link, '') },
+    { label: 'Read full story', primary: true, run: () => cfg.inAppLinks === false ? nb('openUrl', x.link, '') : nb('openBrowser', x.link) },
     x.pkg && BY[x.pkg] ? { label: 'Play ' + BY[x.pkg].label, run: () => launch(x.pkg, null) } : null,
     { label: 'Close', run: () => {} },
   ].filter(Boolean);
@@ -2812,6 +2812,7 @@ const SETTINGS = [
     ];
   } },
   { name: 'News', rows: () => [
+    { type: 'toggle', label: 'Open stories in NSXL Web', desc: 'Read articles in the built-in browser. Turn off to use your phone\'s browser instead.', key: 'inAppLinks', get: () => cfg.inAppLinks !== false, set: v => { cfg.inAppLinks = v; } },
     newsToggle('mine', 'News about your games', 'Headlines about the games you play most, from Google News.'),
     ...NEWS_SOURCES.map(x => newsToggle(x.id, x.name)),
     ...(cfg.newsCustom || []).map((u, i) => ({ type: 'action', label: u.split('/')[2].replace(/^www\./, ''), desc: u, value: () => 'Remove',

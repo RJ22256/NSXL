@@ -468,6 +468,17 @@ final class LauncherBridge {
     }
 
     /** Opens a web link, preferring the given app (so a streaming app can catch its own search links). */
+    /** Opens NSXL's own browser, at the start page or at a link. */
+    @JavascriptInterface
+    public void openBrowser(final String url) {
+        a.runOnUiThread(() -> {
+            Intent i = new Intent(a, BrowserActivity.class).putExtra("orientation", a.getRequestedOrientation());
+            if (url != null && url.startsWith("https://")) i.putExtra("url", url);
+            a.startActivity(i);
+            a.overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+        });
+    }
+
     @JavascriptInterface
     public void openUrl(final String url, final String pkg) {
         if (url == null || !url.startsWith("https://")) return;
