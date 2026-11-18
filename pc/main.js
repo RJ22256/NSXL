@@ -444,4 +444,19 @@ app.whenReady().then(() => {
   createWindow();
   powerMonitor.on('resume', () => js('window.onWake&&window.onWake()'));
 });
+
+// CI check: `electron . --smoke` opens NSXL, waits for Home, saves a screenshot and reports page errors.
+if (process.argv.includes('--smoke')) {
+  const errors = [];
+  app.on('web-contents-created', (e, wc) => wc.on('console-message', (ev, level, message) => { if (level >= 3) errors.push(message); }));
+  app.whenReady().then(() => setTimeout(async () => {
+    try {
+      const r = await win.webContents.executeJavaScript(`({ pc: document.documentElement.classList.contains('pc'), tiles: document.querySelectorAll('#row .tile').length, dock: document.querySelectorAll('#dock .dk').length, theme: document.documentElement.dataset.theme })`);
+      const img = await win.webContents.capturePage();
+      fs.writeFileSync(path.join(__dirname, 'smoke.png'), img.toPNG());
+      console.log('SMOKE', JSON.stringify({ ...r, errors }));
+      app.exit(r.pc && r.dock > 0 && !errors.length ? 0 : 1);
+    } catch (err) { console.log('SMOKE failed', err); app.exit(1); }
+  }, 9000));
+}
 app.on('window-all-closed', () => app.quit());

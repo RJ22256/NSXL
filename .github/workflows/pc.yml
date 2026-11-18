@@ -36,6 +36,20 @@ jobs:
       - name: Install
         run: npm install --no-audit --no-fund
 
+      - name: Smoke test (opens NSXL and checks Home loads with no errors)
+        shell: bash
+        run: |
+          npm run sync-ui
+          npx electron . --smoke --no-sandbox 2>&1 | tee smoke.log
+          grep -q '^SMOKE {' smoke.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-screenshot
+          path: pc/smoke.png
+          if-no-files-found: ignore
+
       - name: Build installer and portable app
         run: npm run dist
 
