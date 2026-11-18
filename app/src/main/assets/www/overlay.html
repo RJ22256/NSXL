@@ -526,7 +526,7 @@ if (PC) {   // keyboard and controllers on Windows (the menu has focus while it'
   let swallow = true;
   (function poll() {
     requestAnimationFrame(poll);
-    if (!document.hasFocus() || !document.body.classList.contains('open')) { for (const k in held) delete held[k]; return; }
+    if ((!document.hasFocus() && !window.forcePads) || !document.body.classList.contains('open')) { for (const k in held) delete held[k]; return; }
     const down = {}, now = performance.now();
     for (const p of (navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [])) {
       p.buttons.forEach((bt, i) => { if (MAP[i] && bt.pressed) down[MAP[i]] = 1; });
@@ -542,7 +542,7 @@ if (PC) {   // keyboard and controllers on Windows (the menu has focus while it'
     }
     for (const b in held) if (!down[b]) delete held[b];
   })();
-  window.addEventListener('focus', () => { swallow = true; });
+  window.addEventListener('focus', () => { swallow = true; window.forcePads = false; });
 }
 function makeMock() {
   document.getElementById('demoGame').style.display = 'block';

@@ -3425,6 +3425,7 @@ function openMusic() {
 function pcPower() {
   const sure = (title, msg, kind) => openDialog(title, msg, [{ label: 'Cancel', cancel: true }, { label: title.replace('?', ''), primary: true, run: () => nb('power', kind) }]);
   openMenu('Power', [
+    { label: 'Quick menu', run: () => setTimeout(() => nb('overlayTest'), 250) },
     { label: 'Sleep', run: () => nb('power', 'sleep') },
     { label: 'Exit to desktop', run: () => nb('power', 'minimize') },
     { label: 'Restart NSXL', run: () => nb('reload') },
@@ -3483,8 +3484,11 @@ if (PC) {
   ]; } });
   const ctl = SETTINGS.find(c => c.name === 'Controls');
   if (ctl) { const f = ctl.rows; ctl.rows = () => (f() || []).concat([
-    { type: 'choice', label: 'Quick menu button', desc: 'Opens the quick menu over a game. On a keyboard: Ctrl+Alt+Space. If you pick the Xbox button, turn off "Open Xbox Game Bar using this button" in Windows settings.', key: '_menuBtn',
+    { type: 'choice', label: 'Quick menu button', desc: 'Opens the quick menu over a game. Works with Xbox-style (XInput) controllers. If you pick the Xbox button, turn off "Open Xbox Game Bar using this button" in Windows settings.', key: '_menuBtn',
       get: () => nb('menuButton') || 'viewmenu', set: v => nb('setMenuButton', v), options: [['viewmenu', 'View + Menu'], ['guide', 'Xbox button'], ['both', 'Either']] },
+    { type: 'action', label: 'Try the quick menu', desc: (() => { let m = {}; try { m = JSON.parse(nb('menuInfo') || '{}'); } catch (e) { }
+        return (m.shortcut ? 'Keyboard: ' + m.shortcut + '. ' : 'No keyboard shortcut was free. ') + (m.xinput ? m.xinput + ' Xbox-style controller' + (m.xinput > 1 ? 's' : '') + ' found.' : 'No Xbox-style controller found: PlayStation and Switch controllers need Steam open, or use the keyboard.'); })(),
+      value: () => 'Open', run: () => nb('overlayTest') },
   ]); }
   const sys = SETTINGS.find(c => c.name === 'System');
   const fse = () => { try { return JSON.parse(nb('fseState') || '{}'); } catch (e) { return {}; } };
