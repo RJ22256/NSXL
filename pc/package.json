@@ -20,7 +20,7 @@
     "appId": "com.nsxl.pc",
     "productName": "NSXL",
     "directories": { "output": "dist", "buildResources": "build" },
-    "files": ["main.js", "preload.js", "lib/**", "www/**", "build/icon.png", "package.json"],
+    "files": ["main.js", "preload.js", "browser-preload.js", "lib/**", "www/**", "build/icon.png", "package.json"],
     "win": {
       "icon": "build/icon.png",
       "artifactName": "NSXL-${version}-${arch}-${target}.${ext}",

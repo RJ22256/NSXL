@@ -1140,6 +1140,7 @@ function onPress(node, tap, long) {
   let timer = null, sx = 0, sy = 0, fired = false;
   const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
   node.addEventListener('pointerdown', e => {
+    if (e.button === 2) return;   // right-click is handled by contextmenu below
     fired = false; sx = e.clientX; sy = e.clientY; Snd.unlock();
     if (node.classList.contains('g') || node.classList.contains('tile')) ripple(node, e);
     if (long) timer = setTimeout(() => { timer = null; fired = true; buzz('long'); long(e); }, 480);
@@ -1152,7 +1153,12 @@ function onPress(node, tap, long) {
     if (fired) { fired = false; e.stopPropagation(); return; }
     if (tap) tap(e);
   });
-  node.addEventListener('contextmenu', e => e.preventDefault());
+  // right-click (mouse) does what a long-press does: options for that tile
+  node.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    if (!long) return;
+    e.stopPropagation(); cancel(); Snd.unlock(); Snd.select(); long(e);
+  });
 }
 
 /* =========================================================
@@ -3264,7 +3270,6 @@ if (PC) {
   openPower = pcPower;
   openControllers = pcControllers;
   const st = DOCK_ALL.find(d => d.id === 'store'); if (st) { st.label = 'Steam Store'; }
-  const web = DOCK_ALL.find(d => d.id === 'web'); if (web) web.run = () => nb('openBrowser', '');
   if (navigator.getBattery) navigator.getBattery().then(b => { pcBattery = b; ['levelchange', 'chargingchange'].forEach(e => b.addEventListener(e, updateStatus)); updateStatus(); }).catch(() => {});
 
   // Settings: drop the Android-only parts, add Library and Windows options

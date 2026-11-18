@@ -7,7 +7,7 @@
  * nsxl://app/, and answers the page's bridge calls (window.Android.*) with a Windows
  * equivalent: your Steam, Epic and own games, launching them, covers, wallpaper and more.
  */
-const { app, BrowserWindow, protocol, ipcMain, shell, dialog, nativeImage, net, clipboard, powerMonitor } = require('electron');
+const { app, BrowserWindow, protocol, ipcMain, shell, dialog, nativeImage, net, clipboard, powerMonitor, session: electronSession } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { spawn, exec } = require('child_process');
@@ -259,7 +259,7 @@ const H = {
 
   // links and system
   openUrl: (url) => { if (/^(https?|steam|com\.epicgames\.launcher|spotify|ms-settings):/i.test(url)) shell.openExternal(url).catch(() => {}); },
-  openBrowser: (url) => { shell.openExternal(/^https:\/\//.test(url || '') ? url : 'https://www.google.com/').catch(() => {}); },
+  openBrowser: (url, pad) => openBrowser(url, pad),
   openSettings: (kind) => {
     if (kind === 'joy') { exec('control joy.cpl'); return; }
     const page = { bluetooth: 'ms-settings:bluetooth', wifi: 'ms-settings:network-wifi', battery: 'ms-settings:batterysaver', display: 'ms-settings:display', sound: 'ms-settings:sound' }[kind] || 'ms-settings:';
@@ -411,6 +411,74 @@ async function handle(req) {
   return serveFile(file, req);
 }
 
+// ------------------------------------------------------------------ NSXL Web: the built-in browser
+
+let browserWin = null;
+const BROWSER_PARTITION = 'persist:browser';
+
+function fade(w, from, to, ms, then) {
+  const steps = 10;
+  let i = 0;
+  w.setOpacity(from);
+  const t = setInterval(() => {
+    if (w.isDestroyed()) { clearInterval(t); return; }
+    i++;
+    w.setOpacity(from + (to - from) * (i / steps));
+    if (i >= steps) { clearInterval(t); if (then) then(); }
+  }, ms / steps);
+}
+
+function openBrowser(url, pad) {
+  const q = '?pad=' + (pad ? '1' : '0') + (url && /^https:\/\//.test(url) ? '&u=' + encodeURIComponent(url) : '');
+  if (browserWin && !browserWin.isDestroyed()) {
+    if (url) browserWin.loadURL('nsxl://app/browser/shell.html' + q);
+    browserWin.show(); browserWin.focus();
+    return;
+  }
+  const b = win ? win.getBounds() : { width: 1280, height: 720 };
+  browserWin = new BrowserWindow({
+    ...b, show: false, fullscreen: !!(win && win.isFullScreen()), autoHideMenuBar: true, backgroundColor: prefs.get('mode', 'light') === 'light' ? '#ebebeb' : '#15151b',
+    title: 'NSXL Web', icon: path.join(__dirname, 'build', 'icon.png'),
+    webPreferences: { preload: path.join(__dirname, 'browser-preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, webviewTag: true },
+  });
+  browserWin.setMenuBarVisibility(false);
+  browserWin.loadURL('nsxl://app/browser/shell.html' + q);
+  browserWin.once('ready-to-show', () => { browserWin.setOpacity(0); browserWin.show(); fade(browserWin, 0, 1, 180); });
+  browserWin.on('focus', () => browserWin.webContents.send('br-focus', true));
+  browserWin.on('blur', () => browserWin.webContents.send('br-focus', false));
+  browserWin.webContents.on('will-navigate', (e, u) => { if (!u.startsWith('nsxl://app/browser/')) e.preventDefault(); });
+  browserWin.on('closed', () => { browserWin = null; if (win && !win.isDestroyed()) win.focus(); });
+}
+
+ipcMain.on('br-close', () => { if (browserWin && !browserWin.isDestroyed()) { const w = browserWin; fade(w, 1, 0, 140, () => w.close()); } });
+ipcMain.on('br-external', (e, url) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); });
+ipcMain.on('br-clear', () => { electronSession.fromPartition(BROWSER_PARTITION).clearStorageData().catch(() => {}); electronSession.fromPartition(BROWSER_PARTITION).clearCache().catch(() => {}); });
+
+// Web pages inside NSXL Web: no node, no preload, their own storage; pop-ups open in the same view,
+// and links for other apps (steam://, mailto: ...) go to those apps.
+app.on('web-contents-created', (e, contents) => {
+  contents.on('will-attach-webview', (ev, prefs2, params) => {
+    delete prefs2.preload;
+    prefs2.nodeIntegration = false; prefs2.contextIsolation = true; prefs2.sandbox = true;
+    params.partition = BROWSER_PARTITION;
+    if (!/^(https?:|nsxl:\/\/app\/browser\/|about:blank)/.test(params.src || '')) ev.preventDefault();
+  });
+  if (contents.getType() !== 'webview') return;
+  if (process.argv.includes('--smoke')) contents.on('did-finish-load', () => console.log('NSXL Web: loaded', contents.getURL()));
+  contents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) contents.loadURL(url); else shell.openExternal(url).catch(() => {}); return { action: 'deny' }; });
+  contents.on('will-navigate', (ev, url) => { if (!/^(https?:|nsxl:\/\/app\/browser\/|about:)/.test(url)) { ev.preventDefault(); shell.openExternal(url).catch(() => {}); } });
+});
+
+/** The browser's storage only reaches the start page and its font: no launcher data. */
+function browserProtocol() {
+  electronSession.fromPartition(BROWSER_PARTITION).protocol.handle('nsxl', req => {
+    const p = decodeURIComponent(new URL(req.url).pathname);
+    if (p.startsWith('/browser/') && !p.includes('..') && p !== '/browser/shell.html') return serveFile(path.join(WWW, p), req);
+    if (p === '/fonts/Montserrat.ttf') return serveFile(path.join(WWW, 'fonts', 'Montserrat.ttf'), req);
+    return notFound();
+  });
+}
+
 // ------------------------------------------------------------------ the window
 
 function createWindow() {
@@ -440,6 +508,7 @@ function createWindow() {
 app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
 app.whenReady().then(() => {
   protocol.handle('nsxl', req => handle(req).catch(() => notFound()));
+  browserProtocol();
   scan();
   createWindow();
   powerMonitor.on('resume', () => js('window.onWake&&window.onWake()'));
@@ -454,8 +523,16 @@ if (process.argv.includes('--smoke')) {
       const r = await win.webContents.executeJavaScript(`({ pc: document.documentElement.classList.contains('pc'), tiles: document.querySelectorAll('#row .tile').length, dock: document.querySelectorAll('#dock .dk').length, theme: document.documentElement.dataset.theme })`);
       const img = await win.webContents.capturePage();
       fs.writeFileSync(path.join(__dirname, 'smoke.png'), img.toPNG());
-      console.log('SMOKE', JSON.stringify({ ...r, errors }));
-      app.exit(r.pc && r.dock > 0 && !errors.length ? 0 : 1);
+      // and NSXL Web: the browser window opens on its start page
+      openBrowser('', false);
+      await new Promise(res => setTimeout(res, 6000));
+      const b = await browserWin.webContents.executeJavaScript(`({ url: document.getElementById('wv').getURL(), title: document.title, tiles: 0 })`);
+      fs.writeFileSync(path.join(__dirname, 'smoke-browser.png'), (await browserWin.webContents.capturePage()).toPNG());
+      await browserWin.webContents.executeJavaScript(`document.getElementById('wv').loadURL('https://example.com/')`).catch(() => {});
+      await new Promise(res => setTimeout(res, 5000));
+      const web = await browserWin.webContents.executeJavaScript(`document.getElementById('wv').getURL()`);
+      console.log('SMOKE', JSON.stringify({ ...r, browser: b, web, errors }));
+      app.exit(r.pc && r.dock > 0 && /browser\/start\.html/.test(b.url) && /example\.com/.test(web) && !errors.length ? 0 : 1);
     } catch (err) { console.log('SMOKE failed', err); app.exit(1); }
   }, 9000));
 }
