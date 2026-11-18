@@ -73,9 +73,17 @@ final class PadKeys {
     static String connectedFamily() {
         for (int id : InputDevice.getDeviceIds()) {
             InputDevice d = InputDevice.getDevice(id);
-            if (isPad(d)) return family(d);
+            if (isRealPad(d)) return family(d);
         }
         return null;
+    }
+
+    /** A controller with face buttons: some phones list sensors or keys as joysticks, which shouldn't count. */
+    static boolean isRealPad(InputDevice d) {
+        if (!isPad(d)) return false;
+        if ((d.getSources() & InputDevice.SOURCE_GAMEPAD) != InputDevice.SOURCE_GAMEPAD) return false;
+        boolean[] has = d.hasKeys(KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_B);
+        return has[0] && has[1];
     }
 
     /** Remembers the controller in use and tells the page when it changes. Returns the JS to run, or null. */

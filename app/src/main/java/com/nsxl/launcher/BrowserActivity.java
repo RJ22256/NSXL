@@ -91,9 +91,9 @@ public class BrowserActivity extends Activity {
         light = "light".equals(prefs.getString("mode", "light"));
         try { font = Typeface.createFromAsset(getAssets(), "www/fonts/Montserrat.ttf"); } catch (Exception e) { font = Typeface.DEFAULT; }
         setRequestedOrientation(getIntent().getIntExtra("orientation", android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE));
-        String fam = PadKeys.connectedFamily();
-        padMode = fam != null;
-        if (fam != null) family = prefs.getString("padFamily", fam);
+        // Button hints only when a controller is actually in use (NSXL tells us), else after the first button press.
+        padMode = getIntent().getBooleanExtra("pad", false) && PadKeys.connectedFamily() != null;
+        family = prefs.getString("padFamily", "generic");
 
         int bg = light ? 0xFFEBEBEB : 0xFF15151B, fg = light ? 0xFF1D1D1D : 0xFFF2F2F5;
         getWindow().getDecorView().setBackgroundColor(bg);
@@ -784,6 +784,12 @@ public class BrowserActivity extends Activity {
     }
 
     // ------------------------------------------------------------------ misc
+
+    @Override
+    public void finish() {
+        super.finish();
+        overridePendingTransition(R.anim.home_settle, R.anim.browser_out);
+    }
 
     @Override
     public void onBackPressed() {
