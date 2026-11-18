@@ -66,7 +66,7 @@ public class MainActivity extends Activity {
     Pads pads;
     LauncherBridge bridge;
     private BroadcastReceiver packageReceiver, screenReceiver;
-    private boolean resumed, sleptWhileShowing;
+    private boolean resumed, sleptWhileShowing, wakePending;
     private long pausedAt;
 
     String mode = "light";
@@ -171,9 +171,10 @@ public class MainActivity extends Activity {
         resumed = true;
         Play.finish(this);
         if (sleptWhileShowing) {          // screen came back on with NSXL showing: play the wake animation
-            sleptWhileShowing = false;
-            js("window.onWake&&window.onWake()");
+            sleptWhileShowing = false;     // ...but only once it can be seen, not behind the lock screen
+            wakePending = true;
         }
+        if (hasWindowFocus()) showWoken();
         applySystemBars();
         js("window.onResumeApp&&window.onResumeApp()");
     }
@@ -210,7 +211,16 @@ public class MainActivity extends Activity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
-        if (hasFocus) applySystemBars();
+        if (hasFocus) { applySystemBars(); showWoken(); }
+    }
+
+    /** NSXL is really on screen (resumed, focused, lock screen gone): play the wake animation if it slept on Home. */
+    private void showWoken() {
+        if (!resumed) return;
+        android.app.KeyguardManager km = (android.app.KeyguardManager) getSystemService(KEYGUARD_SERVICE);
+        if (km != null && km.isKeyguardLocked()) return;   // focus comes back after unlocking
+        if (wakePending) { wakePending = false; js("window.onWake&&window.onWake()"); }
+        else js("window.onShown&&window.onShown()");
     }
 
     @Override

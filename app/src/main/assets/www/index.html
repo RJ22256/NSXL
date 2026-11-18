@@ -523,6 +523,7 @@ body.waking #home, body.waking #top, body.waking #foot, body.waking #bgfx { anim
 @keyframes wakeIn { from { opacity: 0; filter: brightness(.35) blur(10px); transform: scale(.97); } to { opacity: 1; filter: none; transform: none; } }
 #wakeRing { position: fixed; left: 50%; top: 50%; z-index: 90; width: calc(var(--u) * 10); height: calc(var(--u) * 10); margin: calc(var(--u) * -5) 0 0 calc(var(--u) * -5); border-radius: 50%; pointer-events: none;
   box-shadow: 0 0 0 calc(var(--u) * .4) rgba(130,160,255,.9), 0 0 calc(var(--u) * 4) rgba(110,140,255,.7); opacity: 0; }
+body.asleep #home, body.asleep #top, body.asleep #foot, body.asleep #bgfx { opacity: 0; }
 body.waking #wakeRing { animation: wakeRing .8s cubic-bezier(.2,.8,.2,1); }
 @keyframes wakeRing { 0% { opacity: .9; transform: scale(.2); } 100% { opacity: 0; transform: scale(3.2); } }
 #sleepFx { position: fixed; inset: 0; z-index: 110; display: none; place-items: center; background: #000; }
@@ -1181,7 +1182,7 @@ function renameApp(pkg) {
 const isGameish = a => a.game || !!store.get('added', {})[a.pkg];
 
 // games put in a folder live only in that folder
-function inFolders() { const s = new Set(); if (PC) store.get('folders', []).forEach(f => (f.apps || []).forEach(p => s.add(p))); return s; }
+function inFolders() { const s = new Set(); store.get('folders', []).forEach(f => (f.apps || []).forEach(p => s.add(p))); return s; }
 function homeList() {
   const added = store.get('added', {}), hidden = store.get('hidden', {}), played = store.get('played', {}), inF = inFolders();
   const key = p => Math.max(played[p] || 0, added[p] || 0, (BY[p] && BY[p].installed) || 0);
@@ -1189,7 +1190,7 @@ function homeList() {
 }
 // what Home shows, in order: games (most recent first, or your own order) and folders. Folder keys are "folder:<id>".
 function homeKeys() {
-  const games = homeList(), fl = PC ? store.get('folders', []).filter(f => f.home).map(f => 'folder:' + f.id) : [];
+  const games = homeList(), fl = store.get('folders', []).filter(f => f.home).map(f => 'folder:' + f.id);
   const order = store.get('homeOrder', null);
   let all = games.concat(fl);
   if (order) {
@@ -1874,10 +1875,16 @@ function playBoot(done) {
   setTimeout(finish, 2350);
 }
 window.onWake = () => {
-  if (!cfg.wakeAnim || cfg.calm || topOverlay()) return;
-  document.body.classList.remove('waking'); void document.body.offsetWidth; document.body.classList.add('waking');
-  Snd.wake(); setTimeout(() => document.body.classList.remove('waking'), 900);
+  const b = document.body;
+  if (!cfg.wakeAnim || cfg.calm || topOverlay()) { b.classList.remove('asleep'); return; }
+  // wait a frame so the WebView has drawn again after sleeping, then play from dark
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    b.classList.remove('waking'); void b.offsetWidth; b.classList.add('waking'); b.classList.remove('asleep');
+    Snd.wake(); setTimeout(() => b.classList.remove('waking'), 900);
+  }));
 };
+window.onShown = () => document.body.classList.remove('asleep');
+document.addEventListener('pointerdown', () => document.body.classList.remove('asleep'), true);   // back on screen without a wake: just show Home
 function sleepNow() {
   if (!nb('canSleep')) {
     openDialog('Sleep needs controller shortcut access', 'Android only lets NSXL turn the screen off through its accessibility service. Turn on “Controller shortcut access” in Settings › In-Game Menu.',
@@ -1889,7 +1896,11 @@ function sleepNow() {
   setTimeout(() => nb('sleepNow'), 950);
   setTimeout(() => fx.classList.remove('on'), 2500);
 }
-window.onScreenOff = () => { $('#sleepFx').classList.remove('on'); };
+window.onScreenOff = () => {
+  $('#sleepFx').classList.remove('on');
+  // keep Home dark while the screen is off so it doesn't flash before the wake animation
+  if (cfg.wakeAnim && !cfg.calm && !topOverlay()) document.body.classList.add('asleep');
+};
 
 /* ---------- NSXL Cloud (backup server on this device) ---------- */
 // What a backup carries: API keys, theme and music settings. Files (music, optional wallpaper) are added natively.
@@ -2331,8 +2342,8 @@ function appOptions(pkg, start) {
           onHome ? paneRow(pane, 'Remove from Home', { desc: 'It stays in All Software.', run: () => { setOnHome(pkg, false); toast('Removed from Home'); sheet.refresh(); } })
                  : inFolders().has(pkg) ? null : paneRow(pane, 'Add to Home', { run: () => { setOnHome(pkg, true); toast('Added to Home'); sheet.refresh(); } }),
           onHome && homeKeys().includes(pkg) ? paneRow(pane, 'Move on Home', { desc: 'Put it where you want it on the Home row.', run: () => startHomeMove(pkg) }) : null,
-          PC ? paneRow(pane, 'Folders', { desc: 'Group it with other games.', val: (n => n ? n + (n === 1 ? ' folder' : ' folders') : 'None')(folders().filter(f => f.apps.includes(pkg)).length) + ' <span class="chev">›</span>',
-            run: () => folderPicker(pkg, () => sheet.refresh()) }) : null,
+          paneRow(pane, 'Folders', { desc: 'Group it with other games.', val: (n => n ? n + (n === 1 ? ' folder' : ' folders') : 'None')(folders().filter(f => f.apps.includes(pkg)).length) + ' <span class="chev">›</span>',
+            run: () => folderPicker(pkg, () => sheet.refresh()) }),
           paneRow(pane, 'Rename', { val: esc(a.label), run: () => { popOverlay(true); renameApp(pkg); } }),
           a.label !== a.orig ? paneRow(pane, 'Use original name', { val: esc(a.orig), run: () => { const n = store.get('names', {}); delete n[pkg]; store.set('names', n); popOverlay(true); reloadApps(); } }) : null,
           PC ? paneRow(pane, pkg.startsWith('steam:') ? 'Show in Steam' : 'Open install folder', { val: '<span class="chev">›</span>', run: () => nb('appInfo', pkg) })
@@ -2771,10 +2782,10 @@ function openAll(opts) {
   const ov = el('section', 'ov full');
   ov.innerHTML = `<div class="ovTitle">${svg('grid')}<span>${esc(opts.title || 'All Software')}</span></div>
     <div class="ovRule"></div><div class="ovRule bottom"></div>
-    <div class="tabs">${glyph('l')}<span class="t" data-t="games">Games</span><span class="t" data-t="all">All Apps</span>${PC && !opts.mode ? '<span class="t" data-t="folders">Folders</span>' : ''}${glyph('r')}</div>
+    <div class="tabs">${glyph('l')}<span class="t" data-t="games">Games</span><span class="t" data-t="all">All Apps</span>${!opts.mode ? '<span class="t" data-t="folders">Folders</span>' : ''}${glyph('r')}</div>
     <div class="grid"></div>`;
   const grid = $('.grid', ov);
-  const TABS = PC && !opts.mode ? ['games', 'all', 'folders'] : ['games', 'all'];
+  const TABS = !opts.mode ? ['games', 'all', 'folders'] : ['games', 'all'];
   const multi = opts.mode === 'multi';
   let tab = opts.mode && !multi ? 'all' : (opts.tab || (APPS.some(isGameish) ? 'games' : 'all'));
   let list = [], cells = [], sel = 0, still = false;
@@ -2894,7 +2905,7 @@ function openAll(opts) {
   build();
 }
 
-/* ---------- folders (PC): group games, pin a folder to Home, choose the order inside ---------- */
+/* ---------- folders: group games, pin a folder to Home, choose the order inside ---------- */
 const FOLDER_SORTS = [['custom', 'Your order'], ['az', 'Name (A–Z)'], ['za', 'Name (Z–A)'], ['recent', 'Recently played'], ['most', 'Most played']];
 const folders = () => store.get('folders', []);
 const folderBy = id => folders().find(f => f.id === id);
