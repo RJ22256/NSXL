@@ -1,0 +1,40 @@
+{
+  "name": "nsxl-pc",
+  "productName": "NSXL",
+  "version": "1.0.0",
+  "description": "A console-style home screen for your Windows PC games.",
+  "author": "RJ22256",
+  "license": "UNLICENSED",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "sync-ui": "node scripts/sync-ui.js",
+    "start": "npm run sync-ui && electron .",
+    "dist": "npm run sync-ui && electron-builder --win nsis portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.nsxl.pc",
+    "productName": "NSXL",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "preload.js", "lib/**", "www/**", "build/icon.png", "package.json"],
+    "win": {
+      "icon": "build/icon.png",
+      "artifactName": "NSXL-${version}-${arch}-${target}.${ext}",
+      "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "NSXL",
+      "artifactName": "NSXL-Setup-${version}.${ext}"
+    },
+    "portable": { "artifactName": "NSXL-Portable-${version}.${ext}" }
+  }
+}

@@ -1,0 +1,81 @@
+name: Build Windows app
+
+# NSXL for Windows. Every change builds an installer and a portable .exe (Actions › Artifacts).
+# A release is made from a tag like pc-v1.0.0: create it on github.com (Releases › Draft a new release)
+# or push the tag, and this attaches both .exe files and the notes from .github/release-notes/<tag>.md.
+on:
+  push:
+    branches: ['**']
+    tags: ['pc-v*']
+    paths-ignore: ['README.md', 'docs/**']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: pc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/pc-v* ]]; then V="${GITHUB_REF_NAME#pc-v}"; else V="1.0.${GITHUB_RUN_NUMBER}"; fi
+          npm version "$V" --no-git-tag-version --allow-same-version
+          echo "NSXL_VERSION=$V" >> "$GITHUB_ENV"
+
+      - name: Install
+        run: npm install --no-audit --no-fund
+
+      - name: Smoke test (opens NSXL and checks Home loads with no errors)
+        shell: bash
+        run: |
+          npm run sync-ui
+          npx electron . --smoke --no-sandbox 2>&1 | tee smoke.log
+          grep -q '^SMOKE {' smoke.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-screenshot
+          path: pc/smoke.png
+          if-no-files-found: ignore
+
+      - name: Build installer and portable app
+        run: npm run dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NSXL-Windows-${{ env.NSXL_VERSION }}
+          path: |
+            pc/dist/*.exe
+
+      - name: Publish release (pc-v tags only)
+        if: startsWith(github.ref, 'refs/tags/pc-v')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          NOTES="../.github/release-notes/${TAG}.md"
+          FILES=(dist/NSXL-Setup-*.exe dist/NSXL-Portable-*.exe)
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "${FILES[@]}" --clobber
+            if [ -f "$NOTES" ] && [ -z "$(gh release view "$TAG" --json body -q .body)" ]; then
+              gh release edit "$TAG" --notes-file "$NOTES" --title "NSXL for Windows ${TAG#pc-}"
+            fi
+            # keep the Android APK as the repo's "Latest" release
+            gh release edit "$TAG" --latest=false
+          else
+            if [ -f "$NOTES" ]; then ARGS=(--notes-file "$NOTES"); else ARGS=(--generate-notes); fi
+            gh release create "$TAG" "${FILES[@]}" --title "NSXL for Windows ${TAG#pc-}" --latest=false "${ARGS[@]}"
+          fi
