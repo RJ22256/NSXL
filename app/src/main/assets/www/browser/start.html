@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Start</title>
+<style>
+@font-face { font-family: Montserrat; src: url(/fonts/Montserrat.ttf); font-weight: 100 900; }
+:root { --bg: #15151b; --fg: #f2f2f5; --fg2: #9a9aa6; --card: #22222b; --line: rgba(255,255,255,.08); --accent: #5b8cff; }
+html.light { --bg: #ebebeb; --fg: #1d1d1d; --fg2: #6a6a72; --card: #ffffff; --line: rgba(0,0,0,.08); --accent: #1f5fd6; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--fg); font-family: Montserrat, system-ui, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: clamp(24px, 7vh, 72px) 28px 48px; display: flex; flex-direction: column; align-items: center; gap: 34px; }
+.logo { display: flex; align-items: center; gap: 14px; font-weight: 800; font-size: 30px; letter-spacing: .04em; }
+.logo i { width: 34px; height: 34px; border-radius: 50%; padding: 5px; background: conic-gradient(#2f6dff, #8fb3ff, #c6a6ff, #ffbfe8, #bdeeff, #63a0ff, #2f6dff);
+  -webkit-mask: radial-gradient(circle, transparent 11px, #000 11.5px); mask: radial-gradient(circle, transparent 11px, #000 11.5px); }
+form { width: min(640px, 100%); }
+.search { display: flex; align-items: center; gap: 12px; height: 56px; padding: 0 22px; border-radius: 28px; background: var(--card); box-shadow: 0 6px 22px rgba(0,0,0,.18); }
+.search svg { flex: none; width: 22px; height: 22px; stroke: var(--fg2); fill: none; stroke-width: 2; stroke-linecap: round; }
+.search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--fg); font: 500 17px Montserrat, system-ui, sans-serif; }
+.search input::placeholder { color: var(--fg2); }
+h2 { align-self: stretch; margin: 0 0 -14px; font-size: 13px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--fg2); }
+.tiles { align-self: stretch; display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 16px; }
+.tiles a { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 8px 14px; border-radius: 14px; background: var(--card); color: var(--fg); text-decoration: none;
+  font-size: 13px; font-weight: 600; text-align: center; transition: transform .15s, box-shadow .15s; outline: none; }
+.tiles a:hover, .tiles a:focus-visible { transform: translateY(-3px) scale(1.03); box-shadow: 0 0 0 3px var(--accent), 0 10px 24px rgba(0,0,0,.25); }
+.tiles a:active { transform: scale(.96); }
+.ico { position: relative; width: 48px; height: 48px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 20px; overflow: hidden; }
+.ico img { position: absolute; inset: 6px; width: 36px; height: 36px; object-fit: contain; }
+.tiles a span:last-child { max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#marks[hidden], #marksH[hidden] { display: none; }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo"><i aria-hidden="true"></i>NSXL Web</div>
+  <form id="f" action="https://www.google.com/search" method="get" role="search">
+    <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4 4"/></svg>
+      <input id="q" name="q" type="search" placeholder="Search Google" autocomplete="off" aria-label="Search"></label>
+  </form>
+  <h2 id="marksH" hidden>Bookmarks</h2>
+  <div class="tiles" id="marks" hidden></div>
+  <h2>Shortcuts</h2>
+  <div class="tiles" id="sites"></div>
+</main>
+<script>
+const SITES = [
+  ['YouTube', 'https://m.youtube.com/', '#ff0033'], ['Twitch', 'https://m.twitch.tv/', '#9146ff'],
+  ['Xbox Cloud Gaming', 'https://www.xbox.com/play', '#107c10'], ['GeForce NOW', 'https://play.geforcenow.com/', '#76b900'],
+  ['Steam Store', 'https://store.steampowered.com/', '#1b2838'], ['itch.io', 'https://itch.io/', '#fa5c5c'],
+  ['Reddit', 'https://www.reddit.com/', '#ff4500'], ['Wikipedia', 'https://en.m.wikipedia.org/', '#636466'],
+  ['GameFAQs', 'https://gamefaqs.gamespot.com/', '#2a4b8d'], ['Speedrun.com', 'https://www.speedrun.com/', '#e9a23b'],
+];
+const ENGINES = { google: ['https://www.google.com/search', 'Google'], duckduckgo: ['https://duckduckgo.com/', 'DuckDuckGo'], bing: ['https://www.bing.com/search', 'Bing'] };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+function tile(name, url, color) {
+  let host = ''; try { host = new URL(url).hostname; } catch (e) {}
+  const a = document.createElement('a');
+  a.href = url;
+  a.innerHTML = `<span class="ico" style="background:${color || '#3d7bff'}">${esc((name || host || '?').trim()[0].toUpperCase())}<img alt="" src="https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128" onerror="this.remove()"></span><span>${esc(name || host)}</span>`;
+  return a;
+}
+const sites = document.getElementById('sites');
+SITES.forEach(([n, u, c]) => sites.appendChild(tile(n, u, c)));
+window.nsxlStart = o => {
+  document.documentElement.classList.toggle('light', !!o.light);
+  const e = ENGINES[o.engine] || ENGINES.google;
+  document.getElementById('f').action = e[0];
+  document.getElementById('q').placeholder = 'Search ' + e[1];
+  const marks = document.getElementById('marks'), h = document.getElementById('marksH');
+  marks.innerHTML = '';
+  (o.bookmarks || []).forEach(b => {
+    const hue = [...(b.url || '')].reduce((x, ch) => (x * 31 + ch.charCodeAt(0)) % 360, 7);
+    marks.appendChild(tile(b.title, b.url, `hsl(${hue},45%,42%)`));
+  });
+  marks.hidden = h.hidden = !(o.bookmarks || []).length;
+};
+</script>
+</body>
+</html>
