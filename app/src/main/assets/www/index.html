@@ -238,7 +238,7 @@ img.flip { animation: flip .5s cubic-bezier(.2,.8,.2,1); }
 .tabs .t { transition: background-color .25s, color .25s, transform .25s; }
 .tabs .t.on { animation: selPop .3s cubic-bezier(.3,1.7,.5,1); }
 #toast.show { animation: toastIn .38s cubic-bezier(.3,1.5,.5,1); }
-@keyframes toastIn { from { transform: translate(-50%, calc(var(--u) * 3)) scale(.9); } to { transform: translate(-50%, 0); } }
+@keyframes toastIn { from { transform: translate(-50%, calc(var(--u) * -2.4)) scale(.94); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 .empty { animation: swapIn .4s both; }
 #themeWipe { position: fixed; z-index: 50; pointer-events: none; border-radius: 50%; width: 10px; height: 10px; transform: translate(-50%, -50%) scale(0); animation: wipe .6s cubic-bezier(.4,0,.2,1) forwards; }
 @keyframes wipe { 60% { opacity: .9; } to { transform: translate(-50%, -50%) scale(400); opacity: 0; } }
@@ -338,7 +338,7 @@ body.full #modeTabs { opacity: 0; pointer-events: none; }
 .pName.sel { background: var(--selBg); border-bottom-color: transparent; }
 .pStats, .swPlay { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--u) * 1.2); }
 .pStat { display: flex; flex-direction: column; gap: calc(var(--u) * .4); padding: calc(var(--u) * 1.4) calc(var(--u) * 1.6); border-radius: calc(var(--u) * .9); background: var(--slot); min-width: 0; }
-.pStat b { font-size: calc(var(--u) * 2); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pStat b { font-size: calc(var(--u) * 1.85); font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .pStat span { font-size: calc(var(--u) * 1.3); color: var(--fg2); }
 .playRow { flex-wrap: wrap; padding-bottom: calc(var(--u) * 1.4); }
 .playArt { position: relative; flex: none; width: calc(var(--u) * 5.2); height: calc(var(--u) * 5.2); border-radius: calc(var(--u) * .7); overflow: hidden; background: var(--slot); }
@@ -485,6 +485,7 @@ body.viewing #foot::before, body.viewing #top::after { opacity: 0; }
 .cell.skel .nm { color: transparent; }
 .pfb { position: absolute; inset: 0; display: grid; place-items: center; padding: 10%; text-align: center; color: #fff; font-weight: 700; font-size: calc(var(--u) * 1.3); }
 .svcHead { position: absolute; top: calc(var(--u) * 12.4); left: calc(var(--u) * 4.4); font-size: calc(var(--u) * 1.4); color: var(--fg2); }
+.tabs ~ .svcHead { top: calc(var(--u) * 15.7); left: 0; right: 0; text-align: center; font-size: calc(var(--u) * 1.2); z-index: 1; pointer-events: none; }
 /* title details */
 .tdet { display: flex; gap: calc(var(--u) * 2.6); width: calc(var(--u) * 66); max-width: 92vw; padding: calc(var(--u) * 2.6); background: var(--panel); border-radius: calc(var(--u) * 1.6);
   box-shadow: 0 calc(var(--u) * 1) calc(var(--u) * 4) rgba(0,0,0,.35); transform: scale(.88) translateY(calc(var(--u) * 1.5)); transition: transform .34s cubic-bezier(.3,1.5,.5,1); }
@@ -519,12 +520,32 @@ body.viewing #foot::before, body.viewing #top::after { opacity: 0; }
 @keyframes letterIn { from { opacity: 0; transform: translateY(calc(var(--u) * 2.4)) scale(.9); } to { opacity: 1; transform: none; } }
 .bootTag { position: absolute; bottom: calc(var(--u) * 7); font-size: calc(var(--u) * 1.4); letter-spacing: .35em; opacity: 0; animation: tagIn .6s 1.1s forwards; }
 @keyframes tagIn { to { opacity: .55; } }
-body.waking #home, body.waking #top, body.waking #foot, body.waking #bgfx { animation: wakeIn .75s cubic-bezier(.2,.8,.2,1) both; }
-@keyframes wakeIn { from { opacity: 0; filter: brightness(.35) blur(10px); transform: scale(.97); } to { opacity: 1; filter: none; transform: none; } }
-#wakeRing { position: fixed; left: 50%; top: 50%; z-index: 90; width: calc(var(--u) * 10); height: calc(var(--u) * 10); margin: calc(var(--u) * -5) 0 0 calc(var(--u) * -5); border-radius: 50%; pointer-events: none;
-  box-shadow: 0 0 0 calc(var(--u) * .4) rgba(130,160,255,.9), 0 0 calc(var(--u) * 4) rgba(110,140,255,.7); opacity: 0; }
-body.waking #wakeRing { animation: wakeRing .8s cubic-bezier(.2,.8,.2,1); }
-@keyframes wakeRing { 0% { opacity: .9; transform: scale(.2); } 100% { opacity: 0; transform: scale(3.2); } }
+/* wake: the reverse of sleep. The ring unwinds out of black, then Home settles in behind it. ~2.2s */
+#wakeFx { position: fixed; inset: 0; z-index: 105; display: none; place-items: center; background: #000; pointer-events: none; }
+#wakeFx i { width: calc(var(--u) * 9); height: calc(var(--u) * 9); border-radius: 50%; background: conic-gradient(#2f6dff, #8fb3ff, #c6a6ff, #ffbfe8, #bdeeff, #2f6dff);
+  -webkit-mask: radial-gradient(circle, transparent 54%, #000 56%); mask: radial-gradient(circle, transparent 54%, #000 56%); }
+body.asleep #wakeFx { display: grid; }
+body.asleep #wakeFx i { opacity: 0; }
+body.waking #wakeFx { display: grid; animation: wakeVeil .8s cubic-bezier(.4,0,.2,1) .95s both; }
+body.waking #wakeFx i { animation: wakeMark 1.5s cubic-bezier(.2,.8,.2,1) both; filter: drop-shadow(0 0 calc(var(--u) * 1.6) rgba(120,150,255,.55)); }
+@keyframes wakeMark {
+  0%   { transform: scale(.05) rotate(-240deg); opacity: 0; }
+  40%  { transform: scale(1) rotate(0); opacity: 1; }
+  62%  { transform: scale(1) rotate(0); opacity: 1; }
+  100% { transform: scale(2.6) rotate(25deg); opacity: 0; }
+}
+@keyframes wakeVeil { from { opacity: 1; } to { opacity: 0; } }
+body.asleep #home, body.asleep #top, body.asleep #foot, body.asleep #bgfx { opacity: 0; }
+body.waking #bgfx { animation: wakeBg 1.3s cubic-bezier(.25,.8,.25,1) .9s backwards; }
+body.waking #home { animation: wakeHome 1.1s cubic-bezier(.2,.8,.2,1) 1s backwards; }
+body.waking #row .tile { animation: wakeTile .8s cubic-bezier(.2,.8,.2,1) backwards; animation-delay: calc(1.12s + min(var(--i, 0), 6) * 50ms); }
+body.waking #top { animation: wakeTop .8s cubic-bezier(.2,.8,.2,1) 1.25s backwards; }
+body.waking #foot { animation: wakeFoot .8s cubic-bezier(.2,.8,.2,1) 1.3s backwards; }
+@keyframes wakeBg { from { opacity: 0; transform: scale(1.06); } to { opacity: 1; transform: none; } }
+@keyframes wakeHome { from { opacity: 0; transform: scale(1.035); filter: blur(6px) brightness(.6); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes wakeTile { from { opacity: 0; transform: translateX(calc(var(--u) * 3)) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes wakeTop { from { opacity: 0; transform: translateY(calc(var(--u) * -1.4)); } to { opacity: 1; transform: none; } }
+@keyframes wakeFoot { from { opacity: 0; transform: translateY(calc(var(--u) * 1.4)); } to { opacity: 1; transform: none; } }
 #sleepFx { position: fixed; inset: 0; z-index: 110; display: none; place-items: center; background: #000; }
 #sleepFx.on { display: grid; animation: sleepIn .55s ease-in both; }
 @keyframes sleepIn { from { background: rgba(0,0,0,0); } to { background: #000; } }
@@ -637,12 +658,12 @@ html.calm #bgfx { display: none; }
   position: absolute; top: calc(var(--u) * 16.4); bottom: calc(var(--u) * 7.4); left: 0; right: 0;
   overflow-y: auto; scrollbar-width: none;
   padding: calc(var(--u) * 1.6) var(--side) calc(var(--u) * 3);
-  display: grid; grid-template-columns: repeat(auto-fill, calc(var(--u) * 9.2));
+  display: grid; grid-template-columns: repeat(auto-fill, calc(var(--u) * 11.2));
   gap: calc(var(--u) * 1.6) calc(var(--u) * 1.4); align-content: start; justify-content: center;
 }
 .grid::-webkit-scrollbar { display: none; }
 .grid { -webkit-mask-image: linear-gradient(#000 calc(100% - var(--u) * 3), transparent); mask-image: linear-gradient(#000 calc(100% - var(--u) * 3), transparent); }
-.cell { width: calc(var(--u) * 9.2); cursor: pointer; position: relative; }
+.cell { width: calc(var(--u) * 11.2); cursor: pointer; position: relative; }
 .cell .art { width: 100%; aspect-ratio: 1; border-radius: var(--r); position: relative; background: var(--slot); isolation: isolate; }
 .cell .nm {
   margin-top: calc(var(--u) * .75); font-size: calc(var(--u) * 1.3); line-height: 1.25; text-align: center;
@@ -773,11 +794,18 @@ html[data-theme=white] .dbtn.sel { background: #fff; }
 
 /* toast */
 #toast {
-  position: fixed; z-index: 40; left: 50%; bottom: calc(var(--u) * 8.5);
-  transform: translate(-50%, calc(var(--u) * 2)); opacity: 0; pointer-events: none;
-  background: rgba(20,20,24,.9); color: #fff; font-size: calc(var(--u) * 1.7);
-  padding: calc(var(--u) * 1.2) calc(var(--u) * 2.6); border-radius: 999px; transition: all .22s; white-space: nowrap;
+  position: fixed; z-index: 120; left: 50%; top: calc(var(--oy) + var(--u) * 2.6);
+  transform: translate(-50%, calc(var(--u) * -2)); opacity: 0; pointer-events: none;
+  display: flex; align-items: center; gap: calc(var(--u) * 1);
+  background: rgba(22,22,28,.86); color: #fff; font-size: calc(var(--u) * 1.6); font-weight: 500; letter-spacing: .005em;
+  -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+  box-shadow: 0 calc(var(--u) * .8) calc(var(--u) * 2.6) rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.08);
+  padding: calc(var(--u) * 1.05) calc(var(--u) * 2.4) calc(var(--u) * 1.05) calc(var(--u) * 1.3); border-radius: 999px;
+  transition: opacity .22s, transform .28s cubic-bezier(.2,.8,.2,1); white-space: nowrap; max-width: 80vw;
 }
+#toast::before { content: ''; flex: none; width: calc(var(--u) * .9); height: calc(var(--u) * .9); border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 calc(var(--u) * .35) color-mix(in srgb, var(--accent) 30%, transparent); }
+#toast span { overflow: hidden; text-overflow: ellipsis; }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* portrait fallback */
@@ -831,11 +859,34 @@ html[data-theme=white] .dbtn.sel { background: #fff; }
 .fHome .fTitle { position: absolute; left: 0; top: calc(var(--oy) + var(--u) * 11.9); font-size: calc(var(--u) * 1.85); font-weight: 500; color: var(--accent);
   white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .12s; }
 .fHome .fEmpty { width: calc(100vw - var(--side) * 2); align-self: center; text-align: center; color: var(--fg2); font-size: calc(var(--u) * 1.9); line-height: 1.5; }
+
+/* ---------- finish: type, numbers, mouse, motion ---------- */
+html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; text-rendering: optimizeLegibility; }
+#clock, #batPct, .pStat b, .musProg, .bar + .val, .setRow .val { font-variant-numeric: tabular-nums; }
+img { -webkit-user-drag: none; user-drag: none; }
+.desc, .paneNote, .ghint { text-wrap: pretty; }
+.ovTitle, .menuTitle, .dialog h2, .dialog h3 { text-wrap: balance; }
+:focus { outline: none; }
+/* a mouse gets quiet hover feedback, the way console UIs do on PC */
+@media (hover: hover) and (pointer: fine) {
+  .tile.g:not(.sel):not(.slot):hover, .cell:not(.sel):hover .art { filter: brightness(1.06); transform: translateY(calc(var(--u) * -.2)); transition: transform .18s, filter .18s; }
+  .dk:not(.sel):hover { transform: translateY(calc(var(--u) * -.15)); transition: transform .18s; }
+  .setRow:not(.sel):not(.info):not(.themes):hover, .navItem:not(.sel):hover, .menuItem:not(.sel):hover { background: color-mix(in srgb, var(--selBg) 55%, transparent); }
+  .dbtn:not(.sel):hover { filter: brightness(1.05); }
+  .hint:hover { opacity: .75; }
+  .tabs .t:not(.on):hover { color: var(--fg); }
+  .cell:not(.sel):hover .nm { color: var(--fg); }
+}
+.hint:active { transform: scale(.96); transition: transform .08s; }
+/* respect the system's reduced-motion setting as well as Calm mode */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
 </style>
 </head>
 <body>
 <div id="bootFx" aria-hidden="true"><div class="bootLogo"><span class="bootRing"><svg viewBox="0 0 100 100"><defs><linearGradient id="bootGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2f6dff"/><stop offset=".3" stop-color="#8fb3ff"/><stop offset=".5" stop-color="#c6a6ff"/><stop offset=".68" stop-color="#ffbfe8"/><stop offset=".85" stop-color="#bdeeff"/><stop offset="1" stop-color="#3d7bff"/></linearGradient></defs><circle class="trk" cx="50" cy="50" r="42"/><circle class="arc" cx="50" cy="50" r="42" pathLength="100"/></svg></span><div class="bootWord"><span style="--k:0">N</span><span style="--k:1">S</span><span style="--k:2">X</span><span style="--k:3">L</span></div></div><div class="bootTag">GAME LAUNCHER</div></div>
-<div id="wakeRing" aria-hidden="true"></div>
+<div id="wakeFx" aria-hidden="true"><i></i></div>
 <div id="sleepFx" aria-hidden="true"><i></i></div>
 <div id="bgfx" aria-hidden="true"><i></i><i></i><i></i></div>
 <div id="fakeVideo"></div>
@@ -1181,7 +1232,7 @@ function renameApp(pkg) {
 const isGameish = a => a.game || !!store.get('added', {})[a.pkg];
 
 // games put in a folder live only in that folder
-function inFolders() { const s = new Set(); if (PC) store.get('folders', []).forEach(f => (f.apps || []).forEach(p => s.add(p))); return s; }
+function inFolders() { const s = new Set(); store.get('folders', []).forEach(f => (f.apps || []).forEach(p => s.add(p))); return s; }
 function homeList() {
   const added = store.get('added', {}), hidden = store.get('hidden', {}), played = store.get('played', {}), inF = inFolders();
   const key = p => Math.max(played[p] || 0, added[p] || 0, (BY[p] && BY[p].installed) || 0);
@@ -1189,7 +1240,7 @@ function homeList() {
 }
 // what Home shows, in order: games (most recent first, or your own order) and folders. Folder keys are "folder:<id>".
 function homeKeys() {
-  const games = homeList(), fl = PC ? store.get('folders', []).filter(f => f.home).map(f => 'folder:' + f.id) : [];
+  const games = homeList(), fl = store.get('folders', []).filter(f => f.home).map(f => 'folder:' + f.id);
   const order = store.get('homeOrder', null);
   let all = games.concat(fl);
   if (order) {
@@ -1874,10 +1925,16 @@ function playBoot(done) {
   setTimeout(finish, 2350);
 }
 window.onWake = () => {
-  if (!cfg.wakeAnim || cfg.calm || topOverlay()) return;
-  document.body.classList.remove('waking'); void document.body.offsetWidth; document.body.classList.add('waking');
-  Snd.wake(); setTimeout(() => document.body.classList.remove('waking'), 900);
+  const b = document.body;
+  if (!cfg.wakeAnim || cfg.calm || topOverlay()) { b.classList.remove('asleep'); return; }
+  // wait a frame so the WebView has drawn again after sleeping, then play from dark
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    b.classList.remove('waking'); void b.offsetWidth; b.classList.add('waking'); b.classList.remove('asleep');
+    setTimeout(() => Snd.wake(), 380); setTimeout(() => b.classList.remove('waking'), 2500);
+  }));
 };
+window.onShown = () => document.body.classList.remove('asleep');
+document.addEventListener('pointerdown', () => document.body.classList.remove('asleep'), true);   // back on screen without a wake: just show Home
 function sleepNow() {
   if (!nb('canSleep')) {
     openDialog('Sleep needs controller shortcut access', 'Android only lets NSXL turn the screen off through its accessibility service. Turn on “Controller shortcut access” in Settings › In-Game Menu.',
@@ -1889,7 +1946,11 @@ function sleepNow() {
   setTimeout(() => nb('sleepNow'), 950);
   setTimeout(() => fx.classList.remove('on'), 2500);
 }
-window.onScreenOff = () => { $('#sleepFx').classList.remove('on'); };
+window.onScreenOff = () => {
+  $('#sleepFx').classList.remove('on');
+  // keep Home dark while the screen is off so it doesn't flash before the wake animation
+  if (cfg.wakeAnim && !cfg.calm && !topOverlay()) document.body.classList.add('asleep');
+};
 
 /* ---------- NSXL Cloud (backup server on this device) ---------- */
 // What a backup carries: API keys, theme and music settings. Files (music, optional wallpaper) are added natively.
@@ -2228,7 +2289,8 @@ function fmtPlay(ms) {
   const h = Math.floor(m / 60), r = m % 60;
   return h + (h === 1 ? ' hour' : ' hours') + (r ? ' ' + r + ' min' : '');
 }
-const fmtPlayShort = ms => { const m = Math.round((ms || 0) / 60000); return m < 60 ? Math.max(1, m) + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; };
+const fmtPlayShort = ms => { const m = Math.round((ms || 0) / 60000); return m < 60 ? Math.max(1, m) + ' min' : Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : ''); };
+const fmtPlayTiny = ms => { const m = Math.round((ms || 0) / 60000); return m < 60 ? Math.max(1, m) + 'm' : Math.floor(m / 60) + 'h' + (m % 60 ? ' ' + (m % 60) + 'm' : ''); };   // for stat cards
 const userName = () => (cfg.userName || '').trim() || 'Player';
 function avatarHtml(cls) {
   const v = store.get('avatarV', 0);
@@ -2262,7 +2324,7 @@ function openUserPage() {
         wrap.innerHTML = `<div class="pAva g">${avatarHtml('pAvaImg')}<span class="pEdit">${svg('pen')}</span></div>
           <div class="pInfo"><div class="pName g"><span>${esc(userName())}</span><span class="pEdit">${svg('pen')}</span></div>
           <div class="pStats">
-            <div class="pStat"><b>${total ? esc(fmtPlayShort(total)) : '—'}</b><span>Total play time</span></div>
+            <div class="pStat"><b>${total ? esc(fmtPlayTiny(total)) : '—'}</b><span>Total play time</span></div>
             <div class="pStat"><b>${g.length}</b><span>${g.length === 1 ? 'Game played' : 'Games played'}</span></div>
             <div class="pStat"><b>${g[0] ? esc(BY[g[0].pkg].label) : '—'}</b><span>Most played</span></div>
           </div></div>`;
@@ -2331,8 +2393,8 @@ function appOptions(pkg, start) {
           onHome ? paneRow(pane, 'Remove from Home', { desc: 'It stays in All Software.', run: () => { setOnHome(pkg, false); toast('Removed from Home'); sheet.refresh(); } })
                  : inFolders().has(pkg) ? null : paneRow(pane, 'Add to Home', { run: () => { setOnHome(pkg, true); toast('Added to Home'); sheet.refresh(); } }),
           onHome && homeKeys().includes(pkg) ? paneRow(pane, 'Move on Home', { desc: 'Put it where you want it on the Home row.', run: () => startHomeMove(pkg) }) : null,
-          PC ? paneRow(pane, 'Folders', { desc: 'Group it with other games.', val: (n => n ? n + (n === 1 ? ' folder' : ' folders') : 'None')(folders().filter(f => f.apps.includes(pkg)).length) + ' <span class="chev">›</span>',
-            run: () => folderPicker(pkg, () => sheet.refresh()) }) : null,
+          paneRow(pane, 'Folders', { desc: 'Group it with other games.', val: (n => n ? n + (n === 1 ? ' folder' : ' folders') : 'None')(folders().filter(f => f.apps.includes(pkg)).length) + ' <span class="chev">›</span>',
+            run: () => folderPicker(pkg, () => sheet.refresh()) }),
           paneRow(pane, 'Rename', { val: esc(a.label), run: () => { popOverlay(true); renameApp(pkg); } }),
           a.label !== a.orig ? paneRow(pane, 'Use original name', { val: esc(a.orig), run: () => { const n = store.get('names', {}); delete n[pkg]; store.set('names', n); popOverlay(true); reloadApps(); } }) : null,
           PC ? paneRow(pane, pkg.startsWith('steam:') ? 'Show in Steam' : 'Open install folder', { val: '<span class="chev">›</span>', run: () => nb('appInfo', pkg) })
@@ -2353,7 +2415,7 @@ function appOptions(pkg, start) {
         const x = playStats()[pkg];
         if (!x) { pane.appendChild(el('div', 'empty paneEmpty', 'Not played from NSXL yet.')); return []; }
         const box = el('div', 'swPlay');
-        box.innerHTML = `<div class="pStat"><b>${esc(fmtPlayShort(x.ms))}</b><span>Play time</span></div><div class="pStat"><b>${x.n || 1}</b><span>${(x.n || 1) === 1 ? 'Session' : 'Sessions'}</span></div><div class="pStat"><b>${esc(ago(x.last))}</b><span>Last played</span></div>`;
+        box.innerHTML = `<div class="pStat"><b>${esc(fmtPlayTiny(x.ms))}</b><span>Play time</span></div><div class="pStat"><b>${x.n || 1}</b><span>${(x.n || 1) === 1 ? 'Session' : 'Sessions'}</span></div><div class="pStat"><b>${esc(ago(x.last))}</b><span>Last played</span></div>`;
         pane.appendChild(box);
         return [paneRow(pane, 'Reset play activity for this game', { danger: true, run: () => { nb('playReset', pkg); toast('Play time cleared'); sheet.refresh(); } })];
       } },
@@ -2771,10 +2833,10 @@ function openAll(opts) {
   const ov = el('section', 'ov full');
   ov.innerHTML = `<div class="ovTitle">${svg('grid')}<span>${esc(opts.title || 'All Software')}</span></div>
     <div class="ovRule"></div><div class="ovRule bottom"></div>
-    <div class="tabs">${glyph('l')}<span class="t" data-t="games">Games</span><span class="t" data-t="all">All Apps</span>${PC && !opts.mode ? '<span class="t" data-t="folders">Folders</span>' : ''}${glyph('r')}</div>
+    <div class="tabs">${glyph('l')}<span class="t" data-t="games">Games</span><span class="t" data-t="all">All Apps</span>${!opts.mode ? '<span class="t" data-t="folders">Folders</span>' : ''}${glyph('r')}</div>
     <div class="grid"></div>`;
   const grid = $('.grid', ov);
-  const TABS = PC && !opts.mode ? ['games', 'all', 'folders'] : ['games', 'all'];
+  const TABS = !opts.mode ? ['games', 'all', 'folders'] : ['games', 'all'];
   const multi = opts.mode === 'multi';
   let tab = opts.mode && !multi ? 'all' : (opts.tab || (APPS.some(isGameish) ? 'games' : 'all'));
   let list = [], cells = [], sel = 0, still = false;
@@ -2894,7 +2956,7 @@ function openAll(opts) {
   build();
 }
 
-/* ---------- folders (PC): group games, pin a folder to Home, choose the order inside ---------- */
+/* ---------- folders: group games, pin a folder to Home, choose the order inside ---------- */
 const FOLDER_SORTS = [['custom', 'Your order'], ['az', 'Name (A–Z)'], ['za', 'Name (Z–A)'], ['recent', 'Recently played'], ['most', 'Most played']];
 const folders = () => store.get('folders', []);
 const folderBy = id => folders().find(f => f.id === id);
@@ -3296,7 +3358,7 @@ function openSettings(startCat) {
       return e;
     }
     const desc = typeof r.desc === 'function' ? r.desc() : r.desc;
-    e.innerHTML = `<span class="lbl">${esc(r.label)}${desc ? `<span class="desc">${esc(desc)}</span>` : ''}</span><span class="val"></span>`;
+    e.innerHTML = `<span class="lbl"><span>${esc(r.label)}${desc ? `<span class="desc">${esc(desc)}</span>` : ''}</span></span><span class="val"></span>`;
     fillVal(r, $('.val', e));
     onPress(e, ev => {
       row = i; focus = 'pane'; paint();
@@ -3434,7 +3496,7 @@ function updateStatus() {
    ========================================================= */
 let toastT = 0;
 function showToast(msg, ms) {
-  const t = $('#toast'); if (!t.classList.contains('show') || t.textContent !== msg) Snd.toast(); t.textContent = msg; t.classList.add('show');
+  const t = $('#toast'); if (!t.classList.contains('show') || t.dataset.msg !== msg) Snd.toast(); t.dataset.msg = msg; t.innerHTML = '<span>' + esc(msg) + '</span>'; t.classList.add('show');
   clearTimeout(toastT); toastT = setTimeout(hideToast, ms || 2200);
 }
 function hideToast() { $('#toast').classList.remove('show'); }
