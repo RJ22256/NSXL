@@ -13,7 +13,7 @@ Big game tiles, a round-button dock, a glowing selection ring, play time, news, 
 ![Android 8.0+](https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white)
 ![Controller ready](https://img.shields.io/badge/controller-ready-7b8cff)
 
-**[⬇ Download the latest APK](https://github.com/RJ22256/NSXL/releases/latest)**
+**[⬇ Android APK](https://github.com/RJ22256/NSXL/releases/latest)** · **[⬇ Windows](https://github.com/RJ22256/NSXL/releases?q=pc-v&expanded=true)**
 
 <img src="docs/home-white.png" alt="NSXL home screen with a row of game tiles and a dock of round buttons" width="860">
 
@@ -73,11 +73,21 @@ Big game tiles, a round-button dock, a glowing selection ring, play time, news, 
 </tr>
 </table>
 
+## NSXL for Windows
+
+The same home screen for your PC games, in [`pc/`](pc). It finds your **Steam** and **Epic Games** games by itself, lets you add any other game or app, and launches each one through the right store. It works with Xbox, PlayStation and Switch Pro controllers, or a keyboard and mouse.
+
+Download it from [**Releases**](https://github.com/RJ22256/NSXL/releases?q=pc-v&expanded=true): pick **NSXL-Setup** to install it, or **NSXL-Portable** to run it without installing. Windows releases are tagged `pc-v…`. Every change also builds one under [**Actions**](https://github.com/RJ22256/NSXL/actions/workflows/pc.yml) › latest run › **Artifacts**.
+
+To run it from source: `cd pc && npm install && npm start`.
+
 ## Install
 
 1. Go to [**Releases**](https://github.com/RJ22256/NSXL/releases/latest) and download **NSXL-vX.Y.Z.apk** on your device.
 2. Open it. If Android asks, allow your browser or file manager to install apps.
 3. Open NSXL and choose **Set as Home**, so the Home button always brings you back to it.
+
+**Android:** the steps above. **Windows:** see [NSXL for Windows](#nsxl-for-windows).
 
 **Updating:** install a newer release the same way. It replaces the old one and keeps your settings, covers, play time and wallpaper.
 

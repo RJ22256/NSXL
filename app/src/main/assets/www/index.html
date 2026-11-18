@@ -366,6 +366,11 @@ body.swOpen #top, body.swOpen #foot { opacity: 0; pointer-events: none; transiti
 .swFoot { position: absolute; left: calc(var(--u) * 3); right: calc(var(--u) * 3); bottom: 0; height: calc(var(--u) * 7.4); border-top: 1px solid var(--line);
   display: flex; align-items: center; justify-content: flex-end; gap: calc(var(--u) * 2.6); font-size: calc(var(--u) * 1.65); padding-right: calc(var(--u) * 1); }
 html.touchmode .swFoot .hint { padding: calc(var(--u) * .55) calc(var(--u) * 1.5); border-radius: 999px; background: var(--slot); }
+/* PC: a game with no art shows its own icon on its colour tile */
+.clip img.icoArt { object-fit: contain !important; padding: 26%; box-sizing: border-box; filter: drop-shadow(0 4px 10px rgba(0,0,0,.3)); }
+#pcWall { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -2; display: none; transform: scale(1.04); }
+html.pc[data-theme=video] #pcWall { display: block; }
+html.noBattery #bat, html.noBattery #batPct { display: none; }
 /* button icons */
 .btn .gs { width: 78%; height: 78%; fill: none; stroke: currentColor; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .btn.wide { width: auto; min-width: calc(var(--u) * 2.25); padding: 0 calc(var(--u) * .55); border-radius: calc(var(--u) * .6); font-size: calc(var(--u) * 1.05); letter-spacing: .02em; box-sizing: border-box; }
@@ -887,6 +892,8 @@ function nb(name, ...args) {
   try { if (B && typeof B[name] === 'function') return B[name](...args); } catch (e) { console.warn('bridge', name, e); }
   return undefined;
 }
+/** True in the Windows app (pc/), which answers the same bridge calls. */
+const PC = NATIVE && nb('platform') === 'pc';
 
 /* =========================================================
    Sound + haptics (synthesised, no audio files)
@@ -1118,7 +1125,10 @@ function artBox(pkg, size, box) {
   const img = el('img'); img.alt = ''; img.decoding = 'async';
   img.dataset.pkg = pkg; img.dataset.s = size;
   img.onload = () => { fb.style.visibility = 'hidden'; };
-  img.onerror = () => { img.style.visibility = 'hidden'; fb.style.visibility = 'visible'; };
+  img.onerror = () => {
+    if (PC && !img.dataset.ico) { img.dataset.ico = '1'; img.classList.add('icoArt'); fb.textContent = ''; img.onload = null; img.src = '/icon/' + encodeURIComponent(pkg); return; }
+    img.style.visibility = 'hidden'; fb.style.visibility = 'visible'; if (img.dataset.ico) fb.textContent = (a.label || '?').trim().charAt(0).toUpperCase();
+  };
   img.src = artUrl(pkg, size);
   clip.appendChild(img);
 }
@@ -2135,6 +2145,11 @@ function appOptions(pkg, start) {
     headNode: wrap,
     cats: [
       { name: 'Software Update', build(pane) {
+        if (PC) {
+          const src = pkg.startsWith('steam:') ? 'Steam' : pkg.startsWith('epic:') ? 'Epic Games' : '';
+          pane.appendChild(el('div', 'paneNote', src ? src + ' keeps this game up to date. Open it there to check for updates.' : 'Update this game the same way you installed it.'));
+          return src ? [paneRow(pane, 'Via ' + src, { desc: 'Opens this game in ' + src + '.', val: '<span class="chev">›</span>', run: () => nb('storePage', pkg) })] : [];
+        }
         const r = [paneRow(pane, 'Via Google Play', { desc: 'Opens this game in the Play Store, where you can update it.', val: '<span class="chev">›</span>',
           run: () => nb('openUrl', 'https://play.google.com/store/apps/details?id=' + encodeURIComponent(pkg), 'com.android.vending') })];
         pane.appendChild(el('div', 'paneNote', 'Android keeps games up to date through the Play Store. Updates for games installed some other way come from wherever you got them.'));
@@ -2147,14 +2162,16 @@ function appOptions(pkg, start) {
                  : paneRow(pane, 'Add to Home', { run: () => { setOnHome(pkg, true); toast('Added to Home'); sheet.refresh(); } }),
           paneRow(pane, 'Rename', { val: esc(a.label), run: () => { popOverlay(true); renameApp(pkg); } }),
           a.label !== a.orig ? paneRow(pane, 'Use original name', { val: esc(a.orig), run: () => { const n = store.get('names', {}); delete n[pkg]; store.set('names', n); popOverlay(true); reloadApps(); } }) : null,
-          paneRow(pane, 'App info', { desc: 'Storage, permissions and notifications in Android.', val: '<span class="chev">›</span>', run: () => nb('appInfo', pkg) }),
-          paneRow(pane, 'Uninstall', { danger: true, run: () => nb('uninstall', pkg) }),
+          PC ? paneRow(pane, pkg.startsWith('steam:') ? 'Show in Steam' : 'Open install folder', { val: '<span class="chev">›</span>', run: () => nb('appInfo', pkg) })
+             : paneRow(pane, 'App info', { desc: 'Storage, permissions and notifications in Android.', val: '<span class="chev">›</span>', run: () => nb('appInfo', pkg) }),
+          PC && pkg.startsWith('exe:') ? paneRow(pane, 'Remove from NSXL', { desc: 'Takes it off NSXL. Nothing is deleted from your PC.', danger: true, run: () => { popOverlay(true); nb('uninstall', pkg); } })
+             : paneRow(pane, 'Uninstall', { danger: true, run: () => nb('uninstall', pkg) }),
         ];
       } },
       { name: 'Cover Art', build(pane) {
         return [
           paneRow(pane, 'Find on SteamGridDB', { desc: 'Pick from community-made tile art.', run: () => { popOverlay(true); sgdbFind(pkg); } }),
-          paneRow(pane, 'Use a picture', { desc: 'Any image from your phone.', run: () => nb('pickCover', pkg) }),
+          paneRow(pane, 'Use a picture', { desc: PC ? 'Any image on your PC.' : 'Any image from your phone.', run: () => nb('pickCover', pkg) }),
           paneRow(pane, 'Use a screenshot', { desc: 'Choose one from your Album.', run: () => { popOverlay(true); openAlbum(); toast('Pick a screenshot, then Options › Use as tile'); } }),
           a.cover ? paneRow(pane, 'Reset cover art', { run: () => { nb('removeCover', pkg); a.cover = false; bumpCover(pkg); toast('Cover reset'); sheet.refresh(); } }) : null,
         ];
@@ -2712,6 +2729,7 @@ function applyTheme() {
   nb('setMode', t === 'white' ? 'light' : t);
   if (t === 'video') nb('setVideoBlur', cfg.blur | 0);
   if (!NATIVE) $('#fakeVideo').style.display = t === 'video' ? 'block' : 'none';
+  if (PC) pcWallpaper(t === 'video');
 }
 function setTheme(t) {
   if (t === 'video' && !hasVideo()) { toast('Choose a video file for your live wallpaper'); nb('pickVideo'); return; }
@@ -3017,6 +3035,7 @@ function updateClock() {
 function updateStatus() {
   let st = {};
   try { st = JSON.parse(nb('getStatus') || '{}'); } catch (e) {}
+  if (PC) st = pcStatus(st);
   sys24 = !!st.time24;
   const lvl = st.battery == null ? 100 : st.battery;
   const bat = $('#bat');
@@ -3086,7 +3105,7 @@ window.onHome = () => {
 };
 window.onAppsChanged = () => { loadApps(); renderRow(); refreshOverlays(); };
 
-if (!NATIVE) {  // keyboard controls for the browser preview
+if (!NATIVE || PC) {  // keyboard controls (browser preview and PC)
   const K = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', ' ': 'a',
               Escape: 'b', Backspace: 'b', '+': 'plus', '=': 'plus', '-': 'minus', x: 'x', y: 'y', q: 'l', e: 'r' };
   document.addEventListener('keydown', ev => { if (ev.target && ev.target.tagName === 'INPUT') return; const b = K[ev.key]; if (b) { ev.preventDefault(); window.onPad(b, ev.repeat); } });
@@ -3200,6 +3219,109 @@ function mockArt(pkg) {
 /* =========================================================
    Boot
    ========================================================= */
+/* =========================================================
+   Windows (pc/): controllers through the Gamepad API, the live
+   wallpaper as a <video>, and Windows menus and settings
+   ========================================================= */
+function pcWallpaper(on) {
+  let v = $('#pcWall');
+  if (!v) { v = document.createElement('video'); v.id = 'pcWall'; v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('aria-hidden', 'true'); document.body.prepend(v); }
+  v.style.filter = cfg.blur ? 'blur(' + (cfg.blur | 0) + 'px)' : '';
+  const src = '/wallpaper?v=' + (nb('videoVersion') || 0);
+  if (on) { if (v.getAttribute('src') !== src) v.src = src; v.play().catch(() => {}); } else v.pause();
+}
+let pcBattery = null;
+function pcStatus(st) {
+  const b = pcBattery;
+  const desktop = !b || (b.charging && b.level === 1 && b.chargingTime === 0);
+  if (!desktop) { st.battery = Math.round(b.level * 100); st.charging = b.charging; }
+  st.pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean).length : 0;
+  document.documentElement.classList.toggle('noBattery', desktop);
+  return st;
+}
+function pcControllers() {
+  const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+  openMenu(pads.length ? pads.length + (pads.length === 1 ? ' controller connected' : ' controllers connected') : 'No controllers connected', [
+    ...pads.map(p => ({ label: p.id.replace(/\s*\(.*?\)\s*/g, ' ').trim() || 'Controller', run: () => { try { p.vibrationActuator && p.vibrationActuator.playEffect('dual-rumble', { duration: 300, strongMagnitude: .8, weakMagnitude: .6 }); } catch (e) {} } })),
+    { label: 'Pair a Bluetooth controller…', run: () => nb('openSettings', 'bluetooth') },
+    { label: 'Windows game controller settings…', run: () => nb('openSettings', 'joy') },
+  ]);
+}
+function pcPower() {
+  const sure = (title, msg, kind) => openDialog(title, msg, [{ label: 'Cancel', cancel: true }, { label: title.replace('?', ''), primary: true, run: () => nb('power', kind) }]);
+  openMenu('Power', [
+    { label: 'Sleep', run: () => nb('power', 'sleep') },
+    { label: 'Exit to desktop', run: () => nb('power', 'minimize') },
+    { label: 'Restart NSXL', run: () => nb('reload') },
+    { label: 'Quit NSXL', run: () => nb('power', 'quit') },
+    { label: 'Restart PC', run: () => sure('Restart PC?', 'Your PC restarts straight away. Save anything open first.', 'restart') },
+    { label: 'Shut down', run: () => sure('Shut down?', 'Your PC turns off straight away. Save anything open first.', 'shutdown') },
+  ]);
+}
+if (PC) {
+  document.documentElement.classList.add('pc');
+  cfg.entTab = false;   // streaming apps are an Android thing
+  openPower = pcPower;
+  openControllers = pcControllers;
+  const st = DOCK_ALL.find(d => d.id === 'store'); if (st) { st.label = 'Steam Store'; }
+  const web = DOCK_ALL.find(d => d.id === 'web'); if (web) web.run = () => nb('openBrowser', '');
+  if (navigator.getBattery) navigator.getBattery().then(b => { pcBattery = b; ['levelchange', 'chargingchange'].forEach(e => b.addEventListener(e, updateStatus)); updateStatus(); }).catch(() => {});
+
+  // Settings: drop the Android-only parts, add Library and Windows options
+  const dropCats = new Set(['In-Game Menu', 'Cloud Save', 'Entertainment']);
+  for (let i = SETTINGS.length - 1; i >= 0; i--) if (dropCats.has(SETTINGS[i].name)) SETTINGS.splice(i, 1);
+  const dropRows = new Set(['Entertainment', 'Vibration', 'Screen orientation', 'Hide status & navigation bars', 'Android settings', 'Home app', 'Wake animation', 'Fetch covers for my streaming apps']);
+  SETTINGS.forEach(c => { const f = c.rows; c.rows = () => (f() || []).filter(r => !r || !dropRows.has(r.label)); });
+  const lib = () => { try { return JSON.parse(nb('libraryInfo') || '{}'); } catch (e) { return {}; } };
+  const games = n => (n || 0) + ((n || 0) === 1 ? ' game' : ' games');
+  SETTINGS.splice(1, 0, { name: 'Library', rows: () => { const L = lib(); return [
+    { type: 'action', label: 'Add a game or app', desc: 'Pick an .exe, a shortcut, or an internet shortcut (like steam://). It joins your games.', value: () => 'Add', run: () => nb('addGame') },
+    { type: 'action', label: 'Look for new games', desc: 'Checks Steam and the Epic Games Launcher again.', value: () => 'Scan', run: () => { nb('rescan'); toast('Library updated'); refreshOverlays(); } },
+    { type: 'info', label: 'Steam', value: () => L.steamFound ? games(L.steam) : 'Not found' },
+    { type: 'info', label: 'Epic Games', value: () => games(L.epic) },
+    { type: 'info', label: 'Added by you', value: () => games(L.custom) },
+  ]; } });
+  const sys = SETTINGS.find(c => c.name === 'System');
+  if (sys) sys.rows = () => [
+    { type: 'toggle', label: 'Start NSXL with Windows', desc: 'Opens NSXL when you sign in, like a console.', key: '_autostart', get: () => !!nb('autoStart'), set: v => nb('setAutoStart', v) },
+    { type: 'toggle', label: 'Full screen', desc: 'F11 also switches it.', key: '_full', get: () => !!nb('isFullscreen'), set: v => nb('setFullscreen', v) },
+    { type: 'action', label: 'Windows settings', value: () => '', run: () => nb('openSettings', 'system') },
+    { type: 'info', label: 'Version', value: () => 'NSXL for Windows ' + (nb('version') || '') },
+  ];
+
+  // Controllers: read through the Gamepad API (standard mapping), only while NSXL has focus
+  const MAP = { 0: 'a', 1: 'b', 2: 'x', 3: 'y', 4: 'l', 5: 'r', 8: 'minus', 9: 'plus', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 16: 'home' };
+  const famOf = id => /054c|dualsense|dualshock|playstation|wireless controller/i.test(id) ? 'ps' : /057e|pro controller|joy-con|nintendo/i.test(id) ? 'nintendo' : /xbox|xinput|045e/i.test(id) ? 'xbox' : 'generic';
+  const held = {}, next = {};
+  let lastId = '';
+  const fire = (b, rep) => {
+    if (b === 'home') { if (!rep && window.onHome) window.onHome(); return; }
+    if (cfg.swapAB) b = { a: 'b', b: 'a', x: 'y', y: 'x' }[b] || b;
+    window.onPad(b, rep);
+  };
+  (function poll() {
+    requestAnimationFrame(poll);
+    if (!document.hasFocus()) { for (const k in held) delete held[k]; return; }
+    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+    const now = performance.now(), down = {};
+    for (const p of pads) {
+      p.buttons.forEach((bt, i) => { const b = MAP[i]; if (b && (bt.pressed || bt.value > .5)) down[b] = p; });
+      const x = p.axes[0] || 0, y = p.axes[1] || 0;
+      if (x < -.55) down.left = p; else if (x > .55) down.right = p;
+      if (y < -.55) down.up = p; else if (y > .55) down.down = p;
+    }
+    for (const b in down) {
+      const p = down[b];
+      if (p.id !== lastId) { lastId = p.id; window.onPadKind(famOf(p.id)); }
+      if (!held[b]) { held[b] = true; next[b] = now + 380; fire(b, false); }
+      else if (/^(up|down|left|right)$/.test(b) && now >= next[b]) { next[b] = now + 85; fire(b, true); }
+    }
+    for (const b in held) if (!down[b]) delete held[b];
+  })();
+  window.addEventListener('gamepadconnected', updateStatus);
+  window.addEventListener('gamepaddisconnected', updateStatus);
+}
+
 function boot() {
   $('#padInd .padIcon').innerHTML = svg('pad');
   onPress($('#avatar'), () => {
