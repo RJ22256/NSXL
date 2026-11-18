@@ -174,10 +174,9 @@ async function music(withArt) {
 
 // ------------------------------------------------------------------ the quick menu (over games)
 
-let overlayWin = null, overlayGame = null;
+let overlayWin = null, overlayGame = null, overlayFocused = false, xinputPads = 0, menuShortcut = '';
 function overlayOpen() {
   if (overlayWin && overlayWin.isVisible()) { overlayClose(); return; }
-  if (win && win.isFocused() && !process.argv.includes('--smoke')) return;   // on NSXL Home already: its own menus are there
   native.call('fg.get', {}, 3000).catch(() => null).then(fg => {
     overlayGame = fg && fg.pid && fg.pid !== process.pid && !/^(NSXL|electron)$/i.test(fg.name || '') ? fg : overlayGame;
     const { screen } = require('electron');
@@ -190,7 +189,8 @@ function overlayOpen() {
       });
       overlayWin.setAlwaysOnTop(true, 'screen-saver');
       overlayWin.loadURL('nsxl://app/overlay.html');
-      overlayWin.on('blur', () => { if (overlayWin && overlayWin.isVisible()) overlayClose(); });
+      overlayWin.on('focus', () => { overlayFocused = true; });
+      overlayWin.on('blur', () => { if (overlayFocused && overlayWin && overlayWin.isVisible()) overlayClose(); });
       overlayWin.webContents.once('did-finish-load', () => { overlayWin.show(); grabFocus(); overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {}); });
       return;
     }
@@ -200,12 +200,15 @@ function overlayOpen() {
   });
 }
 function grabFocus() {
+  overlayFocused = false;
   overlayWin.focus();
   const h = overlayWin.getNativeWindowHandle();
   const hwnd = h.length >= 8 ? Number(h.readBigUInt64LE(0)) : h.readUInt32LE(0);
   if (!overlayWin.isFocused()) native.call('fg.set', { hwnd }, 3000).catch(() => {});
+  // if Windows still won't hand over focus, the menu reads the controller anyway
+  setTimeout(() => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.executeJavaScript(`window.forcePads=${!overlayWin.isFocused()}`).catch(() => {}); }, 600);
 }
-function overlayClose() { if (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible()) overlayWin.hide(); }
+function overlayClose() { overlayFocused = false; if (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible()) overlayWin.hide(); }
 function bringHome() {
   overlayClose();
   if (!win) return;
@@ -216,7 +219,7 @@ native.on('pad', m => {
   const want = prefs.get('menuButton', 'viewmenu');
   if (m.combo === want || (want === 'both' && (m.combo === 'guide' || m.combo === 'viewmenu'))) overlayOpen();
 });
-native.on('pads', () => js('window.updateStatus&&updateStatus()'));
+native.on('pads', m => { xinputPads = (m && m.count) || 0; js('window.updateStatus&&updateStatus()'); });
 
 async function screenshot() {
   overlayClose();
@@ -464,6 +467,7 @@ const H = {
   hideHandle: () => {}, stopOverlay: () => {}, requestWriteSettings: () => {},
   menuButton: () => prefs.get('menuButton', 'viewmenu'),
   setMenuButton: (v) => prefs.set('menuButton', v),
+  menuInfo: () => JSON.stringify({ shortcut: menuShortcut, xinput: xinputPads }),
 
   // music
   musicState: async (id, withArt) => { try { done(id, await music(withArt)); } catch (e) { fail(id, e); } },
@@ -491,7 +495,7 @@ const H = {
   spotifyLogout: () => spotify.logout(),
 
   // VPN (Private Internet Access)
-  vpnState: () => { pia.refresh().catch(() => {}); return JSON.stringify(pia.state); },
+  vpnState: () => JSON.stringify(pia.state),   // cached: never refresh here, the page calls this on every redraw
   vpnSet: async (id, on) => { try { on ? await pia.connect() : await pia.disconnect(); done(id, true); } catch (e) { fail(id, e); } },
   vpnRegion: async (id, r) => { try { await pia.setRegion(r); await pia.refresh(); done(id, true); } catch (e) { fail(id, e); } },
   vpnAuto: () => !!prefs.get('vpnOnStart', false),
@@ -729,7 +733,10 @@ app.whenReady().then(() => {
   pia.refresh().then(() => { if (prefs.get('vpnOnStart', false) && pia.state.connection !== 'Connected') pia.connect().catch(() => {}); }).catch(() => {});
   fseCheck();
   const { globalShortcut } = require('electron');
-  try { globalShortcut.register('Control+Alt+Space', overlayOpen); } catch (e) { }
+  // first shortcut Windows lets us have
+  for (const k of ['Control+Alt+Space', 'Control+Shift+Space', 'Alt+F1']) {
+    try { if (globalShortcut.register(k, overlayOpen)) { menuShortcut = k.replace(/Control/g, 'Ctrl').replace(/\+/g, '+'); break; } } catch (e) { }
+  }
   powerMonitor.on('resume', () => js('window.onWake&&window.onWake()'));
 });
 

@@ -423,10 +423,29 @@ namespace Nsxl.Native
     internal static class Pads
     {
         [StructLayout(LayoutKind.Sequential)]
-        struct XInputState { public uint Packet; public ushort Buttons; public byte LT, RT; public short LX, LY, RX, RY; }
+        // The Ex call writes one extra DWORD past the normal XINPUT_STATE, so the struct carries room for it.
+        struct XInputState { public uint Packet; public ushort Buttons; public byte LT, RT; public short LX, LY, RX, RY; public uint Extra; }
 
         // Ordinal 100 is XInputGetStateEx, the only way to read the Guide (Xbox) button.
         [DllImport("xinput1_4.dll", EntryPoint = "#100")] static extern int XInputGetStateEx(int i, out XInputState s);
+        [DllImport("xinput1_4.dll", EntryPoint = "XInputGetState")] static extern int XInputGetState14(int i, out XInputState s);
+        [DllImport("xinput9_1_0.dll", EntryPoint = "XInputGetState")] static extern int XInputGetState910(int i, out XInputState s);
+        static int mode = 0;   // 0 = Ex (with Guide), 1 = plain xinput1_4, 2 = xinput9_1_0, 3 = none
+        static int Get(int i, out XInputState s)
+        {
+            s = default(XInputState);
+            while (mode < 3)
+            {
+                try
+                {
+                    if (mode == 0) return XInputGetStateEx(i, out s);
+                    if (mode == 1) return XInputGetState14(i, out s);
+                    return XInputGetState910(i, out s);
+                }
+                catch { mode++; }
+            }
+            return 1167;   // ERROR_DEVICE_NOT_CONNECTED
+        }
 
         const ushort BtnStart = 0x0010, BtnBack = 0x0020, BtnGuide = 0x0400;
 
@@ -446,7 +465,7 @@ namespace Nsxl.Native
                 {
                     XInputState s;
                     bool on;
-                    try { on = XInputGetStateEx(i, out s) == 0; } catch { return; }   // no XInput on this PC
+                    on = Get(i, out s) == 0;
                     if (on != connected[i]) { connected[i] = on; Program.Event("pads", new Dictionary<string, object> { { "count", connected.Count(c => c) } }); }
                     if (!on) { last[i] = 0; continue; }
                     ushort b = s.Buttons, was = last[i];
@@ -455,6 +474,7 @@ namespace Nsxl.Native
                     if (combo && !wasCombo) Program.Event("pad", new Dictionary<string, object> { { "combo", "viewmenu" } });
                     last[i] = b;
                 }
+                if (mode >= 3) return;   // no XInput on this PC
                 Thread.Sleep(connected.Any(c => c) ? 30 : 500);
             }
         }
