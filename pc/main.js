@@ -464,6 +464,8 @@ app.on('web-contents-created', (e, contents) => {
     if (!/^(https?:|nsxl:\/\/app\/browser\/|about:blank)/.test(params.src || '')) ev.preventDefault();
   });
   if (contents.getType() !== 'webview') return;
+  contents.on('did-fail-load', (ev, code, desc, url, main) => { if (main) console.log('NSXL Web: failed to load', url, code, desc); });
+  contents.on('did-finish-load', () => console.log('NSXL Web: loaded', contents.getURL()));
   contents.setWindowOpenHandler(({ url }) => { if (/^https?:/.test(url)) contents.loadURL(url); else shell.openExternal(url).catch(() => {}); return { action: 'deny' }; });
   contents.on('will-navigate', (ev, url) => { if (!/^(https?:|nsxl:\/\/app\/browser\/|about:)/.test(url)) { ev.preventDefault(); shell.openExternal(url).catch(() => {}); } });
 });
