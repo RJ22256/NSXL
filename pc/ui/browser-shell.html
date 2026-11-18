@@ -65,7 +65,6 @@ body.full #bar, body.full #hints { display: none; }
 </div>
 <div id="page">
   <div id="progress"></div>
-  <webview id="wv" partition="persist:browser" src="about:blank"></webview>
 </div>
 <div id="hints"></div>
 <div id="cursor"></div>
@@ -75,7 +74,14 @@ body.full #bar, body.full #hints { display: none; }
 'use strict';
 const START = 'nsxl://app/browser/start.html';
 const $ = s => document.querySelector(s);
-const wv = $('#wv'), addr = $('#addr');
+// The page view is created with its first address already set (changing src before it attaches is ignored).
+const first = new URLSearchParams(location.search).get('u');
+const wv = document.createElement('webview');
+wv.id = 'wv';
+wv.setAttribute('partition', 'persist:browser');
+wv.setAttribute('src', first && /^https:\/\//.test(first) ? first : 'nsxl://app/browser/start.html');
+document.getElementById('page').appendChild(wv);
+const addr = $('#addr');
 const store = { get: (k, d) => { try { const v = localStorage.getItem('ch.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set: (k, v) => localStorage.setItem('ch.' + k, JSON.stringify(v)) };
 const cfg = store.get('cfg', {});
 document.documentElement.classList.toggle('light', cfg.theme === 'white' || !cfg.theme);
@@ -273,8 +279,6 @@ NSXLB.onFocus(f => { focused = f; if (!f) for (const k in held) delete held[k]; 
 // ------------------------------------------------------------------ start
 drawHints();
 setPad(new URLSearchParams(location.search).get('pad') === '1');
-const first = new URLSearchParams(location.search).get('u');
-wv.src = first && /^https:\/\//.test(first) ? first : START;
 </script>
 </body>
 </html>
