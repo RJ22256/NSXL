@@ -47,7 +47,7 @@ jobs:
         if: always()
         with:
           name: smoke-screenshot
-          path: pc/smoke.png
+          path: pc/smoke*.png
           if-no-files-found: ignore
 
       - name: Build installer and portable app

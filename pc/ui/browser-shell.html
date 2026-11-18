@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>NSXL Web</title>
+<style>
+@font-face { font-family: Montserrat; src: url(/fonts/Montserrat.ttf); font-weight: 100 900; }
+:root { --bg: #15151b; --fg: #f2f2f5; --fg2: #9a9aa6; --pill: #26262f; --hover: rgba(255,255,255,.08); --accent: #3d7bff; --chip: #f2f2f5; --chipFg: #15151b; }
+html.light { --bg: #ebebeb; --fg: #1d1d1d; --fg2: #6a6a72; --pill: #ffffff; --hover: rgba(0,0,0,.06); --accent: #1f5fd6; --chip: #2a2a30; --chipFg: #fff; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg); font-family: Montserrat, system-ui, sans-serif; user-select: none; }
+body { display: flex; flex-direction: column; animation: rise .34s cubic-bezier(.2,.8,.2,1) both; }
+body.leaving { animation: drop .22s cubic-bezier(.5,0,.9,.5) both; }
+@keyframes rise { from { opacity: 0; transform: translateY(6%) scale(.97); } }
+@keyframes drop { to { opacity: 0; transform: translateY(5%) scale(.97); } }
+
+#bar { flex: none; display: flex; align-items: center; gap: 4px; padding: 8px 12px; }
+#bar button { flex: none; width: 42px; height: 42px; border: 0; border-radius: 50%; background: transparent; color: var(--fg); display: grid; place-items: center; cursor: pointer; transition: background .15s, opacity .15s; }
+#bar button:hover, #bar button.hot { background: var(--hover); }
+#bar button:disabled { opacity: .35; cursor: default; }
+#bar svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#star.on svg { fill: var(--accent); stroke: var(--accent); }
+#addr { flex: 1; min-width: 0; height: 40px; margin: 0 8px; padding: 0 18px; border: 0; outline: 0; border-radius: 20px; background: var(--pill); color: var(--fg); font: 500 14px Montserrat, system-ui, sans-serif; }
+#addr:focus { box-shadow: 0 0 0 2px var(--accent); }
+#addr::placeholder { color: var(--fg2); }
+
+#page { position: relative; flex: 1; min-height: 0; }
+webview { position: absolute; inset: 0; width: 100%; height: 100%; }
+#progress { position: absolute; left: 0; top: 0; height: 3px; width: 100%; z-index: 2; transform-origin: left; transform: scaleX(0); opacity: 0;
+  background: linear-gradient(90deg, #2f6dff, #c6a6ff, #ffbfe8, #63a0ff); transition: transform .2s, opacity .3s; }
+
+#hints { flex: none; display: none; justify-content: flex-end; align-items: center; gap: 18px; padding: 6px 18px 8px; font-size: 12px; color: var(--fg2); }
+html.pad #hints { display: flex; }
+#hints .h { display: flex; align-items: center; gap: 6px; }
+#hints i { min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--chip); color: var(--chipFg); font: 700 11px/20px Montserrat, sans-serif; font-style: normal; text-align: center; }
+
+#cursor { position: fixed; left: 0; top: 0; width: 22px; height: 22px; margin: -11px 0 0 -11px; z-index: 50; pointer-events: none; display: none;
+  border-radius: 50%; background: rgba(255,255,255,.85); border: 3px solid var(--accent); box-shadow: 0 2px 10px rgba(0,0,0,.4); transition: transform .08s; }
+#cursor.on { display: block; }
+#cursor.press { transform: scale(.75); }
+
+#menu { position: fixed; inset: 0; z-index: 40; display: none; place-items: center; background: rgba(0,0,0,.45); }
+#menu.on { display: grid; }
+#menu .box { width: min(420px, 90vw); padding: 10px; border-radius: 16px; background: var(--bg); box-shadow: 0 20px 60px rgba(0,0,0,.5); animation: rise .2s cubic-bezier(.2,.8,.2,1) both; }
+#menu .t { padding: 10px 14px 8px; font-size: 13px; color: var(--fg2); }
+#menu button { display: block; width: 100%; padding: 12px 14px; border: 0; border-radius: 10px; background: transparent; color: var(--fg); font: 500 15px Montserrat, sans-serif; text-align: left; cursor: pointer; }
+#menu button.sel, #menu button:hover { background: var(--hover); box-shadow: inset 0 0 0 2px var(--accent); }
+
+#toast { position: fixed; left: 50%; bottom: 46px; transform: translate(-50%, 20px); z-index: 60; padding: 10px 18px; border-radius: 999px; background: var(--pill); color: var(--fg);
+  font-size: 13px; box-shadow: 0 6px 20px rgba(0,0,0,.35); opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; }
+#toast.on { opacity: 1; transform: translate(-50%, 0); }
+body.full #bar, body.full #hints { display: none; }
+</style>
+</head>
+<body>
+<div id="bar">
+  <button id="back" title="Back (Alt+Left)" aria-label="Back"><svg viewBox="0 0 24 24"><path d="M14.5 5.5L8 12l6.5 6.5"/></svg></button>
+  <button id="fwd" title="Forward (Alt+Right)" aria-label="Forward"><svg viewBox="0 0 24 24"><path d="M9.5 5.5L16 12l-6.5 6.5"/></svg></button>
+  <button id="reload" title="Reload (F5)" aria-label="Reload"><svg viewBox="0 0 24 24"><path d="M18.5 8.5A7 7 0 1 0 19 13.5M19 4.5v4.3h-4.3"/></svg></button>
+  <input id="addr" type="text" spellcheck="false" placeholder="Search or type an address" aria-label="Address">
+  <button id="star" title="Bookmark (Ctrl+D)" aria-label="Bookmark"><svg viewBox="0 0 24 24"><path d="M12 4.2l2.3 4.8 5.2.6-3.9 3.5 1.1 5.2-4.7-2.6-4.7 2.6 1.1-5.2-3.9-3.5 5.2-.6z"/></svg></button>
+  <button id="home" title="Start page" aria-label="Start page"><svg viewBox="0 0 24 24"><path d="M4.5 11L12 4.8l7.5 6.2M6.5 9.5V19H10v-4.5h4V19h3.5V9.5"/></svg></button>
+  <button id="more" title="Menu" aria-label="Menu"><svg viewBox="0 0 24 24"><path d="M5 12h.01M12 12h.01M19 12h.01" stroke-width="3"/></svg></button>
+  <button id="close" title="Close browser" aria-label="Close browser"><svg viewBox="0 0 24 24"><path d="M7 7l10 10M17 7L7 17"/></svg></button>
+</div>
+<div id="page">
+  <div id="progress"></div>
+  <webview id="wv" partition="persist:browser" src="about:blank"></webview>
+</div>
+<div id="hints"></div>
+<div id="cursor"></div>
+<div id="menu" role="dialog" aria-label="Browser menu"><div class="box"></div></div>
+<div id="toast" role="status"></div>
+<script>
+'use strict';
+const START = 'nsxl://app/browser/start.html';
+const $ = s => document.querySelector(s);
+const wv = $('#wv'), addr = $('#addr');
+const store = { get: (k, d) => { try { const v = localStorage.getItem('ch.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set: (k, v) => localStorage.setItem('ch.' + k, JSON.stringify(v)) };
+const cfg = store.get('cfg', {});
+document.documentElement.classList.toggle('light', cfg.theme === 'white' || !cfg.theme);
+let toastT;
+const toast = m => { const t = $('#toast'); t.textContent = m; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200); };
+
+// ------------------------------------------------------------------ navigation
+const engines = { google: ['https://www.google.com/search?q=', 'Google'], duckduckgo: ['https://duckduckgo.com/?q=', 'DuckDuckGo'], bing: ['https://www.bing.com/search?q=', 'Bing'] };
+const engine = () => engines[store.get('browserEngine', 'google')] ? store.get('browserEngine', 'google') : 'google';
+function go(text) {
+  text = String(text || '').trim(); if (!text) return;
+  let url;
+  if (/^https?:\/\//i.test(text)) url = text;
+  else if (!/\s/.test(text) && /^[\w.-]+\.[a-z]{2,}(:\d+)?(\/.*)?$/i.test(text)) url = 'https://' + text;
+  else url = engines[engine()][0] + encodeURIComponent(text);
+  wv.loadURL(url); addr.blur(); wv.focus();
+}
+const bookmarks = () => store.get('bookmarks', []);
+const isStart = u => (u || '').startsWith(START);
+function feedStart() {
+  wv.executeJavaScript('window.nsxlStart&&window.nsxlStart(' + JSON.stringify({ bookmarks: bookmarks(), engine: engine(), light: document.documentElement.classList.contains('light') }) + ')').catch(() => {});
+}
+function toggleBookmark() {
+  const url = wv.getURL();
+  if (!url || isStart(url)) { toast('Open a page to bookmark it'); return; }
+  const b = bookmarks(), i = b.findIndex(x => x.url === url);
+  if (i >= 0) { b.splice(i, 1); toast('Bookmark removed'); } else { b.push({ url, title: wv.getTitle() || new URL(url).hostname }); toast('Bookmarked'); }
+  store.set('bookmarks', b); refresh();
+}
+function refresh() {
+  let can = false, canF = false; try { can = wv.canGoBack(); canF = wv.canGoForward(); } catch (e) {}
+  $('#back').disabled = false;   // with nothing to go back to, Back closes the browser
+  $('#fwd').disabled = !canF;
+  const url = wv.getURL();
+  if (document.activeElement !== addr) addr.value = isStart(url) || url === 'about:blank' ? '' : url;
+  $('#star').classList.toggle('on', bookmarks().some(x => x.url === url));
+}
+function back() { try { if (wv.canGoBack()) { wv.goBack(); return; } } catch (e) {} closeBrowser(); }
+function closeBrowser() { document.body.classList.add('leaving'); setTimeout(() => NSXLB.close(), 200); }
+
+$('#back').onclick = back;
+$('#fwd').onclick = () => wv.goForward();
+$('#reload').onclick = () => wv.reload();
+$('#star').onclick = toggleBookmark;
+$('#home').onclick = () => wv.loadURL(START);
+$('#more').onclick = () => openMenu();
+$('#close').onclick = closeBrowser;
+addr.addEventListener('keydown', e => { if (e.key === 'Enter') go(addr.value); else if (e.key === 'Escape') { addr.blur(); refresh(); wv.focus(); } });
+addr.addEventListener('focus', () => setTimeout(() => addr.select(), 0));
+
+wv.addEventListener('did-start-loading', () => { const p = $('#progress'); p.style.opacity = 1; p.style.transform = 'scaleX(.15)'; });
+wv.addEventListener('did-stop-loading', () => { const p = $('#progress'); p.style.transform = 'scaleX(1)'; setTimeout(() => { p.style.opacity = 0; p.style.transform = 'scaleX(0)'; }, 250); refresh(); });
+wv.addEventListener('did-navigate', refresh);
+wv.addEventListener('did-navigate-in-page', refresh);
+wv.addEventListener('page-title-updated', refresh);
+wv.addEventListener('dom-ready', () => { if (isStart(wv.getURL())) feedStart(); });
+wv.addEventListener('enter-html-full-screen', () => document.body.classList.add('full'));
+wv.addEventListener('leave-html-full-screen', () => document.body.classList.remove('full'));
+
+document.addEventListener('keydown', e => {
+  if (e.altKey && e.key === 'ArrowLeft') { e.preventDefault(); back(); }
+  else if (e.altKey && e.key === 'ArrowRight') { e.preventDefault(); wv.goForward(); }
+  else if (e.key === 'F5') { e.preventDefault(); wv.reload(); }
+  else if (e.ctrlKey && e.key.toLowerCase() === 'l') { e.preventDefault(); addr.focus(); }
+  else if (e.ctrlKey && e.key.toLowerCase() === 'd') { e.preventDefault(); toggleBookmark(); }
+  else if (e.key === 'Escape' && $('#menu').classList.contains('on')) closeMenu();
+});
+
+// ------------------------------------------------------------------ menu
+let menuItems = [], menuSel = 0;
+function openMenu() {
+  const url = wv.getURL(), marked = bookmarks().some(x => x.url === url), e = engine();
+  menuItems = [
+    [marked ? 'Remove bookmark' : 'Bookmark this page', toggleBookmark],
+    ...bookmarks().map(b => ['★  ' + b.title, () => wv.loadURL(b.url)]),
+    ['Search with: ' + engines[e][1], () => { const n = e === 'google' ? 'duckduckgo' : e === 'duckduckgo' ? 'bing' : 'google'; store.set('browserEngine', n); toast('Searching with ' + engines[n][1]); if (isStart(wv.getURL())) feedStart(); }],
+    ['Zoom in', () => wv.setZoomLevel(wv.getZoomLevel() + .5)],
+    ['Zoom out', () => wv.setZoomLevel(wv.getZoomLevel() - .5)],
+    ['Reset zoom', () => wv.setZoomLevel(0)],
+    ['Open in your browser', () => { if (!isStart(url)) NSXLB.external(url); }],
+    ['Clear history and cookies', () => { NSXLB.clearData(); wv.clearHistory(); toast('History and cookies cleared'); wv.loadURL(START); }],
+    ['Close browser', closeBrowser],
+  ];
+  const box = $('#menu .box');
+  box.innerHTML = '<div class="t">NSXL Web</div>';
+  menuItems.forEach(([label, run], i) => { const b = document.createElement('button'); b.textContent = label; b.onclick = () => { closeMenu(); run(); }; b.onmouseenter = () => { menuSel = i; paintMenu(); }; box.appendChild(b); });
+  menuSel = 0; paintMenu();
+  $('#menu').classList.add('on');
+}
+function paintMenu() { [...document.querySelectorAll('#menu button')].forEach((b, i) => { b.classList.toggle('sel', i === menuSel); if (i === menuSel) b.scrollIntoView({ block: 'nearest' }); }); }
+function closeMenu() { $('#menu').classList.remove('on'); }
+$('#menu').addEventListener('click', e => { if (e.target.id === 'menu') closeMenu(); });
+
+// ------------------------------------------------------------------ controller: a pointer, like a console browser
+const famOf = id => /054c|dualsense|dualshock|playstation|wireless controller/i.test(id) ? 'ps' : /057e|pro controller|joy-con|nintendo/i.test(id) ? 'nintendo' : /xbox|xinput|045e/i.test(id) ? 'xbox' : 'generic';
+const FACES = { xbox: ['A', 'B', 'X', 'Y', 'LB', 'RB', '≡'], ps: ['✕', '○', '□', '△', 'L1', 'R1', '≡'], nintendo: ['B', 'A', 'Y', 'X', 'L', 'R', '+'], generic: ['A', 'B', 'X', 'Y', 'L', 'R', '+'] };
+let fam = 'generic', padMode = false, focused = true;
+function drawHints() {
+  const fixed = cfg.glyphs && cfg.glyphs !== 'auto' && FACES[cfg.glyphs] ? cfg.glyphs : fam;
+  const f = FACES[fixed], sw = !!cfg.swapAB;
+  const g = { a: sw ? f[1] : f[0], b: sw ? f[0] : f[1], x: sw ? f[3] : f[2], y: sw ? f[2] : f[3] };
+  $('#hints').innerHTML = [[g.a, 'Click'], [g.b, 'Back'], [g.y, 'Address'], [g.x, 'Reload'], [f[4] + '</i><i>' + f[5], 'Back / Forward'], [f[6], 'Menu']]
+    .map(([k, l]) => `<span class="h"><i>${k}</i>${l}</span>`).join('');
+}
+function setPad(on) { padMode = on; document.documentElement.classList.toggle('pad', on); if (!on) showCursor(false); }
+let cx = innerWidth / 2, cy = innerHeight / 2, shown = false;
+const cur = $('#cursor');
+function showCursor(on) { shown = on; cur.classList.toggle('on', on); place(); }
+function place() { cur.style.transform = ''; cur.style.left = cx + 'px'; cur.style.top = cy + 'px'; }
+function inPage() { const r = wv.getBoundingClientRect(); return { x: Math.round(cx - r.left), y: Math.round(cy - r.top), inside: cx >= r.left && cx < r.right && cy >= r.top && cy < r.bottom, r }; }
+function click() {
+  cur.classList.add('press'); setTimeout(() => cur.classList.remove('press'), 120);
+  const p = inPage();
+  if (!p.inside) { const t = document.elementFromPoint(cx, cy); const b = t && t.closest('button, input'); if (b) { b.tagName === 'INPUT' ? b.focus() : b.click(); } return; }
+  wv.focus();
+  wv.sendInputEvent({ type: 'mouseDown', x: p.x, y: p.y, button: 'left', clickCount: 1 });
+  setTimeout(() => wv.sendInputEvent({ type: 'mouseUp', x: p.x, y: p.y, button: 'left', clickCount: 1 }), 40);
+}
+function wheel(dx, dy) {
+  const p = shown ? inPage() : { x: Math.round(wv.clientWidth / 2), y: Math.round(wv.clientHeight / 2), inside: true };
+  if (!p.inside) return;
+  wv.sendInputEvent({ type: 'mouseWheel', x: p.x, y: p.y, deltaX: -dx, deltaY: -dy, canScroll: true });
+}
+let lastHover = 0;
+function hover() {
+  const now = performance.now(); if (now - lastHover < 50) return; lastHover = now;
+  const p = inPage();
+  if (p.inside) wv.sendInputEvent({ type: 'mouseMove', x: p.x, y: p.y });
+  document.querySelectorAll('#bar button').forEach(b => b.classList.remove('hot'));
+  if (!p.inside) { const t = document.elementFromPoint(cx, cy); const b = t && t.closest('#bar button'); if (b) b.classList.add('hot'); }
+}
+const dz = v => { const a = Math.abs(v); if (a < .18) return 0; const n = (a - .18) / .82; return Math.sign(v) * n * n; };
+const held = {}, next = {};
+let lastId = '', last = performance.now();
+function pressed(b) {
+  if (cfg.swapAB) b = { a: 'b', b: 'a', x: 'y', y: 'x' }[b] || b;
+  if ($('#menu').classList.contains('on')) {
+    if (b === 'up' || b === 'down') { menuSel = Math.max(0, Math.min(menuItems.length - 1, menuSel + (b === 'up' ? -1 : 1))); paintMenu(); }
+    else if (b === 'a') { const it = menuItems[menuSel]; closeMenu(); it && it[1](); }
+    else if (b === 'b' || b === 'plus') closeMenu();
+    return;
+  }
+  if (document.activeElement === addr) { if (b === 'b') { addr.blur(); refresh(); wv.focus(); } return; }
+  switch (b) {
+    case 'a': if (!shown) showCursor(true); else click(); break;
+    case 'b': if (document.body.classList.contains('full')) wv.executeJavaScript('document.exitFullscreen&&document.exitFullscreen()').catch(() => {}); else back(); break;
+    case 'l': try { if (wv.canGoBack()) wv.goBack(); } catch (e) {} break;
+    case 'r': try { if (wv.canGoForward()) wv.goForward(); } catch (e) {} break;
+    case 'zl': wv.setZoomLevel(wv.getZoomLevel() - .5); break;
+    case 'zr': wv.setZoomLevel(wv.getZoomLevel() + .5); break;
+    case 'x': wv.reload(); break;
+    case 'y': addr.focus(); break;
+    case 'plus': openMenu(); break;
+    case 'minus': wv.loadURL(START); break;
+    case 'home': closeBrowser(); break;
+  }
+}
+const MAP = { 0: 'a', 1: 'b', 2: 'x', 3: 'y', 4: 'l', 5: 'r', 6: 'zl', 7: 'zr', 8: 'minus', 9: 'plus', 16: 'home' };
+(function poll() {
+  requestAnimationFrame(poll);
+  const now = performance.now(), dt = Math.min(48, Math.max(8, now - last)) / 16; last = now;
+  if (!focused) return;
+  const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+  let mx = 0, my = 0, sx = 0, sy = 0; const down = {};
+  for (const p of pads) {
+    p.buttons.forEach((bt, i) => { if (bt.pressed) { if (MAP[i]) down[MAP[i]] = p; if (i >= 12 && i <= 15) down['d' + i] = p; } });
+    mx += dz(p.axes[0] || 0); my += dz(p.axes[1] || 0); sx += dz(p.axes[2] || 0); sy += dz(p.axes[3] || 0);
+    if (Object.keys(down).length || mx || my || sx || sy) { if (p.id !== lastId) { lastId = p.id; fam = famOf(p.id); drawHints(); } if (!padMode) setPad(true); }
+  }
+  const menuOpen = $('#menu').classList.contains('on');
+  // D-pad: menu steps, otherwise moves the pointer
+  if (menuOpen) { if (down.d12) down.up = 1; if (down.d13) down.down = 1; }
+  else { mx += (down.d14 ? -1 : 0) + (down.d15 ? 1 : 0); my += (down.d12 ? -1 : 0) + (down.d13 ? 1 : 0); }
+  for (const b in down) {
+    if (b[0] === 'd' && b !== 'down') continue;
+    if (!held[b]) { held[b] = true; next[b] = now + 380; pressed(b); }
+    else if ((b === 'up' || b === 'down') && now >= next[b]) { next[b] = now + 110; pressed(b); }
+  }
+  for (const b in held) if (!down[b]) delete held[b];
+  if (!menuOpen && (mx || my)) {
+    if (!shown) showCursor(true);
+    const sp = 16 * dt;
+    cx = Math.max(0, Math.min(innerWidth - 1, cx + mx * sp)); cy = Math.max(0, Math.min(innerHeight - 1, cy + my * sp));
+    place(); hover();
+    const r = wv.getBoundingClientRect();   // pushing past the page edge scrolls it
+    if (my > 0 && cy >= r.bottom - 6) wheel(0, my * 26 * dt);
+    if (my < 0 && cy <= r.top + 6 && cy >= r.top - 2) wheel(0, my * 26 * dt);
+  }
+  if (!menuOpen && (sx || sy)) wheel(sx * 30 * dt, sy * 30 * dt);
+})();
+document.addEventListener('mousemove', e => { if (padMode && (Math.abs(e.movementX) + Math.abs(e.movementY)) > 2) setPad(false); });
+document.addEventListener('mousedown', () => { if (padMode) setPad(false); });
+NSXLB.onFocus(f => { focused = f; if (!f) for (const k in held) delete held[k]; });
+
+// ------------------------------------------------------------------ start
+drawHints();
+setPad(new URLSearchParams(location.search).get('pad') === '1');
+const first = new URLSearchParams(location.search).get('u');
+wv.src = first && /^https:\/\//.test(first) ? first : START;
+</script>
+</body>
+</html>
