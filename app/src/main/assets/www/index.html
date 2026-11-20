@@ -882,6 +882,18 @@ img { -webkit-user-drag: none; user-drag: none; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* game glow: brighter, bigger blobs that blend as the selection moves */
+@property --blob1 { syntax: '<color>'; inherits: true; initial-value: transparent; }
+@property --blob2 { syntax: '<color>'; inherits: true; initial-value: transparent; }
+@property --blob3 { syntax: '<color>'; inherits: true; initial-value: transparent; }
+@property --accent { syntax: '<color>'; inherits: true; initial-value: #1f5fd6; }
+html.gameglow { transition: --blob1 .9s ease, --blob2 .9s ease, --blob3 .9s ease, --accent .9s ease; }
+html.gameglow.nobg:not([data-theme=video]) #bgfx, html.gameglow.calm:not([data-theme=video]) #bgfx { display: block; }
+html.gameglow.nobg #bgfx i, html.gameglow.calm #bgfx i { animation: none; }
+html.gameglow #bgfx i { width: 78vmax; height: 78vmax; }
+html.gameglow #bgfx i:nth-child(1) { left: -26vmax; top: -30vmax; }
+html.gameglow #bgfx i:nth-child(2) { right: -28vmax; top: 4vh; }
 </style>
 </head>
 <body>
@@ -935,7 +947,7 @@ const store = {
 };
 const DEFAULTS = { theme: 'white', dim: 0.25, blur: 0, clock: 'system', batPct: true, sounds: true, haptics: true,
                    swapAB: false, orientation: 'landscape', immersive: true, oneTap: false, calm: false, bgfx: true, scale: 1, tmdbKey: '', region: 'auto', ovSide: 'right', ovAlpha: 0.75, ovHandle: true, shortcut: 'hold_select', cloudVideo: false, cloudAddr: '', bootAnim: true, wakeAnim: true, entTab: true, launchFx: 'zoom', userName: '', inAppLinks: true, glyphs: 'auto', touchHide: true, newsSrc: null, newsCustom: [],
-                   music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '' };
+                   music: true, musicVol: 0.5, musicSrc: 'builtin', sgdbKey: '', gameGlow: 'off' };
 const cfg = Object.assign({}, DEFAULTS, store.get('cfg', {}));
 const saveCfg = () => { store.set('cfg', cfg); queueMicrotask(() => cloudSnap()); };
 if (!store.get('mig.twoTap')) { cfg.oneTap = false; saveCfg(); store.set('mig.twoTap', true); }  // new default: tap to select, tap again to start
@@ -1431,6 +1443,80 @@ function refreshSel() {
   const av = $('#avatar'); av.classList.toggle('sel', !ov && Hm.zone === 'user'); $('#avatarName').textContent = userName();
   updateTitle(); updateDockLabel(); updateHints();
 }
+/* =========================================================
+   Game glow: Home's background (and, if chosen, the accent) takes the colours of the selected game's art
+   ========================================================= */
+const glowCache = {};
+let glowTimer = null, glowKey = '';
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+  if (mx === mn) return [0, 0, l];
+  const d = mx - mn, s = l > .5 ? d / (2 - mx - mn) : d / (mx + mn);
+  const h = mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h / 6, s, l];
+}
+// Up to three main colours of an image as [hue 0-1, saturation, lightness], most important first; null for grey art.
+function artColours(img) {
+  const key = img.currentSrc || img.src;
+  if (key in glowCache) return glowCache[key];
+  let d;
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = 32;
+    const x = c.getContext('2d', { willReadFrequently: true });
+    x.drawImage(img, 0, 0, 32, 32); d = x.getImageData(0, 0, 32, 32).data;
+  } catch (e) { return null; }
+  const N = 24, bins = Array.from({ length: N }, () => ({ w: 0, r: 0, g: 0, b: 0 }));
+  for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 128) continue;
+    const [h, sat, l] = rgbToHsl(d[i], d[i + 1], d[i + 2]);
+    if (sat < .2 || l < .1 || l > .92) continue;            // skip greys, blacks and whites
+    const w = sat * (1 - Math.abs(l - .5) * 1.4), b = bins[Math.floor(h * N) % N];
+    b.w += w; b.r += d[i] * w; b.g += d[i + 1] * w; b.b += d[i + 2] * w;
+  }
+  const ranked = bins.map((b, i) => ({ ...b, i })).filter(b => b.w > 0).sort((a, b) => b.w - a.w);
+  if (!ranked.length || ranked[0].w < 6) return (glowCache[key] = null);
+  const far = (a, b) => Math.min(Math.abs(a.i - b.i), N - Math.abs(a.i - b.i)) >= 3;   // at least 45° apart
+  const picks = [ranked[0]];
+  for (const b of ranked) { if (picks.length >= 3) break; if (b.w > ranked[0].w * .12 && picks.every(p => far(p, b))) picks.push(b); }
+  const out = picks.map(b => rgbToHsl(b.r / b.w, b.g / b.w, b.b / b.w));
+  while (out.length < 3) { const [h, sat, l] = out[0]; out.push([(h + (out.length === 1 ? .07 : -.07) + 1) % 1, sat, l]); }   // one-colour art: close neighbours
+  return (glowCache[key] = out);
+}
+const hsl = (h, sat, l, a) => `hsla(${Math.round(h * 360)}, ${Math.round(sat * 100)}%, ${Math.round(l * 100)}%, ${a})`;
+function glowApply(cols) {
+  const root = document.documentElement.style, light = document.documentElement.getAttribute('data-theme') === 'white';
+  if (!cols) { ['--blob1', '--blob2', '--blob3', '--accent'].forEach(k => root.removeProperty(k)); return; }
+  cols.forEach(([h, sat, l], i) => {
+    const S = clamp(sat, .45, .9);
+    root.setProperty('--blob' + (i + 1), light ? hsl(h, S, clamp(l, .62, .74), i ? .42 : .5) : hsl(h, S, clamp(l, .36, .52), i ? .5 : .6));
+  });
+  if (cfg.gameGlow === 'accent') {
+    const [h, sat] = cols[0], yellowish = h > .1 && h < .2;   // yellows need to be darker to read on white
+    root.setProperty('--accent', light ? hsl(h, Math.max(sat, .6), yellowish ? .3 : .4, 1) : hsl(h, Math.max(sat, .65), .72, 1));
+  } else root.removeProperty('--accent');
+}
+function glowFor(it) {
+  if (cfg.gameGlow === 'off' || !it) return;
+  const img = it.el.querySelector('.fGrid img, .clip img');
+  const key = it.key || it.pkg || it.id || it.type;
+  if (key === glowKey && !glowTimer) return;
+  clearTimeout(glowTimer);
+  glowTimer = setTimeout(() => {   // wait until scrolling settles, so a fast flick doesn't strobe colours
+    glowTimer = null;
+    if (Hm.items[Hm.idx] !== it) return;
+    if (img && !(img.complete && img.naturalWidth)) { img.addEventListener('load', () => { glowKey = ''; if (Hm.items[Hm.idx] === it) glowFor(it); }, { once: true }); }
+    let cols = img && img.complete && img.naturalWidth && img.style.visibility !== 'hidden' ? artColours(img) : null;
+    if (!cols && it.pkg) { const hh = (hash(it.pkg) % 360) / 360; cols = [[hh, .62, .56], [(hh + 40 / 360) % 1, .6, .42], [(hh + 80 / 360) % 1, .55, .5]]; }   // letter tile: its own colours
+    if (!cols && it.type !== 'app' && it.type !== 'svc' && it.type !== 'folder') return;   // "View More" and similar keep the last game's glow
+    glowKey = key; glowApply(cols);
+  }, 140);
+}
+function glowRefresh(force) {
+  if (force) glowKey = '';
+  if (cfg.gameGlow === 'off') { glowApply(null); return; }
+  try { if (Hm.items) glowFor(Hm.items[Hm.idx]); } catch (e) { }   // Home may not be built yet at start-up
+}
 function updateTitle() {
   const t = $('#gameTitle'), it = Hm.items[Hm.idx];
   if (topOverlay() || Hm.zone !== 'row' || !it) { t.style.opacity = 0; return; }
@@ -1439,6 +1525,7 @@ function updateTitle() {
   if (t.dataset.txt !== txt) { t.dataset.txt = txt; t.innerHTML = (it.type === 'all' || it.type === 'entmore' ? '' : it.type === 'folder' ? '<i class="tIcon fIcon">' + svg('folder') + '</i>' : '<i class="tIcon"></i>') + '<div class="tClip"><span>' + esc(txt) + '</span></div>'; }
   positionTitle(); t.style.opacity = 1;
   if (changed) { retrigger(t, 'swap'); fitTitle(); }
+  glowFor(it);
 }
 function positionTitle() {
   const it = Hm.items[Hm.idx]; if (!it) return;
@@ -3163,12 +3250,14 @@ function applyTheme() {
   document.documentElement.setAttribute('data-theme', t);
   document.documentElement.classList.toggle('calm', !!cfg.calm);
   document.documentElement.classList.toggle('nobg', !cfg.bgfx);
+  document.documentElement.classList.toggle('gameglow', cfg.gameGlow !== 'off');
   document.documentElement.style.setProperty('--dim', cfg.dim);
   document.documentElement.style.setProperty('--scale', cfg.scale || 1);
   nb('setMode', t === 'white' ? 'light' : t);
   if (t === 'video') nb('setVideoBlur', cfg.blur | 0);
   if (!NATIVE) $('#fakeVideo').style.display = t === 'video' ? 'block' : 'none';
   if (PC) pcWallpaper(t === 'video');
+  glowRefresh(true);   // light and dark use different shades of the same game colours
 }
 function setTheme(t) {
   if (t === 'video' && !hasVideo()) { toast('Choose a video file for your live wallpaper'); nb('pickVideo'); return; }
@@ -3219,6 +3308,8 @@ const SETTINGS = [
     { type: 'toggle', label: 'Start-up animation', desc: 'The NSXL logo and chime when the launcher starts.', key: 'bootAnim' },
     { type: 'toggle', label: 'Wake animation', desc: 'Plays when you turn the screen back on.', key: 'wakeAnim' },
     { type: 'toggle', label: 'Moving background glow', desc: 'Soft colours drift behind Basic White and Basic Black.', key: 'bgfx', after: applyTheme },
+    { type: 'choice', label: 'Game glow', desc: 'Home takes its colours from the art of the game you have selected, and blends as you move.', key: 'gameGlow',
+      options: [['off', 'Off'], ['glow', 'Background'], ['accent', 'Background and accent']], after: applyTheme },
     { type: 'toggle', label: 'Reduce motion', desc: 'Turns off most animations.', key: 'calm', after: applyTheme },
     { type: 'action', label: 'Profile picture', value: () => 'Change', run: avatarMenu },
     { type: 'action', label: 'Restore removed games', value: () => Object.keys(store.get('hidden', {})).length + ' hidden',
