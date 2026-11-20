@@ -36,7 +36,7 @@ jobs:
           # the release tag: a pushed pc-… tag (pc-v1.2.0 or pc-1.2.0), or one typed in when run by hand
           TAG="${{ github.event.inputs.tag }}"
           if [ -z "$TAG" ] && [[ "$GITHUB_REF" == refs/tags/pc-* ]]; then TAG="$GITHUB_REF_NAME"; fi
-          V="${TAG#pc-}"; V="${V#v}"
+          V="${TAG#pc-}"; V="${V#v}"; V="${V#.}"   # pc-v1.3.0, pc-1.3.0 and pc-v.1.3.0 all work
           if ! [[ "$V" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then V="1.0.${GITHUB_RUN_NUMBER}"; fi
           echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
           npm version "$V" --no-git-tag-version --allow-same-version
@@ -82,7 +82,7 @@ jobs:
           NOTES="../.github/release-notes/${TAG}.md"
           # notes are named pc-v1.2.0.md; a tag typed as pc-1.2.0 finds them too
           [ -f "$NOTES" ] || NOTES="../.github/release-notes/pc-v${TAG#pc-}.md"
-          [ -f "$NOTES" ] || NOTES="../.github/release-notes/pc-v${TAG#pc-v}.md"
+          [ -f "$NOTES" ] || NOTES="../.github/release-notes/pc-v${V}.md"
           FILES=(dist/NSXL-Setup-*.exe dist/NSXL-Portable-*.exe)
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release upload "$TAG" "${FILES[@]}" --clobber
