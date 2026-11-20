@@ -894,6 +894,11 @@ html.gameglow.nobg #bgfx i, html.gameglow.calm #bgfx i { animation: none; }
 html.gameglow #bgfx i { width: 78vmax; height: 78vmax; }
 html.gameglow #bgfx i:nth-child(1) { left: -26vmax; top: -30vmax; }
 html.gameglow #bgfx i:nth-child(2) { right: -28vmax; top: 4vh; }
+
+/* SteamGridDB picker: live (animated) art and logos */
+.cell .art .src.live { background: var(--accent); color: #fff; font-weight: 700; }
+.grid.logos .art { background: repeating-conic-gradient(#202028 0% 25%, #191920 0% 50%) 50% / 18px 18px; }
+.grid.logos .clip img, .grid.logos .art img { object-fit: contain !important; padding: 8%; box-sizing: border-box; }
 </style>
 </head>
 <body>
@@ -1956,7 +1961,8 @@ function sgdbError(e) {
     openDialog('SteamGridDB key problem', msg + ' Check the key in Settings › Cover Art.', [{ label: 'OK', primary: true }]);
   } else showToast(msg, 3000);
 }
-function sgdbFind(pkg, term, hero) {
+// kind: undefined (tile art), 'hero' (second-screen banner) or 'logo' (second-screen logo)
+function sgdbFind(pkg, term, kind) {
   const a = BY[pkg]; if (!a) return;
   term = term || a.label;
   needKey(async () => {
@@ -1964,10 +1970,10 @@ function sgdbFind(pkg, term, hero) {
     try {
       const games = await nbAsync('sgdbSearch', cfg.sgdbKey, term);
       hideToast();
-      const searchOther = { label: 'Search a different name…', run: () => openPrompt('Search SteamGridDB', term, 'Game name', v => v.trim() && sgdbFind(pkg, v.trim(), hero)) };
+      const searchOther = { label: 'Search a different name…', run: () => openPrompt('Search SteamGridDB', term, 'Game name', v => v.trim() && sgdbFind(pkg, v.trim(), kind)) };
       if (!games.length) { openMenu('No matches for “' + term + '”', [searchOther]); return; }
       openMenu('Which game is “' + a.label + '”?', games.slice(0, 8).map(g => ({
-        label: g.name + (g.year ? '  (' + g.year + ')' : ''), run: () => (hero ? sgdbPickHero(pkg, g) : sgdbPick(pkg, g)),
+        label: g.name + (g.year ? '  (' + g.year + ')' : ''), run: () => (kind ? sgdbPickKind(pkg, g, kind) : sgdbPick(pkg, g)),
       })).concat([searchOther]));
     } catch (e) { hideToast(); sgdbError(e); }
   });
@@ -1981,26 +1987,28 @@ async function sgdbPick(pkg, game) {
     openCoverPicker(pkg, game.name, grids);
   } catch (e) { hideToast(); sgdbError(e); }
 }
-async function sgdbPickHero(pkg, game) {
-  showToast('Loading banners…', 15000);
+async function sgdbPickKind(pkg, game, kind) {
+  const what = kind === 'logo' ? 'logos' : 'banners';
+  showToast('Loading ' + what + '…', 15000);
   try {
-    const heroes = await nbAsync('sgdbHeroes', cfg.sgdbKey, game.id);
+    const list = await nbAsync(kind === 'logo' ? 'sgdbLogos' : 'sgdbHeroes', cfg.sgdbKey, game.id);
     hideToast();
-    if (!heroes.length) { toast('No banners for ' + game.name + ' yet'); return; }
-    openCoverPicker(pkg, game.name, heroes, true);
+    if (!list.length) { toast('No ' + what + ' for ' + game.name + ' yet'); return; }
+    openCoverPicker(pkg, game.name, list, kind);
   } catch (e) { hideToast(); sgdbError(e); }
 }
-async function sgdbApply(pkg, url) {
+async function sgdbApply(pkg, url, animated) {
   showToast('Downloading cover…', 20000);
   try {
-    await nbAsync('sgdbApply', pkg, url);
+    await (PC ? nbAsync('sgdbApply', pkg, url, !!animated) : nbAsync('sgdbApply', pkg, url));
     if (BY[pkg]) { BY[pkg].cover = true; BY[pkg].coverVideo = false; } bumpCover(pkg); showToast('Cover art updated', 2000);
   } catch (e) { hideToast(); sgdbError(e); }
 }
-function openCoverPicker(pkg, name, grids, hero) {
+function openCoverPicker(pkg, name, grids, kind) {
   const ov = el('section', 'ov full');
+  const label = kind === 'logo' ? 'SteamGridDB logos' : kind === 'hero' ? 'SteamGridDB banners' : 'SteamGridDB covers';
   ov.innerHTML = `<div class="ovTitle">${svg('album')}<span>${esc(name)}</span></div><div class="ovRule"></div><div class="ovRule bottom"></div>
-    <div class="tabs"><span class="t on">${hero ? 'SteamGridDB banners' : 'SteamGridDB covers'}</span></div><div class="grid${hero ? ' wide' : ''}"></div>`;
+    <div class="tabs"><span class="t on">${label}</span></div><div class="grid${kind ? ' wide' : ''}${kind === 'logo' ? ' logos' : ''}"></div>`;
   const grid = $('.grid', ov);
   let sel = 0;
   const cells = grids.map((g, i) => {
@@ -2008,7 +2016,8 @@ function openCoverPicker(pkg, name, grids, hero) {
     c.style.setProperty('--i', i);
     if (g.video && /\.(webm|mp4)(\?|$)/i.test(g.thumb || g.url)) { const v = el('video'); v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true; v.src = g.thumb || g.url; v.style.cssText = 'position:relative;z-index:1;width:100%;height:100%;object-fit:cover;display:block'; art.appendChild(v); }
     else { const img = el('img'); img.alt = ''; img.loading = 'lazy'; img.src = g.thumb || g.url; art.appendChild(img); }
-    if (g.width && g.height) art.appendChild(el('span', 'src', g.width + '×' + g.height));
+    if (g.animated) art.appendChild(el('span', 'src live', 'Live'));
+    else if (g.width && g.height) art.appendChild(el('span', 'src', g.width + '×' + g.height));
     c.appendChild(art); c.appendChild(el('div', 'nm', esc(g.style ? g.style.replace(/_/g, ' ') : 'Cover ' + (i + 1))));
     onPress(c, () => { sel = i; paint(); act(); });
     grid.appendChild(c); return c;
@@ -2018,9 +2027,10 @@ function openCoverPicker(pkg, name, grids, hero) {
   const move = d => { const n = sel + d; if (n < 0 || n >= cells.length) { Snd.bump(); return; } sel = n; Snd.tick(); buzz(); paint(); };
   const act = () => {
     const g = grids[sel]; if (!g) return; Snd.select(); popOverlay(true);
-    if (!hero) { sgdbApply(pkg, g.url); return; }
-    showToast('Downloading banner…', 30000);
-    nbAsync('secondApply', pkg, g.url).then(() => showToast('Second screen artwork set', 2000)).catch(e => { hideToast(); sgdbError(e); });
+    if (!kind) { sgdbApply(pkg, g.url, g.animated); return; }
+    showToast(kind === 'logo' ? 'Downloading logo…' : 'Downloading banner…', 30000);
+    nbAsync(kind === 'logo' ? 'secondLogoApply' : 'secondApply', pkg, g.url)
+      .then(() => showToast(kind === 'logo' ? 'Second screen logo set' : 'Second screen artwork set', 2000)).catch(e => { hideToast(); sgdbError(e); });
   };
   pushOverlay({
     el: ov, full: true,
@@ -2029,7 +2039,7 @@ function openCoverPicker(pkg, name, grids, hero) {
       else if (b === 'up') move(-cols()); else if (b === 'down') move(cols());
       else if (b === 'a') act(); else if (b === 'b') popOverlay();
     },
-    hints: () => [['b', 'Back'], ['a', hero ? 'Use this banner' : 'Use this cover']],
+    hints: () => [['b', 'Back'], ['a', kind === 'logo' ? 'Use this logo' : kind === 'hero' ? 'Use this banner' : 'Use this cover']],
   });
   paint();
 }
@@ -2555,8 +2565,11 @@ function appOptions(pkg, start) {
           paneRow(pane, 'Use a screenshot', { desc: 'Choose one from your Album.', run: () => { popOverlay(true); openAlbum(); toast('Pick a screenshot, then Options › Use as tile'); } }),
           a.cover ? paneRow(pane, 'Reset cover art', { run: () => { nb('removeCover', pkg); a.cover = false; a.coverVideo = false; bumpCover(pkg); toast('Cover reset'); sheet.refresh(); } }) : null,
           PC ? paneRow(pane, 'Second screen artwork', { desc: 'Your own picture or video, shown full screen on your other monitor.', run: () => nb('secondPick', pkg) }) : null,
-          PC ? paneRow(pane, 'Find a banner on SteamGridDB', { desc: 'Wide hero art for the second screen, animated ones too.', run: () => { popOverlay(true); sgdbFind(pkg, null, true); } }) : null,
+          PC ? paneRow(pane, 'Find a banner on SteamGridDB', { desc: 'Wide hero art for the second screen, live ones too.', run: () => { popOverlay(true); sgdbFind(pkg, null, 'hero'); } }) : null,
           PC && nb('secondHas', pkg) ? paneRow(pane, 'Reset second screen artwork', { run: () => { nb('secondRemove', pkg); toast('Second screen artwork reset'); sheet.refresh(); } }) : null,
+          PC ? paneRow(pane, 'Find a logo on SteamGridDB', { desc: 'The logo that sits over the second screen artwork.', run: () => { popOverlay(true); sgdbFind(pkg, null, 'logo'); } }) : null,
+          PC ? paneRow(pane, 'Use your own logo', { desc: 'A PNG with a see-through background looks best.', run: () => nb('secondLogoPick', pkg) }) : null,
+          PC && nb('secondLogoHas', pkg) ? paneRow(pane, 'Reset second screen logo', { run: () => { nb('secondLogoRemove', pkg); toast('Logo reset'); sheet.refresh(); } }) : null,
         ];
       } },
       { name: 'Play Activity', build(pane) {
@@ -3338,6 +3351,7 @@ window.onImagePicked = (kind, pkg, ok, msg) => {
   if (!ok) { toast(msg || (kind === 'coverVideo' ? "Couldn't use that video" : kind === 'second' ? "Couldn't use that file" : "Couldn't use that picture")); return; }
   if (kind === 'coverVideo') { if (BY[pkg]) { BY[pkg].cover = true; BY[pkg].coverVideo = true; } bumpCover(pkg); toast('Moving tile set'); return; }
   if (kind === 'second') { toast('Second screen artwork set'); refreshOverlays(); return; }
+  if (kind === 'secondLogo') { toast('Second screen logo set'); refreshOverlays(); return; }
   if (kind === 'cover' && BY[pkg]) BY[pkg].coverVideo = false;
   if (kind === 'avatar') { store.set('avatarV', Date.now()); setAvatar(); if (window.__userRedraw && $('.userTitle')) window.__userRedraw(); }
   else if (kind === 'cover') { if (BY[pkg]) BY[pkg].cover = true; bumpCover(pkg); toast('Cover art updated'); }

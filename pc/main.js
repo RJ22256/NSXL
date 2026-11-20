@@ -48,6 +48,11 @@ const VIDEO_EXT = ['.mp4', '.webm', '.m4v', '.mov'];
 /** A moving tile: the video the user chose for this game, if any. */
 const coverVideo = pkg => VIDEO_EXT.map(e => path.join(COVERS, safe(pkg) + '.video' + e)).find(f => fs.existsSync(f)) || null;
 const dropCoverVideo = pkg => VIDEO_EXT.forEach(e => fs.rmSync(path.join(COVERS, safe(pkg) + '.video' + e), { force: true }));
+// a live tile from SteamGridDB: an animated WebP/PNG/GIF kept as it came, so it keeps moving
+const ANIM_EXT = ['.webp', '.png', '.gif'];
+const coverAnim = pkg => ANIM_EXT.map(e => path.join(COVERS, safe(pkg) + '.anim' + e)).find(f => fs.existsSync(f)) || null;
+const dropCoverAnim = pkg => ANIM_EXT.forEach(e => fs.rmSync(path.join(COVERS, safe(pkg) + '.anim' + e), { force: true }));
+const imgExt = (type, url) => /webp/.test(type) || /\.webp(\?|$)/i.test(url) ? '.webp' : /gif/.test(type) || /\.gif(\?|$)/i.test(url) ? '.gif' : /png/.test(type) || /\.png(\?|$)/i.test(url) ? '.png' : '.jpg';
 // second screen: your own picture or video per game, or artwork fetched for it
 const SECOND = path.join(DATA, 'second');
 const SECOND_EXT = ['.mp4', '.webm', '.m4v', '.mov', '.jpg', '.jpeg', '.png', '.webp', '.gif'];
@@ -55,6 +60,9 @@ const secondOwn = pkg => SECOND_EXT.map(e => path.join(SECOND, safe(pkg) + '.own
 const dropSecondOwn = pkg => SECOND_EXT.forEach(e => fs.rmSync(path.join(SECOND, safe(pkg) + '.own' + e), { force: true }));
 const heroFile = pkg => path.join(SECOND, safe(pkg) + '.hero.img');
 const logoFile = pkg => path.join(SECOND, safe(pkg) + '.logo.img');
+const LOGO_EXT = ['.png', '.webp', '.gif', '.jpg', '.jpeg', '.svg'];
+const ownLogo = pkg => LOGO_EXT.map(e => path.join(SECOND, safe(pkg) + '.ownlogo' + e)).find(f => fs.existsSync(f)) || null;
+const dropOwnLogo = pkg => LOGO_EXT.forEach(e => fs.rmSync(path.join(SECOND, safe(pkg) + '.ownlogo' + e), { force: true }));
 
 // ------------------------------------------------------------------ library
 
@@ -232,20 +240,20 @@ function secondPush() {
   const pkg = second.pkg, e = encodeURIComponent(pkg), a = byPkg[pkg];
   const own = secondOwn(pkg), steam = a && a.source === 'steam';
   const hasHero = fs.existsSync(heroFile(pkg)) || !!(steam && lib.steamImage(a.appid, 'hero'));
-  const hasLogo = fs.existsSync(logoFile(pkg)) || !!(steam && lib.steamImage(a.appid, 'logo'));
+  const hasLogo = !!ownLogo(pkg) || fs.existsSync(logoFile(pkg)) || !!(steam && lib.steamImage(a.appid, 'logo'));
   const cv = coverVideo(pkg);
   const data = {
     pkg, label: second.label || (a && a.label) || '',
     media: own ? { url: '/second/' + e + '?v=' + mtime(own), video: isVideo(own) }
       : hasHero ? { url: '/hero/' + e + '?v=' + mtime(heroFile(pkg)), video: false } : null,
-    logo: prefs.get('secondLogo', true) && hasLogo && !own ? '/logo/' + e + '?v=' + mtime(logoFile(pkg)) : null,
-    tile: cv ? { url: '/artvideo/' + e + '?v=' + mtime(cv), video: true } : { url: '/art/' + e + '?s=1024&v=' + mtime(coverFile(pkg)), video: false },
+    logo: prefs.get('secondLogo', true) && hasLogo ? '/logo/' + e + '?v=' + (mtime(ownLogo(pkg) || '') || mtime(logoFile(pkg))) : null,
+    tile: cv ? { url: '/artvideo/' + e + '?v=' + mtime(cv), video: true } : { url: '/art/' + e + '?s=1024&v=' + (mtime(coverAnim(pkg) || '') || mtime(coverFile(pkg))), video: false },
   };
   secondWin.webContents.executeJavaScript('window.show&&show(' + JSON.stringify(data) + ')').catch(() => {});
-  if (!own && !fs.existsSync(heroFile(pkg)) && !(steam && lib.steamImage(a.appid, 'hero'))) secondFetch(pkg);
+  if ((!own && !hasHero) || (prefs.get('secondLogo', true) && !hasLogo)) secondFetch(pkg, !own && !hasHero, !hasLogo);
 }
 /** Downloads a hero banner and logo from SteamGridDB the first time a game is shown (needs your API key). */
-async function secondFetch(pkg) {
+async function secondFetch(pkg, needHero, needLogo) {
   const key = second.key, a = byPkg[pkg];
   if (!key || !prefs.get('secondSgdb', true) || secondTried.has(pkg)) return;
   secondTried.add(pkg);
@@ -261,8 +269,8 @@ async function secondFetch(pkg) {
       const r = await net.fetch(pickOne.url);
       if (r.ok) { fs.mkdirSync(SECOND, { recursive: true }); fs.writeFileSync(file, Buffer.from(await r.arrayBuffer())); }
     };
-    await grab('heroes', heroFile(pkg));
-    if (prefs.get('secondLogo', true)) await grab('logos', logoFile(pkg)).catch(() => {});
+    if (needHero) await grab('heroes', heroFile(pkg)).catch(() => {});
+    if (needLogo && prefs.get('secondLogo', true)) await grab('logos', logoFile(pkg)).catch(() => {});
     if (second.pkg === pkg) secondPush();
   } catch (e) { }
 }
@@ -371,7 +379,7 @@ const H = {
   firstLoad: () => { const f = !H._loaded; H._loaded = true; return f; },
   isDefaultHome: () => true,
   pageReady: () => {},
-  getApps: () => { if (!apps.length) scan(); return JSON.stringify(apps.map(a => ({ pkg: a.pkg, label: a.label, game: a.game, installed: a.installed, cover: fs.existsSync(coverFile(a.pkg)) || !!coverVideo(a.pkg), coverVideo: !!coverVideo(a.pkg) }))); },
+  getApps: () => { if (!apps.length) scan(); return JSON.stringify(apps.map(a => ({ pkg: a.pkg, label: a.label, game: a.game, installed: a.installed, cover: fs.existsSync(coverFile(a.pkg)) || !!coverVideo(a.pkg) || !!coverAnim(a.pkg), coverVideo: !!coverVideo(a.pkg) }))); },
   getStatus: () => JSON.stringify({ net: net.isOnline() ? 'wifi' : 'none', bars: 3, time24: false, battery: battery.level, charging: battery.charging, controllers: [] }),
   reportBattery: (level, charging) => { battery = { level, charging: !!charging }; },
 
@@ -431,11 +439,11 @@ const H = {
         if (fs.statSync(f).size > 500 * 1024 * 1024) return say(false, 'That video is over 500 MB. Pick a shorter clip.');
         dropCoverVideo(pkg);
         fs.copyFileSync(f, path.join(COVERS, safe(pkg) + '.video' + path.extname(f).toLowerCase()));
-      } else { fs.writeFileSync(coverFile(pkg), squareJpeg(f, 720)); dropCoverVideo(pkg); }
+      } else { fs.writeFileSync(coverFile(pkg), squareJpeg(f, 720)); dropCoverVideo(pkg); dropCoverAnim(pkg); }
       say(true);
     } catch (e) { say(false); }
   },
-  removeCover: (pkg) => { fs.rmSync(coverFile(pkg), { force: true }); dropCoverVideo(pkg); },
+  removeCover: (pkg) => { fs.rmSync(coverFile(pkg), { force: true }); dropCoverVideo(pkg); dropCoverAnim(pkg); },
 
   // second screen
   secondState: () => {
@@ -459,18 +467,46 @@ const H = {
       js('window.onImagePicked("second",' + JSON.stringify(pkg) + ',true)'); secondPush();
     } catch (e) { js('window.onImagePicked("second",' + JSON.stringify(pkg) + ',false)'); }
   },
-  secondRemove: (pkg) => { dropSecondOwn(pkg); fs.rmSync(heroFile(pkg), { force: true }); fs.rmSync(logoFile(pkg), { force: true }); secondTried.delete(pkg); secondPush(); },
+  secondRemove: (pkg) => { dropSecondOwn(pkg); fs.rmSync(heroFile(pkg), { force: true }); secondTried.delete(pkg); secondPush(); },
   sgdbHeroes: async (id, key, gameId) => {
     try {
-      const j = await sgdb(key, '/heroes/game/' + gameId + '?types=static,animated');
-      done(id, (j.data || []).filter(g => g.url).slice(0, 40).map(g => ({ url: g.url, thumb: g.thumb || g.url, width: g.width, height: g.height, style: g.style || '', video: /\.(webm|mp4)(\?|$)/i.test(g.url) })));
+      const live = await sgdbList(key, '/heroes/game/' + gameId + '?types=animated', true);
+      const still = await sgdbList(key, '/heroes/game/' + gameId + '?types=static');
+      done(id, live.concat(still).slice(0, 60));
     } catch (e) { fail(id, e); }
   },
+  sgdbLogos: async (id, key, gameId) => {
+    try {
+      const live = await sgdbList(key, '/logos/game/' + gameId + '?types=animated', true);
+      const still = await sgdbList(key, '/logos/game/' + gameId + '?types=static');
+      done(id, live.concat(still).slice(0, 60));
+    } catch (e) { fail(id, e); }
+  },
+  secondLogoApply: async (id, pkg, url) => {
+    try {
+      const r = await net.fetch(url);
+      if (!r.ok) throw new Error('Download failed (' + r.status + ')');
+      fs.mkdirSync(SECOND, { recursive: true }); dropOwnLogo(pkg);
+      fs.writeFileSync(path.join(SECOND, safe(pkg) + '.ownlogo' + imgExt(r.headers.get('content-type') || '', url)), Buffer.from(await r.arrayBuffer()));
+      done(id, true); secondPush();
+    } catch (e) { fail(id, e); }
+  },
+  secondLogoPick: async (pkg) => {
+    const r = await dialog.showOpenDialog(win, { title: 'Choose a logo (a PNG with a see-through background looks best)', properties: ['openFile'], filters: [{ name: 'Pictures', extensions: ['png', 'webp', 'gif', 'jpg', 'jpeg', 'svg'] }] });
+    if (r.canceled) return;
+    try {
+      fs.mkdirSync(SECOND, { recursive: true }); dropOwnLogo(pkg);
+      fs.copyFileSync(r.filePaths[0], path.join(SECOND, safe(pkg) + '.ownlogo' + path.extname(r.filePaths[0]).toLowerCase()));
+      js('window.onImagePicked("secondLogo",' + JSON.stringify(pkg) + ',true)'); secondPush();
+    } catch (e) { js('window.onImagePicked("secondLogo",' + JSON.stringify(pkg) + ',false)'); }
+  },
+  secondLogoRemove: (pkg) => { dropOwnLogo(pkg); fs.rmSync(logoFile(pkg), { force: true }); secondTried.delete(pkg); secondPush(); },
+  secondLogoHas: (pkg) => !!ownLogo(pkg),
   secondApply: async (id, pkg, url) => {
     try {
       const r = await net.fetch(url);
       if (!r.ok) throw new Error('Download failed (' + r.status + ')');
-      const type = r.headers.get('content-type') || '', ext = /webm/.test(type) || /\.webm(\?|$)/i.test(url) ? '.webm' : /png/.test(type) ? '.png' : /webp/.test(type) ? '.webp' : /gif/.test(type) ? '.gif' : '.jpg';
+      const type = r.headers.get('content-type') || '', ext = /webm/.test(type) || /\.webm(\?|$)/i.test(url) ? '.webm' : imgExt(type, url);
       fs.mkdirSync(SECOND, { recursive: true }); dropSecondOwn(pkg);
       fs.writeFileSync(path.join(SECOND, safe(pkg) + '.own' + ext), Buffer.from(await r.arrayBuffer()));
       done(id, true); secondPush();
@@ -497,19 +533,25 @@ const H = {
   },
   sgdbGrids: async (id, key, gameId) => {
     try {
-      let j = await sgdb(key, '/grids/game/' + gameId + '?dimensions=512x512,1024x1024&types=static');
-      if (!(j.data || []).length) j = await sgdb(key, '/grids/game/' + gameId + '?types=static');
-      done(id, (j.data || []).filter(g => g.url).slice(0, 40).map(g => ({ url: g.url, thumb: g.thumb || g.url, width: g.width, height: g.height, style: g.style || '' })));
+      // live (animated) tiles first, then square pictures, then any other shape
+      const live = await sgdbList(key, '/grids/game/' + gameId + '?types=animated', true);
+      let still = await sgdbList(key, '/grids/game/' + gameId + '?dimensions=512x512,1024x1024&types=static');
+      if (!still.length) still = await sgdbList(key, '/grids/game/' + gameId + '?types=static');
+      done(id, live.concat(still).slice(0, 60));
     } catch (e) { fail(id, e); }
   },
-  sgdbApply: async (id, pkg, url) => {
+  sgdbApply: async (id, pkg, url, animated) => {
     try {
       const r = await net.fetch(url);
       if (!r.ok) throw new Error('Download failed (' + r.status + ')');
-      const img = nativeImage.createFromBuffer(Buffer.from(await r.arrayBuffer()));
+      const buf = Buffer.from(await r.arrayBuffer());
       fs.mkdirSync(COVERS, { recursive: true });
-      fs.writeFileSync(coverFile(pkg), squareJpeg(img, 720));
-      dropCoverVideo(pkg);
+      dropCoverVideo(pkg); dropCoverAnim(pkg);
+      if (animated) {
+        const ext = imgExt(r.headers.get('content-type') || '', url);
+        if (ext === '.jpg') throw new Error("That one isn't animated");
+        fs.writeFileSync(path.join(COVERS, safe(pkg) + '.anim' + ext), buf);   // kept as it came, so it keeps moving
+      } else fs.writeFileSync(coverFile(pkg), squareJpeg(nativeImage.createFromBuffer(buf), 720));
       done(id, true);
     } catch (e) { fail(id, e); }
   },
@@ -533,7 +575,7 @@ const H = {
     catch (e) { toast("Couldn't delete that screenshot"); js('window.onAlbumDeleted&&window.onAlbumDeleted(false)'); }
   },
   albumAsCover: (id, shot, pkg) => {
-    try { fs.mkdirSync(COVERS, { recursive: true }); fs.writeFileSync(coverFile(pkg), squareJpeg(shots[shot], 720)); dropCoverVideo(pkg); done(id, true); }
+    try { fs.mkdirSync(COVERS, { recursive: true }); fs.writeFileSync(coverFile(pkg), squareJpeg(shots[shot], 720)); dropCoverVideo(pkg); dropCoverAnim(pkg); done(id, true); }
     catch (e) { fail(id, e); }
   },
 
@@ -689,6 +731,12 @@ const H = {
   openAppInfoSelf: () => shell.openPath(DATA),
 };
 
+/** One page of SteamGridDB results as picker items; `live` marks animated ones. */
+async function sgdbList(key, p, live) {
+  let j;
+  try { j = await sgdb(key, p); } catch (e) { if (live) return []; throw e; }   // no animated ones is fine
+  return (j.data || []).filter(g => g.url).slice(0, 40).map(g => ({ url: g.url, thumb: live ? g.url : (g.thumb || g.url), width: g.width, height: g.height, style: g.style || '', animated: !!live || /animated/i.test(g.style || ''), video: /\.(webm|mp4)(\?|$)/i.test(g.url) }));
+}
 async function sgdb(key, p) {
   if (!key) throw new Error('Add your SteamGridDB API key in Settings › Cover Art');
   const r = await net.fetch('https://www.steamgriddb.com/api/v2' + p, { headers: { Authorization: 'Bearer ' + key } });
@@ -751,6 +799,8 @@ async function handle(req) {
   if (p === '/' || p === '') p = '/index.html';
   if (p.startsWith('/art/')) {
     const pkg = p.slice(5);
+    const anim = coverAnim(pkg);
+    if (anim) return serveFile(anim, req);
     if (fs.existsSync(coverFile(pkg))) return serveFile(coverFile(pkg), req);
     const a = byPkg[pkg];
     if (a && a.source === 'steam') { const f = lib.steamImage(a.appid, 'capsule') || lib.steamImage(a.appid, 'header'); if (f) return serveFile(f, req); }
@@ -760,6 +810,8 @@ async function handle(req) {
   if (p.startsWith('/second/')) { const f = secondOwn(p.slice(8)); return f ? serveFile(f, req) : notFound(); }
   if (p.startsWith('/hero/') || p.startsWith('/logo/')) {
     const hero = p.startsWith('/hero/'), pkg = p.slice(6), f = hero ? heroFile(pkg) : logoFile(pkg);
+    const mine = !hero && ownLogo(pkg);
+    if (mine) return serveFile(mine, req);
     if (fs.existsSync(f)) return bytes(fs.readFileSync(f), sniffImage(f));
     const a = byPkg[pkg], s = a && a.source === 'steam' && lib.steamImage(a.appid, hero ? 'hero' : 'logo');
     return s ? serveFile(s, req) : notFound();
