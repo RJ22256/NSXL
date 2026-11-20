@@ -38,6 +38,7 @@ namespace Nsxl.Native
             Console.OutputEncoding = new UTF8Encoding(false);
             Console.InputEncoding = new UTF8Encoding(false);
             Pads.Start();
+            Media.Watch();
             string line;
             while ((line = Console.In.ReadLine()) != null)
             {
@@ -370,6 +371,42 @@ namespace Nsxl.Native
                 { "position", tl.Position.TotalSeconds }, { "duration", tl.EndTime.TotalSeconds }, { "updated", tl.LastUpdatedTime.ToUnixTimeMilliseconds() },
                 { "art", art },
             };
+        }
+
+        // Tells NSXL when another app (Spotify, a browser…) starts or stops playing, so its ambient music can step aside.
+        static bool? lastPlaying;
+        static bool Ours(string id) =>
+            id.IndexOf("com.nsxl", StringComparison.OrdinalIgnoreCase) >= 0 || id.IndexOf("NSXL", StringComparison.OrdinalIgnoreCase) >= 0
+            || id.IndexOf("electron", StringComparison.OrdinalIgnoreCase) >= 0;
+
+        public static void Watch()
+        {
+            Task.Run(async () =>
+            {
+                GlobalSystemMediaTransportControlsSessionManager mgr = null;
+                while (true)
+                {
+                    try
+                    {
+                        if (mgr == null) mgr = await GlobalSystemMediaTransportControlsSessionManager.RequestAsync();
+                        string app = null;
+                        foreach (var s in mgr.GetSessions())
+                        {
+                            var id = s.SourceAppUserModelId ?? "";
+                            if (Ours(id)) continue;
+                            if (s.GetPlaybackInfo().PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing) { app = id; break; }
+                        }
+                        bool on = app != null;
+                        if (lastPlaying != on)
+                        {
+                            lastPlaying = on;
+                            Program.Event("media.playing", new Dictionary<string, object> { { "playing", on }, { "app", app ?? "" } });
+                        }
+                    }
+                    catch { mgr = null; }   // media service restarted: ask again next time
+                    await Task.Delay(1500);
+                }
+            });
         }
 
         public static async Task<object> Command(string c)

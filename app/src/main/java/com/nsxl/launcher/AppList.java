@@ -52,7 +52,8 @@ final class AppList {
                 o.put("label", String.valueOf(ri.loadLabel(pm)));
                 o.put("game", isGame(pkg, ri.activityInfo.applicationInfo));
                 o.put("installed", installed);
-                o.put("cover", Storage.coverFile(c, pkg).exists());
+                o.put("cover", Storage.coverFile(c, pkg).exists() || Storage.coverVideoFile(c, pkg).exists());
+                o.put("coverVideo", Storage.coverVideoFile(c, pkg).exists());
             } catch (JSONException ignored) { }
             arr.put(o);
         }

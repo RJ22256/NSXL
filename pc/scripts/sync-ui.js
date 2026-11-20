@@ -8,4 +8,5 @@ fs.cpSync(src, dest, { recursive: true, filter: p => !p.endsWith('cloud.html') }
 // PC-only pages
 fs.mkdirSync(path.join(dest, 'browser'), { recursive: true });
 fs.copyFileSync(path.join(__dirname, '..', 'ui', 'browser-shell.html'), path.join(dest, 'browser', 'shell.html'));
+fs.copyFileSync(path.join(__dirname, '..', 'ui', 'second.html'), path.join(dest, 'second.html'));
 console.log('UI copied to', dest);

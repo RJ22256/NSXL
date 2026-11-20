@@ -65,9 +65,10 @@ function steamImage(appid, kind) {
   const root = steamRoot();
   if (!root) return null;
   const cache = path.join(root, 'appcache', 'librarycache');
-  const want = kind === 'capsule' ? [/library_600x900(_2x)?\.jpg$/i, /library_capsule\.jpg$/i] : kind === 'header' ? [/header\.jpg$/i] : [/^[0-9a-f]{40}\.jpg$/i, /icon\.jpg$/i];
+  const want = kind === 'capsule' ? [/library_600x900(_2x)?\.jpg$/i, /library_capsule\.jpg$/i] : kind === 'header' ? [/header\.jpg$/i]
+    : kind === 'hero' ? [/library_hero(_2x)?\.jpg$/i] : kind === 'logo' ? [/logo(_2x)?\.png$/i] : [/^[0-9a-f]{40}\.jpg$/i, /icon\.jpg$/i];
   // older Steam: <appid>_library_600x900.jpg in the cache folder
-  const flat = { capsule: appid + '_library_600x900.jpg', header: appid + '_header.jpg', icon: appid + '_icon.jpg' }[kind];
+  const flat = { capsule: appid + '_library_600x900.jpg', header: appid + '_header.jpg', icon: appid + '_icon.jpg', hero: appid + '_library_hero.jpg', logo: appid + '_logo.png' }[kind];
   if (flat && fs.existsSync(path.join(cache, flat))) return path.join(cache, flat);
   // newer Steam: a folder per game, sometimes with a sub-folder
   const dir = path.join(cache, String(appid));
