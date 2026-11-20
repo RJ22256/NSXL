@@ -40,6 +40,15 @@ final class Storage {
         return new File(dir, safe + ".jpg");
     }
 
+    /** A moving tile: a video the user chose for this game. Shown instead of the cover picture. */
+    static File coverVideoFile(Context c, String pkg) {
+        File dir = new File(c.getFilesDir(), "covers");
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        String safe = (pkg == null ? "_" : pkg).replaceAll("[^A-Za-z0-9._]", "_");
+        return new File(dir, safe + ".video");
+    }
+
     static long querySize(Context c, Uri uri) {
         try (Cursor cur = c.getContentResolver().query(uri, new String[]{OpenableColumns.SIZE}, null, null, null)) {
             if (cur != null && cur.moveToFirst() && !cur.isNull(0)) return cur.getLong(0);

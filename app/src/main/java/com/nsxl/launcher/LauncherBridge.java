@@ -313,6 +313,8 @@ final class LauncherBridge {
         new Thread(() -> {
             try {
                 if (!Storage.saveSquareImage(a, Album.uri((long) shot), Storage.coverFile(a, pkg), 720)) throw new java.io.IOException("Couldn't read that screenshot");
+                //noinspection ResultOfMethodCallIgnored
+                Storage.coverVideoFile(a, pkg).delete();
                 a.server.invalidate(pkg);
                 a.asyncResult(id, "true");
             } catch (Exception e) { a.asyncError(id, e); }
@@ -363,6 +365,8 @@ final class LauncherBridge {
                 if (!url.startsWith("https://")) throw new java.io.IOException("Bad image address");
                 SteamGridDB.download(url, tmp);
                 boolean ok = Storage.saveSquareImage(a, Uri.fromFile(tmp), Storage.coverFile(a, pkg), 720);
+                //noinspection ResultOfMethodCallIgnored
+                if (ok) Storage.coverVideoFile(a, pkg).delete();
                 if (!ok) throw new java.io.IOException("Couldn't read that image");
                 a.server.invalidate(pkg);
                 a.asyncResult(id, "true");
@@ -386,7 +390,7 @@ final class LauncherBridge {
     public void pickCover(final String pkg) {
         a.runOnUiThread(() -> {
             a.pendingCoverPkg = pkg;
-            a.pickContent("image/*", MainActivity.REQ_COVER);
+            a.pickContent("*/*", new String[]{"image/*", "video/*"}, MainActivity.REQ_COVER);
         });
     }
 
@@ -394,7 +398,27 @@ final class LauncherBridge {
     public void removeCover(String pkg) {
         //noinspection ResultOfMethodCallIgnored
         Storage.coverFile(a, pkg).delete();
+        //noinspection ResultOfMethodCallIgnored
+        Storage.coverVideoFile(a, pkg).delete();
         a.server.invalidate(pkg);
+    }
+
+    // ---------------------------------------------------------------- other apps' music
+
+    /** True when NSXL may see whether Spotify or another app is playing (notification access). */
+    @JavascriptInterface
+    public boolean mediaAccess() { return MediaWatch.allowed(a); }
+
+    /** Whether another app is playing right now. */
+    @JavascriptInterface
+    public boolean otherMusic() { return a.mediaWatch != null && a.mediaWatch.playing(); }
+
+    @JavascriptInterface
+    public void openMediaAccess() {
+        a.runOnUiThread(() -> {
+            try { a.startActivity(MediaWatch.settingsIntent(a)); }
+            catch (Exception e) { a.startActivity(new android.content.Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); }
+        });
     }
 
     @JavascriptInterface

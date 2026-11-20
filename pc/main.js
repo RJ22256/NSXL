@@ -44,6 +44,17 @@ const done = (id, data) => js('window.onAsync(' + JSON.stringify(id) + ',true,' 
 const fail = (id, err) => js('window.onAsync(' + JSON.stringify(id) + ',false,' + JSON.stringify(String((err && err.message) || err)) + ')');
 const safe = s => String(s).replace(/[^a-z0-9._-]/gi, '_');
 const coverFile = pkg => path.join(COVERS, safe(pkg) + '.jpg');
+const VIDEO_EXT = ['.mp4', '.webm', '.m4v', '.mov'];
+/** A moving tile: the video the user chose for this game, if any. */
+const coverVideo = pkg => VIDEO_EXT.map(e => path.join(COVERS, safe(pkg) + '.video' + e)).find(f => fs.existsSync(f)) || null;
+const dropCoverVideo = pkg => VIDEO_EXT.forEach(e => fs.rmSync(path.join(COVERS, safe(pkg) + '.video' + e), { force: true }));
+// second screen: your own picture or video per game, or artwork fetched for it
+const SECOND = path.join(DATA, 'second');
+const SECOND_EXT = ['.mp4', '.webm', '.m4v', '.mov', '.jpg', '.jpeg', '.png', '.webp', '.gif'];
+const secondOwn = pkg => SECOND_EXT.map(e => path.join(SECOND, safe(pkg) + '.own' + e)).find(f => fs.existsSync(f)) || null;
+const dropSecondOwn = pkg => SECOND_EXT.forEach(e => fs.rmSync(path.join(SECOND, safe(pkg) + '.own' + e), { force: true }));
+const heroFile = pkg => path.join(SECOND, safe(pkg) + '.hero.img');
+const logoFile = pkg => path.join(SECOND, safe(pkg) + '.logo.img');
 
 // ------------------------------------------------------------------ library
 
@@ -127,6 +138,14 @@ async function pickImage(title) {
   return r.canceled ? null : r.filePaths[0];
 }
 
+const isVideo = f => VIDEO_EXT.includes(path.extname(f).toLowerCase());
+async function pickMedia(title) {
+  const r = await dialog.showOpenDialog(win, { title, properties: ['openFile'], filters: [
+    { name: 'Pictures and videos', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif', 'mp4', 'webm', 'm4v', 'mov'] },
+    { name: 'Videos', extensions: ['mp4', 'webm', 'm4v', 'mov'] }, { name: 'Pictures', extensions: ['png', 'jpg', 'jpeg', 'webp', 'bmp', 'gif'] }] });
+  return r.canceled ? null : r.filePaths[0];
+}
+
 async function copyWithProgress(src, dest, onPct) {
   const total = fs.statSync(src).size || 1;
   let copied = 0, last = -1;
@@ -170,6 +189,82 @@ async function music(withArt) {
   try { out.session = await native.call('media.get', { art: !!withArt }, 8000); } catch (e) { }
   if (spotify.connected) { try { out.spotify = await spotify.player(); } catch (e) { out.error = e.message; } }
   return out;
+}
+
+// ------------------------------------------------------------------ second screen: big artwork of the selected game
+
+function sniffImage(f) {
+  try { const b = Buffer.alloc(4); const fd = fs.openSync(f, 'r'); fs.readSync(fd, b, 0, 4, 0); fs.closeSync(fd);
+    if (b[0] === 0x89 && b[1] === 0x50) return 'image/png'; if (b[0] === 0x52 && b[1] === 0x49) return 'image/webp'; if (b[0] === 0x47 && b[1] === 0x49) return 'image/gif'; } catch (e) { }
+  return 'image/jpeg';
+}
+const mtime = f => { try { return Math.round(fs.statSync(f).mtimeMs); } catch (e) { return 0; } };
+let secondWin = null, second = { pkg: null, label: '', key: '' };
+const secondTried = new Set();
+
+/** The screen NSXL isn't on, when there is one (or the one you picked). */
+function otherDisplay() {
+  const { screen } = require('electron');
+  const all = screen.getAllDisplays();
+  if (all.length < 2) return null;
+  const mine = win && !win.isDestroyed() ? screen.getDisplayMatching(win.getBounds()) : screen.getPrimaryDisplay();
+  const pick = prefs.get('secondDisplay', null);
+  return all.find(d => d.id === pick && d.id !== mine.id) || all.find(d => d.id !== mine.id) || null;
+}
+/** Opens, moves or closes the artwork window to match your setting and the screens plugged in. */
+function secondSync() {
+  const d = prefs.get('secondScreen', 'off') === 'art' ? otherDisplay() : null;
+  if (!d) { if (secondWin && !secondWin.isDestroyed()) secondWin.destroy(); secondWin = null; return; }
+  if (secondWin && !secondWin.isDestroyed()) { secondWin.setFullScreen(false); secondWin.setBounds(d.bounds); secondWin.setFullScreen(true); return; }
+  secondWin = new BrowserWindow({
+    x: d.bounds.x, y: d.bounds.y, width: d.bounds.width, height: d.bounds.height, show: false, frame: false, focusable: false,
+    skipTaskbar: true, fullscreen: true, backgroundColor: '#000000', title: 'NSXL second screen',
+    webPreferences: { contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false },
+  });
+  secondWin.setMenu(null);
+  secondWin.loadURL('nsxl://app/second.html');
+  secondWin.webContents.once('did-finish-load', () => { if (!secondWin) return; secondWin.showInactive(); secondPush(); });
+  secondWin.on('closed', () => { secondWin = null; });
+}
+/** Sends the selected game's artwork to the second screen. */
+function secondPush() {
+  if (!secondWin || secondWin.isDestroyed() || !second.pkg) return;
+  const pkg = second.pkg, e = encodeURIComponent(pkg), a = byPkg[pkg];
+  const own = secondOwn(pkg), steam = a && a.source === 'steam';
+  const hasHero = fs.existsSync(heroFile(pkg)) || !!(steam && lib.steamImage(a.appid, 'hero'));
+  const hasLogo = fs.existsSync(logoFile(pkg)) || !!(steam && lib.steamImage(a.appid, 'logo'));
+  const cv = coverVideo(pkg);
+  const data = {
+    pkg, label: second.label || (a && a.label) || '',
+    media: own ? { url: '/second/' + e + '?v=' + mtime(own), video: isVideo(own) }
+      : hasHero ? { url: '/hero/' + e + '?v=' + mtime(heroFile(pkg)), video: false } : null,
+    logo: prefs.get('secondLogo', true) && hasLogo && !own ? '/logo/' + e + '?v=' + mtime(logoFile(pkg)) : null,
+    tile: cv ? { url: '/artvideo/' + e + '?v=' + mtime(cv), video: true } : { url: '/art/' + e + '?s=1024&v=' + mtime(coverFile(pkg)), video: false },
+  };
+  secondWin.webContents.executeJavaScript('window.show&&show(' + JSON.stringify(data) + ')').catch(() => {});
+  if (!own && !fs.existsSync(heroFile(pkg)) && !(steam && lib.steamImage(a.appid, 'hero'))) secondFetch(pkg);
+}
+/** Downloads a hero banner and logo from SteamGridDB the first time a game is shown (needs your API key). */
+async function secondFetch(pkg) {
+  const key = second.key, a = byPkg[pkg];
+  if (!key || !prefs.get('secondSgdb', true) || secondTried.has(pkg)) return;
+  secondTried.add(pkg);
+  try {
+    let gameId = null;
+    if (a && a.source === 'steam') { try { gameId = (await sgdb(key, '/games/steam/' + a.appid)).data.id; } catch (e) { } }
+    if (!gameId) { const j = await sgdb(key, '/search/autocomplete/' + encodeURIComponent(String(second.label || (a && a.label) || '').trim())); gameId = j.data && j.data[0] && j.data[0].id; }
+    if (!gameId) return;
+    const grab = async (kind, file) => {
+      const j = await sgdb(key, '/' + kind + '/game/' + gameId + '?types=static');
+      const pickOne = (j.data || []).find(x => x.url);
+      if (!pickOne) return;
+      const r = await net.fetch(pickOne.url);
+      if (r.ok) { fs.mkdirSync(SECOND, { recursive: true }); fs.writeFileSync(file, Buffer.from(await r.arrayBuffer())); }
+    };
+    await grab('heroes', heroFile(pkg));
+    if (prefs.get('secondLogo', true)) await grab('logos', logoFile(pkg)).catch(() => {});
+    if (second.pkg === pkg) secondPush();
+  } catch (e) { }
 }
 
 // ------------------------------------------------------------------ the quick menu (over games)
@@ -219,6 +314,8 @@ native.on('pad', m => {
   const want = prefs.get('menuButton', 'viewmenu');
   if (m.combo === want || (want === 'both' && (m.combo === 'guide' || m.combo === 'viewmenu'))) overlayOpen();
 });
+let otherMusic = false;   // another app is playing (Spotify, a browser…): the page pauses its ambient music
+native.on('media.playing', m => { otherMusic = !!(m && m.playing); js('window.onOtherMusic&&onOtherMusic(' + otherMusic + ')'); });
 native.on('pads', m => { xinputPads = (m && m.count) || 0; js('window.updateStatus&&updateStatus()'); });
 
 async function screenshot() {
@@ -274,7 +371,7 @@ const H = {
   firstLoad: () => { const f = !H._loaded; H._loaded = true; return f; },
   isDefaultHome: () => true,
   pageReady: () => {},
-  getApps: () => { if (!apps.length) scan(); return JSON.stringify(apps.map(a => ({ pkg: a.pkg, label: a.label, game: a.game, installed: a.installed, cover: fs.existsSync(coverFile(a.pkg)) }))); },
+  getApps: () => { if (!apps.length) scan(); return JSON.stringify(apps.map(a => ({ pkg: a.pkg, label: a.label, game: a.game, installed: a.installed, cover: fs.existsSync(coverFile(a.pkg)) || !!coverVideo(a.pkg), coverVideo: !!coverVideo(a.pkg) }))); },
   getStatus: () => JSON.stringify({ net: net.isOnline() ? 'wifi' : 'none', bars: 3, time24: false, battery: battery.level, charging: battery.charging, controllers: [] }),
   reportBattery: (level, charging) => { battery = { level, charging: !!charging }; },
 
@@ -325,12 +422,64 @@ const H = {
 
   // covers and avatar
   pickCover: async (pkg) => {
-    const f = await pickImage('Choose cover art');
+    const f = await pickMedia('Choose a picture or video for this tile');
     if (!f) return;
-    try { fs.mkdirSync(COVERS, { recursive: true }); fs.writeFileSync(coverFile(pkg), squareJpeg(f, 720)); js('window.onImagePicked("cover",' + JSON.stringify(pkg) + ',true)'); }
-    catch (e) { js('window.onImagePicked("cover",' + JSON.stringify(pkg) + ',false)'); }
+    const say = (ok, msg) => js('window.onImagePicked(' + JSON.stringify(isVideo(f) ? 'coverVideo' : 'cover') + ',' + JSON.stringify(pkg) + ',' + ok + (msg ? ',' + JSON.stringify(msg) : '') + ')');
+    try {
+      fs.mkdirSync(COVERS, { recursive: true });
+      if (isVideo(f)) {
+        if (fs.statSync(f).size > 500 * 1024 * 1024) return say(false, 'That video is over 500 MB. Pick a shorter clip.');
+        dropCoverVideo(pkg);
+        fs.copyFileSync(f, path.join(COVERS, safe(pkg) + '.video' + path.extname(f).toLowerCase()));
+      } else { fs.writeFileSync(coverFile(pkg), squareJpeg(f, 720)); dropCoverVideo(pkg); }
+      say(true);
+    } catch (e) { say(false); }
   },
-  removeCover: (pkg) => { fs.rmSync(coverFile(pkg), { force: true }); },
+  removeCover: (pkg) => { fs.rmSync(coverFile(pkg), { force: true }); dropCoverVideo(pkg); },
+
+  // second screen
+  secondState: () => {
+    const { screen } = require('electron');
+    return JSON.stringify({ screens: screen.getAllDisplays().length, mode: prefs.get('secondScreen', 'off'), logo: prefs.get('secondLogo', true), sgdb: prefs.get('secondSgdb', true), open: !!(secondWin && !secondWin.isDestroyed()) });
+  },
+  setSecond: (k, v) => {
+    if (!['secondScreen', 'secondLogo', 'secondSgdb'].includes(k)) return;
+    prefs.set(k, v); if (k === 'secondLogo' && v) secondTried.clear();
+    secondSync(); secondPush();
+  },
+  secondShow: (pkg, label, key) => { second = { pkg, label: label || '', key: key || second.key }; secondPush(); },
+  secondHas: (pkg) => !!secondOwn(pkg),
+  secondPick: async (pkg) => {
+    const f = await pickMedia('Choose a picture or video for the second screen');
+    if (!f) return;
+    try {
+      if (fs.statSync(f).size > 1024 * 1024 * 1024) { js('window.onImagePicked("second",' + JSON.stringify(pkg) + ',false,"That file is over 1 GB.")'); return; }
+      fs.mkdirSync(SECOND, { recursive: true }); dropSecondOwn(pkg);
+      fs.copyFileSync(f, path.join(SECOND, safe(pkg) + '.own' + path.extname(f).toLowerCase()));
+      js('window.onImagePicked("second",' + JSON.stringify(pkg) + ',true)'); secondPush();
+    } catch (e) { js('window.onImagePicked("second",' + JSON.stringify(pkg) + ',false)'); }
+  },
+  secondRemove: (pkg) => { dropSecondOwn(pkg); fs.rmSync(heroFile(pkg), { force: true }); fs.rmSync(logoFile(pkg), { force: true }); secondTried.delete(pkg); secondPush(); },
+  sgdbHeroes: async (id, key, gameId) => {
+    try {
+      const j = await sgdb(key, '/heroes/game/' + gameId + '?types=static,animated');
+      done(id, (j.data || []).filter(g => g.url).slice(0, 40).map(g => ({ url: g.url, thumb: g.thumb || g.url, width: g.width, height: g.height, style: g.style || '', video: /\.(webm|mp4)(\?|$)/i.test(g.url) })));
+    } catch (e) { fail(id, e); }
+  },
+  secondApply: async (id, pkg, url) => {
+    try {
+      const r = await net.fetch(url);
+      if (!r.ok) throw new Error('Download failed (' + r.status + ')');
+      const type = r.headers.get('content-type') || '', ext = /webm/.test(type) || /\.webm(\?|$)/i.test(url) ? '.webm' : /png/.test(type) ? '.png' : /webp/.test(type) ? '.webp' : /gif/.test(type) ? '.gif' : '.jpg';
+      fs.mkdirSync(SECOND, { recursive: true }); dropSecondOwn(pkg);
+      fs.writeFileSync(path.join(SECOND, safe(pkg) + '.own' + ext), Buffer.from(await r.arrayBuffer()));
+      done(id, true); secondPush();
+    } catch (e) { fail(id, e); }
+  },
+  // the phone asks for notification access to see other apps' music; Windows needs nothing
+  mediaAccess: () => true,
+  openMediaAccess: () => {},
+  otherMusic: () => otherMusic,
   pickAvatar: async () => {
     const f = await pickImage('Choose a profile picture');
     if (!f) return;
@@ -360,6 +509,7 @@ const H = {
       const img = nativeImage.createFromBuffer(Buffer.from(await r.arrayBuffer()));
       fs.mkdirSync(COVERS, { recursive: true });
       fs.writeFileSync(coverFile(pkg), squareJpeg(img, 720));
+      dropCoverVideo(pkg);
       done(id, true);
     } catch (e) { fail(id, e); }
   },
@@ -383,7 +533,7 @@ const H = {
     catch (e) { toast("Couldn't delete that screenshot"); js('window.onAlbumDeleted&&window.onAlbumDeleted(false)'); }
   },
   albumAsCover: (id, shot, pkg) => {
-    try { fs.mkdirSync(COVERS, { recursive: true }); fs.writeFileSync(coverFile(pkg), squareJpeg(shots[shot], 720)); done(id, true); }
+    try { fs.mkdirSync(COVERS, { recursive: true }); fs.writeFileSync(coverFile(pkg), squareJpeg(shots[shot], 720)); dropCoverVideo(pkg); done(id, true); }
     catch (e) { fail(id, e); }
   },
 
@@ -606,6 +756,14 @@ async function handle(req) {
     if (a && a.source === 'steam') { const f = lib.steamImage(a.appid, 'capsule') || lib.steamImage(a.appid, 'header'); if (f) return serveFile(f, req); }
     return notFound();
   }
+  if (p.startsWith('/artvideo/')) { const f = coverVideo(p.slice(10)); return f ? serveFile(f, req) : notFound(); }
+  if (p.startsWith('/second/')) { const f = secondOwn(p.slice(8)); return f ? serveFile(f, req) : notFound(); }
+  if (p.startsWith('/hero/') || p.startsWith('/logo/')) {
+    const hero = p.startsWith('/hero/'), pkg = p.slice(6), f = hero ? heroFile(pkg) : logoFile(pkg);
+    if (fs.existsSync(f)) return bytes(fs.readFileSync(f), sniffImage(f));
+    const a = byPkg[pkg], s = a && a.source === 'steam' && lib.steamImage(a.appid, hero ? 'hero' : 'logo');
+    return s ? serveFile(s, req) : notFound();
+  }
   if (p.startsWith('/icon/')) { const png = await icon(p.slice(6)); return png ? bytes(png, 'image/png') : notFound(); }
   if (p === '/avatar') return serveFile(path.join(DATA, 'avatar.jpg'), req);
   if (p === '/music') return serveFile(path.join(DATA, 'music' + prefs.get('musicExt', '.mp3')), req);
@@ -732,6 +890,8 @@ app.whenReady().then(() => {
   pia.watch();
   pia.refresh().then(() => { if (prefs.get('vpnOnStart', false) && pia.state.connection !== 'Connected') pia.connect().catch(() => {}); }).catch(() => {});
   fseCheck();
+  { const { screen } = require('electron'); ['display-added', 'display-removed', 'display-metrics-changed'].forEach(ev => screen.on(ev, () => setTimeout(secondSync, 400))); }
+  setTimeout(secondSync, 1500);
   const { globalShortcut } = require('electron');
   // first shortcut Windows lets us have
   for (const k of ['Control+Alt+Space', 'Control+Shift+Space', 'Alt+F1']) {

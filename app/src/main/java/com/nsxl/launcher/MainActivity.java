@@ -63,6 +63,8 @@ public class MainActivity extends Activity {
     VideoWallpaperView video;
     WebView web;
     LocalServer server;
+    /** Tells the page when another app (Spotify, say) plays or pauses, so ambient music can step aside. */
+    MediaWatch mediaWatch;
     Pads pads;
     LauncherBridge bridge;
     private BroadcastReceiver packageReceiver, screenReceiver;
@@ -116,6 +118,7 @@ public class MainActivity extends Activity {
         root.addView(video, new FrameLayout.LayoutParams(MATCH, MATCH));
 
         server = new LocalServer(this);
+        mediaWatch = new MediaWatch(this, (playing, pkg) -> js("window.onOtherMusic&&window.onOtherMusic(" + playing + ")"));
         pads = new Pads(this);
         bridge = new LauncherBridge(this);
         createWebView();
@@ -169,6 +172,7 @@ public class MainActivity extends Activity {
         super.onResume();
         OverlayService.setLauncherVisible(true);
         resumed = true;
+        mediaWatch.start();   // also picks up notification access the moment it's turned on
         Play.finish(this);
         if (sleptWhileShowing) {          // screen came back on with NSXL showing: play the wake animation
             sleptWhileShowing = false;     // ...but only once it can be seen, not behind the lock screen
@@ -201,6 +205,7 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         if (current == this) current = null;
         if (pads != null) pads.release();
+        if (mediaWatch != null) mediaWatch.stop();
         try { unregisterReceiver(packageReceiver); } catch (Exception ignored) { }
         try { unregisterReceiver(screenReceiver); } catch (Exception ignored) { }
         video.stop();
@@ -271,7 +276,7 @@ public class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                return server.handle(request.getUrl());
+                return server.handle(request.getUrl(), request.getRequestHeaders());
             }
 
             @Override
@@ -556,9 +561,12 @@ public class MainActivity extends Activity {
 
     // ------------------------------------------------------------------ pickers (video, cover art, avatar)
 
-    void pickContent(String mime, int request) {
+    void pickContent(String mime, int request) { pickContent(mime, null, request); }
+
+    void pickContent(String mime, String[] also, int request) {
         Intent i = new Intent(Intent.ACTION_GET_CONTENT);
         i.setType(mime);
+        if (also != null) i.putExtra(Intent.EXTRA_MIME_TYPES, also);
         i.addCategory(Intent.CATEGORY_OPENABLE);
         try {
             startActivityForResult(i, request);
@@ -572,7 +580,11 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         Uri uri = (resultCode == RESULT_OK && data != null) ? data.getData() : null;
         if (requestCode == REQ_VIDEO) importVideo(uri);
-        else if (requestCode == REQ_COVER) importImage(uri, "cover", pendingCoverPkg);
+        else if (requestCode == REQ_COVER) {
+            String type = uri == null ? null : getContentResolver().getType(uri);
+            if (type != null && type.startsWith("video/")) importCoverVideo(uri, pendingCoverPkg);
+            else importImage(uri, "cover", pendingCoverPkg);
+        }
         else if (requestCode == REQ_AVATAR) importImage(uri, "avatar", "");
         else if (requestCode == REQ_MUSIC) importMusic(uri);
         else if (requestCode == REQ_ALBUM_DELETE) js("window.onAlbumDeleted&&window.onAlbumDeleted(" + (resultCode == RESULT_OK) + ")");
@@ -696,13 +708,46 @@ public class MainActivity extends Activity {
         }, "music-import").start();
     }
 
+    /** A moving tile: copies the chosen video next to the covers. */
+    private void importCoverVideo(final Uri uri, final String pkg) {
+        new Thread(() -> {
+            File out = Storage.coverVideoFile(this, pkg), tmp = new File(out.getPath() + ".tmp");
+            boolean ok = false;
+            long size = Storage.querySize(this, uri);
+            if (size > 300L * 1024 * 1024) {
+                js("window.onImagePicked&&window.onImagePicked('coverVideo'," + JSONObject.quote(pkg) + ",false,'That video is over 300 MB. Pick a shorter clip.')");
+                return;
+            }
+            try (InputStream in = getContentResolver().openInputStream(uri); OutputStream os = new FileOutputStream(tmp)) {
+                if (in == null) throw new IOException("Can't open file");
+                byte[] buf = new byte[256 * 1024];
+                int n;
+                while ((n = in.read(buf)) > 0) os.write(buf, 0, n);
+                ok = true;
+            } catch (Exception e) {
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
+            }
+            if (ok) {
+                //noinspection ResultOfMethodCallIgnored
+                out.delete();
+                ok = tmp.renameTo(out);
+            }
+            js("window.onImagePicked&&window.onImagePicked('coverVideo'," + JSONObject.quote(pkg) + "," + ok + ")");
+        }, "video-cover-import").start();
+    }
+
     private void importImage(final Uri uri, final String kind, final String pkg) {
         if (uri == null) return;
         new Thread(() -> {
             boolean avatar = "avatar".equals(kind);
             File out = avatar ? Storage.avatarFile(this) : Storage.coverFile(this, pkg);
             boolean ok = Storage.saveSquareImage(this, uri, out, avatar ? 320 : 720);
-            if (ok && !avatar) server.invalidate(pkg);
+            if (ok && !avatar) {
+                server.invalidate(pkg);
+                //noinspection ResultOfMethodCallIgnored
+                Storage.coverVideoFile(this, pkg).delete();   // a new picture replaces a moving tile
+            }
             js("window.onImagePicked&&window.onImagePicked(" + JSONObject.quote(kind) + ","
                     + JSONObject.quote(pkg == null ? "" : pkg) + "," + ok + ")");
         }, "image-import").start();

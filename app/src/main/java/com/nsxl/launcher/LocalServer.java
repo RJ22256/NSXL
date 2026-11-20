@@ -19,6 +19,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,13 +46,18 @@ final class LocalServer {
         ctx = c.getApplicationContext();
     }
 
-    WebResourceResponse handle(Uri uri) {
+    WebResourceResponse handle(Uri uri) { return handle(uri, null); }
+
+    WebResourceResponse handle(Uri uri, Map<String, String> request) {
         if (uri == null || !"launcher.local".equals(uri.getHost())) return null;
         String path = uri.getPath();
         if (path == null || path.isEmpty() || "/".equals(path)) path = "/index.html";
         try {
             if (path.startsWith("/art/")) {
                 return image(art(path.substring(5), size(uri, 512)), "image/jpeg");
+            }
+            if (path.startsWith("/artvideo/")) {
+                return video(Storage.coverVideoFile(ctx, path.substring(10)), request);
             }
             if (path.startsWith("/icon/")) {
                 return image(icon(path.substring(6), size(uri, 192)), "image/png");
@@ -184,6 +190,45 @@ final class LocalServer {
         } catch (Exception e) {
             return def;
         }
+    }
+
+    /** Serves a video with byte ranges, which the WebView needs to play and loop it. */
+    private static WebResourceResponse video(File f, Map<String, String> request) throws IOException {
+        if (!f.exists()) return notFound();
+        long len = f.length();
+        String type = "video/mp4";
+        try (FileInputStream sniff = new FileInputStream(f)) {
+            byte[] m = new byte[4];
+            if (sniff.read(m) == 4 && (m[0] & 0xff) == 0x1a && (m[1] & 0xff) == 0x45 && (m[2] & 0xff) == 0xdf && (m[3] & 0xff) == 0xa3) type = "video/webm";
+        }
+        Map<String, String> h = headers();
+        h.put("Accept-Ranges", "bytes");
+        String range = null;
+        if (request != null) for (Map.Entry<String, String> e : request.entrySet()) if ("range".equalsIgnoreCase(e.getKey())) range = e.getValue();
+        if (range != null && range.startsWith("bytes=")) {
+            String[] p = range.substring(6).split("-", 2);
+            long start = p[0].trim().isEmpty() ? 0 : Long.parseLong(p[0].trim());
+            long end = p.length > 1 && !p[1].trim().isEmpty() ? Long.parseLong(p[1].trim()) : len - 1;
+            end = Math.min(end, len - 1);
+            if (start > end) { h.put("Content-Range", "bytes */" + len); return new WebResourceResponse(type, null, 416, "Range Not Satisfiable", h, new java.io.ByteArrayInputStream(new byte[0])); }
+            final long count = end - start + 1;
+            final FileInputStream in = new FileInputStream(f);
+            long skipped = 0;
+            while (skipped < start) { long n = in.skip(start - skipped); if (n <= 0) break; skipped += n; }
+            InputStream part = new java.io.FilterInputStream(in) {
+                long left = count;
+                @Override public int read() throws IOException { if (left <= 0) return -1; int b = super.read(); if (b >= 0) left--; return b; }
+                @Override public int read(byte[] b, int off, int n) throws IOException {
+                    if (left <= 0) return -1;
+                    int r = super.read(b, off, (int) Math.min(n, left)); if (r > 0) left -= r; return r;
+                }
+            };
+            h.put("Content-Range", "bytes " + start + "-" + end + "/" + len);
+            h.put("Content-Length", String.valueOf(count));
+            return new WebResourceResponse(type, null, 206, "Partial Content", h, part);
+        }
+        h.put("Content-Length", String.valueOf(len));
+        return new WebResourceResponse(type, null, 200, "OK", h, new FileInputStream(f));
     }
 
     private static Map<String, String> headers() {
