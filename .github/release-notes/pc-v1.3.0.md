@@ -4,8 +4,8 @@ Game glow and a polish update.
 
 ### Game glow
 - **Home takes on the colours of the game you've selected.** NSXL reads the main colours from the game's art and fills the background glow with them, blending smoothly as you move along the row.
-- **Turn it on in Settings › Themes › Game glow.** Choose *Background*, or *Background and accent* to also tint the game title, highlights and buttons.
-- Works with Basic White and Basic Black, even with Moving background glow or Reduce motion on (the colours still change, without the drifting).
+- **Turn it on in Settings › Home Screen › Game glow.** Choose *Background*, or *Background and accent* to also tint the game title, highlights and buttons.
+- Works with Basic White and Basic Black. It still works with Moving background glow off or Reduce motion on: the colours change, they just don't drift.
 
 ### Polish
 
