@@ -199,6 +199,53 @@ async function music(withArt) {
   return out;
 }
 
+// ------------------------------------------------------------------ Steam, out of sight
+// Steam games need Steam running, so NSXL starts it quietly in the background and keeps its pop-ups
+// behind NSXL's game intro until the game's own window appears.
+
+const STEAMISH = /^(steam|steamwebhelper|steamservice|steamerrorreporter|gameoverlayui|gameoverlayui64)$/i;
+const SHELLISH = /^(explorer|shellexperiencehost|startmenuexperiencehost|searchhost|searchapp|textinputhost|lockapp|applicationframehost|nsxl|electron|nsxl-native)$/i;
+function steamExe() { const r = lib.steamRoot(); const f = r && path.join(r, 'steam.exe'); return f && fs.existsSync(f) ? f : null; }
+const steamRunning = () => new Promise(res => exec('tasklist /FI "IMAGENAME eq steam.exe" /NH', { windowsHide: true }, (e, out) => res(!e && /steam\.exe/i.test(out || ''))));
+async function steamQuietStart() {
+  if (!prefs.get('steamQuiet', true) || process.argv.includes('--smoke')) return;
+  const exe = steamExe();
+  if (!exe || await steamRunning()) return;
+  try { const c = spawn(exe, ['-silent'], { detached: true, stdio: 'ignore', cwd: path.dirname(exe) }); c.on('error', () => {}); c.unref(); } catch (e) { }
+}
+
+let launchWatch = null;
+function launchCoverEnd(shown, hwnd) {
+  clearInterval(launchWatch); launchWatch = null;
+  if (win && !win.isDestroyed()) win.setAlwaysOnTop(false);
+  if (hwnd) native.call('fg.set', { hwnd }, 3000).catch(() => {});
+  js('window.onGameShown&&window.onGameShown(' + !!shown + ')');
+}
+/** Keeps NSXL's intro in front of Steam's "Preparing to launch…" windows until the game itself appears. */
+function launchCover() {
+  clearInterval(launchWatch);
+  const cover = prefs.get('steamCover', true) && !process.argv.includes('--smoke');
+  if (cover && win && !win.isDestroyed()) win.setAlwaysOnTop(true, 'floating');
+  const t0 = Date.now();
+  let steamSince = 0, busy = false;
+  launchWatch = setInterval(async () => {
+    if (busy) return; busy = true;
+    try {
+      if (Date.now() - t0 > 60000) return launchCoverEnd(false);   // never showed up: give the screen back
+      let f; try { f = await native.call('fg.get', {}, 1500); } catch (e) { return; }
+      const name = String(f.name || '');
+      if (!name || f.pid === process.pid || SHELLISH.test(name)) { steamSince = 0; return; }
+      if (STEAMISH.test(name)) {
+        // a Steam window that stays up is asking you something (a cloud save conflict, an update): let it through
+        if (!steamSince) steamSince = Date.now();
+        else if (Date.now() - steamSince > 7000) launchCoverEnd(false, f.hwnd);
+        return;
+      }
+      launchCoverEnd(true, f.hwnd);   // anything else in front is the game
+    } finally { busy = false; }
+  }, 250);
+}
+
 // ------------------------------------------------------------------ second screen: big artwork of the selected game
 
 function sniffImage(f) {
@@ -379,7 +426,7 @@ const H = {
   firstLoad: () => { const f = !H._loaded; H._loaded = true; return f; },
   isDefaultHome: () => true,
   pageReady: () => {},
-  getApps: () => { if (!apps.length) scan(); return JSON.stringify(apps.map(a => ({ pkg: a.pkg, label: a.label, game: a.game, installed: a.installed, cover: fs.existsSync(coverFile(a.pkg)) || !!coverVideo(a.pkg) || !!coverAnim(a.pkg), coverVideo: !!coverVideo(a.pkg) }))); },
+  getApps: () => { if (!apps.length) scan(); return JSON.stringify(apps.map(a => ({ pkg: a.pkg, label: a.label, game: a.game, installed: a.installed, source: a.source, cover: fs.existsSync(coverFile(a.pkg)) || !!coverVideo(a.pkg) || !!coverAnim(a.pkg), coverVideo: !!coverVideo(a.pkg) }))); },
   getStatus: () => JSON.stringify({ net: net.isOnline() ? 'wifi' : 'none', bars: 3, time24: false, battery: battery.level, charging: battery.charging, controllers: [] }),
   reportBattery: (level, charging) => { battery = { level, charging: !!charging }; },
 
@@ -387,7 +434,13 @@ const H = {
     const a = byPkg[pkg];
     if (!a) { toast("Can't find that game any more"); return; }
     try {
-      if (a.source === 'steam') shell.openExternal('steam://rungameid/' + a.appid);
+      const direct = a.source === 'steam' && (prefs.get('directExe', {}) || {})[pkg];
+      if (direct && fs.existsSync(direct)) {
+        // straight to the game's .exe; telling it its Steam id lets it use the (quietly running) Steam without restarting through it
+        const child = spawn(direct, [], { cwd: path.dirname(direct), detached: true, stdio: 'ignore', env: Object.assign({}, process.env, { SteamAppId: String(a.appid), SteamGameId: String(a.appid) }) });
+        child.on('error', () => toast("Couldn't start " + a.label));
+        child.unref();
+      } else if (a.source === 'steam') shell.openExternal('steam://rungameid/' + a.appid);
       else if (a.source === 'epic') shell.openExternal(lib.epicLaunchUrl(a));
       else if (a.entry.url) shell.openExternal(a.entry.url);
       else {
@@ -396,8 +449,23 @@ const H = {
         child.unref();
       }
       playStart(pkg);
+      launchCover();
     } catch (e) { toast("Couldn't start " + a.label); }
   },
+  launchCancel: () => { if (launchWatch) launchCoverEnd(false); },
+
+  // Steam options
+  steamOpts: () => JSON.stringify({ found: !!steamExe(), quiet: prefs.get('steamQuiet', true), cover: prefs.get('steamCover', true) }),
+  setSteamOpt: (k, v) => { if (k === 'quiet' || k === 'cover') prefs.set(k === 'quiet' ? 'steamQuiet' : 'steamCover', !!v); if (k === 'quiet' && v) steamQuietStart(); },
+  directGet: (pkg) => { const f = (prefs.get('directExe', {}) || {})[pkg]; return f && fs.existsSync(f) ? f : ''; },
+  directPick: async (pkg) => {
+    const a = byPkg[pkg]; if (!a) return;
+    const r = await dialog.showOpenDialog(win, { title: 'Choose ' + a.label + "'s .exe", defaultPath: a.dir || undefined, properties: ['openFile'], filters: [{ name: 'Programs', extensions: ['exe'] }] });
+    if (r.canceled) return;
+    const all = prefs.get('directExe', {}) || {}; all[pkg] = r.filePaths[0]; prefs.set('directExe', all);
+    js('window.onDirectSet&&window.onDirectSet(' + JSON.stringify(pkg) + ',true)');
+  },
+  directClear: (pkg) => { const all = prefs.get('directExe', {}) || {}; delete all[pkg]; prefs.set('directExe', all); },
 
   // themes, wallpaper, music
   setMode: (m) => { prefs.set('mode', m); if (win) win.setBackgroundColor(m === 'light' ? '#e9e9e9' : '#000000'); },
@@ -942,6 +1010,7 @@ app.whenReady().then(() => {
   pia.watch();
   pia.refresh().then(() => { if (prefs.get('vpnOnStart', false) && pia.state.connection !== 'Connected') pia.connect().catch(() => {}); }).catch(() => {});
   fseCheck();
+  setTimeout(steamQuietStart, 2500);
   { const { screen } = require('electron'); ['display-added', 'display-removed', 'display-metrics-changed'].forEach(ev => screen.on(ev, () => setTimeout(secondSync, 400))); }
   setTimeout(secondSync, 1500);
   const { globalShortcut } = require('electron');
