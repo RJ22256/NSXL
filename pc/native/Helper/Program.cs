@@ -451,7 +451,7 @@ namespace Nsxl.Native
             var sb = new StringBuilder(256); GetWindowText(h, sb, 256);
             string name = "", path = "";
             try { var p = Process.GetProcessById((int)pid); name = p.ProcessName; try { path = p.MainModule.FileName; } catch { } } catch { }
-            return new Dictionary<string, object> { { "pid", (int)pid }, { "name", name }, { "path", path }, { "title", sb.ToString() } };
+            return new Dictionary<string, object> { { "pid", (int)pid }, { "name", name }, { "path", path }, { "title", sb.ToString() }, { "hwnd", h.ToInt64() } };
         }
     }
 
