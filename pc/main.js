@@ -246,6 +246,81 @@ function launchCover() {
   }, 250);
 }
 
+// ------------------------------------------------------------------ NSXL Companion (phone / tablet remote on your home network)
+
+const { Companion } = require('./lib/companion');
+const COMPANION_PORT = 8974;
+const REMOTE_PADS = ['up', 'down', 'left', 'right', 'a', 'b', 'x', 'y', 'l', 'r', 'plus', 'minus'];
+let companionArt = { key: '', art: null };
+async function companionNow() {
+  const m = await music(false).catch(() => null);
+  if (!m) return null;
+  const sp = m.spotify, se = m.session;
+  const src = sp && (sp.playing || !(se && se.playing)) ? { title: sp.title, artist: sp.artist, playing: !!sp.playing, art: sp.art, from: 'Spotify' }
+    : se && se.title ? { title: se.title, artist: se.artist, playing: !!se.playing, art: null, from: String(se.app || '').split('!')[0].split('.').pop() } : null;
+  if (src && !src.art && se && se.title) {   // album art from Windows, fetched once per track
+    const k = se.title + '|' + se.artist;
+    if (companionArt.key !== k) { companionArt = { key: k, art: null }; native.call('media.get', { art: true }, 8000).then(r => { if (companionArt.key === k) companionArt.art = r && r.art || null; }).catch(() => {}); }
+    src.art = companionArt.art;
+  }
+  return src;
+}
+const companion = new Companion({
+  prefs,
+  page: path.join(__dirname, 'www', 'companion.html'),
+  files: path.join(__dirname, 'www'),
+  async state(live) {
+    const s = {
+      pc: require('os').hostname(),
+      playing: session && byPkg[session.pkg] ? { pkg: session.pkg, label: byPkg[session.pkg].label, since: session.start } : null,
+      volume: H._vol || null,
+      music: await companionNow(),
+      vpn: pia.state && pia.state.installed ? { on: pia.state.connection === 'Connected', state: pia.state.connection, region: pia.state.region } : null,
+      second: prefs.get('secondScreen', 'off') === 'art',
+    };
+    if (live) return s;
+    const pt = readJson('playtime.json', {});
+    s.games = apps.filter(a => a.game).map(a => ({ pkg: a.pkg, label: a.label, last: (pt[a.pkg] || {}).last || a.installed || 0, ms: (pt[a.pkg] || {}).ms || 0 }))
+      .sort((x, y) => y.last - x.last);
+    return s;
+  },
+  art: (pkg) => handle(new Request('nsxl://app/art/' + encodeURIComponent(pkg) + '?s=512')),
+  async act(a, args) {
+    const [x, y] = args;
+    switch (a) {
+      case 'pad': if (REMOTE_PADS.includes(x)) js('window.onPad&&window.onPad(' + JSON.stringify(x) + ')'); return;
+      case 'home': bringHome(); return;
+      case 'menu': overlayOpen(); return;
+      case 'launch': if (byPkg[x]) { bringHome(); setTimeout(() => js('window.remoteLaunch&&window.remoteLaunch(' + JSON.stringify(x) + ')'), 250); } return;
+      case 'text': {
+        const wc = browserWin && !browserWin.isDestroyed() && browserWin.isVisible() ? browserWin.webContents : win.webContents;
+        wc.insertText(String(x || '').slice(0, 2000)); return;
+      }
+      case 'key': {
+        const k = { enter: 'Enter', back: 'Backspace', tab: 'Tab' }[x]; if (!k) return;
+        const wc = browserWin && !browserWin.isDestroyed() && browserWin.isVisible() ? browserWin.webContents : win.webContents;
+        wc.sendInputEvent({ type: 'keyDown', keyCode: k }); wc.sendInputEvent({ type: 'keyUp', keyCode: k }); return;
+      }
+      case 'volume': H.setVolume(Math.max(0, Math.min(100, Math.round(+x || 0)))); return;
+      case 'mute': H.toggleMute(); return;
+      case 'media': if (['play', 'next', 'prev'].includes(x)) { if (spotify.connected) await H.spotifyCmd('_', x === 'play' ? 'toggle' : x).catch(() => {}); else H.media(x); } return;
+      case 'screenshot': H.screenshot(); return;
+      case 'closeGame': H.closeGame(); return;
+      case 'sleep': H.power('sleep'); return;
+      case 'vpn': if (x) await pia.connect(); else await pia.disconnect(); return;
+      case 'second': prefs.set('secondScreen', x ? 'art' : 'off'); secondSync(); secondPush(); return;
+      default: throw new Error('Unknown action');
+    }
+  },
+  onPaired: (name) => toast(name + ' is connected to NSXL'),
+});
+async function companionSync() {
+  if (prefs.get('companion', false)) {
+    try { await companion.start(COMPANION_PORT); } catch (e) { toast('The companion couldn\'t start: port ' + COMPANION_PORT + ' is in use'); }
+  } else companion.stop();
+}
+let qrLib; try { qrLib = require('qrcode'); } catch (e) { qrLib = null; }
+
 // ------------------------------------------------------------------ second screen: big artwork of the selected game
 
 function sniffImage(f) {
@@ -512,6 +587,17 @@ const H = {
     } catch (e) { say(false); }
   },
   removeCover: (pkg) => { fs.rmSync(coverFile(pkg), { force: true }); dropCoverVideo(pkg); dropCoverAnim(pkg); },
+
+  // NSXL Companion
+  companionState: () => JSON.stringify({ on: prefs.get('companion', false), running: companion.running, url: companion.running ? companion.url() : '', code: companion.running ? companion.pairCode() : '', devices: Object.keys(companion.devices()).length, qr: !!qrLib }),
+  setCompanion: (on) => { prefs.set('companion', !!on); companionSync().then(() => js('window.refreshOverlays&&refreshOverlays()')); },
+  companionForget: () => companion.forgetAll(),
+  companionQR: async (id) => {
+    try {
+      if (!qrLib) throw new Error('QR codes aren\'t available in this build');
+      done(id, await qrLib.toDataURL(companion.url() + '/?code=' + companion.pairCode(), { margin: 1, width: 480, color: { dark: '#000000', light: '#ffffff' } }));
+    } catch (e) { fail(id, e); }
+  },
 
   // second screen
   secondState: () => {
@@ -1011,6 +1097,7 @@ app.whenReady().then(() => {
   pia.refresh().then(() => { if (prefs.get('vpnOnStart', false) && pia.state.connection !== 'Connected') pia.connect().catch(() => {}); }).catch(() => {});
   fseCheck();
   setTimeout(steamQuietStart, 2500);
+  companionSync();
   { const { screen } = require('electron'); ['display-added', 'display-removed', 'display-metrics-changed'].forEach(ev => screen.on(ev, () => setTimeout(secondSync, 400))); }
   setTimeout(secondSync, 1500);
   const { globalShortcut } = require('electron');
