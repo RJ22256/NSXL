@@ -1,6 +1,6 @@
 ## NSXL for Windows 1.3.3
 
-A game intro, Steam games without seeing Steam, and Entertainment on PC.
+A game intro, Steam games without seeing Steam, Entertainment on PC, and a phone companion.
 
 ### Game intro
 - **A new launch animation.** Your game's tile presses in, grows to fill the screen, then the game's logo (yours, Steam's or SteamGridDB's) or name appears with *Starting…* while it loads. It fades away when you come back to NSXL.
@@ -11,6 +11,14 @@ A game intro, Steam games without seeing Steam, and Entertainment on PC.
 - **Pick your services** in Settings › Entertainment › *Streaming services* (16 to choose from). Each opens in NSXL Web, full screen and controller-friendly, or in your own browser if you've turned off in-app links.
 - **Browse what's popular on each service**, with posters, ratings and summaries from TMDB (needs your free TMDB key). *Watch on…* searches that service for the title.
 - Give any service your own tile with Options › *Find cover on SteamGridDB* or *Use a picture*. Turn the tab off in Settings › Home Screen › *Entertainment*.
+
+### NSXL Companion (new, optional)
+- **Use your phone or iPad as a companion for NSXL.** Turn it on in Settings › Companion, then open the address it shows in your phone's browser (or scan the QR code) and enter the six-digit code. Windows may ask to let NSXL use private networks: say yes.
+- **Games:** your library with cover art; tap one to start it on the PC, game intro and all. See what's playing and close it.
+- **Music:** what's playing (Spotify or any app), with play, pause and skip.
+- **Remote:** a D-pad and A, B, X, Y, L, R, +, −, Home, the quick menu and a screenshot button. Type on your phone to send text to the PC, handy for NSXL Web and search boxes.
+- **PC:** volume, second screen, VPN and sleep.
+- **Private by design:** it's off unless you turn it on, only answers devices on your home network, and only paired devices can control anything. *Paired devices* in Settings lets you forget them all. Add it to your Home Screen from Safari or Chrome to use it like an app.
 
 ### Steam, out of sight
 - **Steam starts quietly in the background.** Steam games need Steam running, so NSXL starts it with NSXL, with no window, and games open faster. Turn it off in Settings › Library › *Start Steam quietly*.

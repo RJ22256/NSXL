@@ -917,6 +917,11 @@ html.gameglow #bgfx i:nth-child(2) { right: -28vmax; top: 4vh; }
 
 .fb.brand { font-size: calc(var(--u) * 3.2); font-weight: 800; letter-spacing: -.01em; padding: 0 8%; text-align: center; line-height: 1.05; }
 .cell .fb.brand { font-size: calc(var(--u) * 1.8); }
+
+.qrBox { align-items: center; text-align: center; padding-bottom: calc(var(--u) * 2.4); }
+.qrBox img { width: calc(var(--u) * 26); height: calc(var(--u) * 26); border-radius: calc(var(--u) * 1); background: #fff; margin: calc(var(--u) * 1.2) auto; display: block; image-rendering: pixelated; }
+.qrUrl { font-size: calc(var(--u) * 1.6); font-weight: 600; }
+.qrCode { font-size: calc(var(--u) * 1.4); color: var(--fg2); margin-top: calc(var(--u) * .4); letter-spacing: .08em; }
 </style>
 </head>
 <body>
@@ -4162,6 +4167,30 @@ if (PC) {
   const vpn = () => { try { return JSON.parse(nb('vpnState') || '{}'); } catch (e) { return {}; } };
   window.onVpn = () => refreshOverlays();
   const sec = () => { try { return JSON.parse(nb('secondState') || '{}'); } catch (e) { return {}; } };
+  const comp = () => { try { return JSON.parse(nb('companionState') || '{}'); } catch (e) { return {}; } };
+  // a game started from the companion on a phone: launch it from Home, intro and all
+  window.remoteLaunch = pkg => {
+    if (!BY[pkg]) return;
+    closeAll(); if (Hm.mode !== 'games') setMode('games', true);
+    const i = Hm.items.findIndex(it => it.pkg === pkg);
+    if (i >= 0) { selectRow(i); launch(pkg, Hm.items[i].el); } else launch(pkg, null);
+  };
+  const showQR = () => nbAsync('companionQR').then(url => {
+    const back = el('div', 'ov back'), box = el('div', 'menu qrBox');
+    const C = comp();
+    box.innerHTML = `<div class="menuTitle">Scan with your phone's camera</div><img alt="QR code to open NSXL Companion" src="${esc(url)}"><div class="qrUrl">${esc(C.url)}</div><div class="qrCode">Code ${esc(C.code)}</div>`;
+    back.appendChild(box); onPress(back, ev => { if (ev.target === back) popOverlay(); });
+    pushOverlay({ el: back, pad: b => { if (b === 'a' || b === 'b') popOverlay(); }, hints: () => [['b', 'Close']] });
+  }).catch(e => toast(String(e && e.message || e)));
+  SETTINGS.splice(SETTINGS.findIndex(c => c.name === 'Second Screen') + 1, 0, { name: 'Companion', rows: () => { const C = comp(); return [
+    { type: 'toggle', label: 'Phone and tablet companion', desc: 'Use a phone or iPad browser on your home network to start games, control music and volume, and as a remote. Windows may ask to let NSXL use private networks: say yes.', key: '_companion',
+      get: () => !!C.on, set: v => { C.on = v; nb('setCompanion', v); } },
+    C.running ? { type: 'info', label: 'Open on your phone', value: () => C.url || 'Connect this PC to a network' } : null,
+    C.running ? { type: 'info', label: 'Pairing code', value: () => C.code } : null,
+    C.running && C.qr ? { type: 'action', label: 'Show QR code', desc: 'Scan it to open the companion and pair in one go.', value: () => 'Show', run: showQR } : null,
+    C.on ? { type: 'action', label: 'Paired devices', value: () => String(C.devices || 0),
+      run: () => C.devices ? openDialog('Forget all devices?', 'Phones and tablets will need the pairing code again.', [{ label: 'Cancel', cancel: true }, { label: 'Forget', primary: true, run: () => { nb('companionForget'); toast('All devices forgotten'); refreshOverlays(); } }]) : toast('No devices paired yet') } : null,
+  ]; } });
   SETTINGS.splice(SETTINGS.findIndex(c => c.name === 'Home Screen') + 1, 0, { name: 'Second Screen', rows: () => { const S = sec(); return [
     { type: 'choice', label: 'Second screen', desc: 'When another monitor is plugged in, it fills with big artwork of the game you have selected.', key: '_second',
       get: () => S.mode || 'off', set: v => { S.mode = v; nb('setSecond', 'secondScreen', v); }, options: [['off', 'Off'], ['art', 'Game artwork']] },
