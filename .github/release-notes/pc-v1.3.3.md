@@ -1,6 +1,6 @@
 ## NSXL for Windows 1.3.3
 
-A game intro, Steam games without seeing Steam, Entertainment on PC, and a phone companion.
+A game intro, Steam games without seeing Steam, Entertainment on PC, and the NSXL Assistant for your phone or iPad.
 
 ### Game intro
 - **A new launch animation.** Your game's tile presses in, grows to fill the screen, then the game's logo (yours, Steam's or SteamGridDB's) or name appears with *Starting…* while it loads. It fades away when you come back to NSXL.
@@ -12,13 +12,13 @@ A game intro, Steam games without seeing Steam, Entertainment on PC, and a phone
 - **Browse what's popular on each service**, with posters, ratings and summaries from TMDB (needs your free TMDB key). *Watch on…* searches that service for the title.
 - Give any service your own tile with Options › *Find cover on SteamGridDB* or *Use a picture*. Turn the tab off in Settings › Home Screen › *Entertainment*.
 
-### NSXL Companion (new, optional)
-- **Use your phone or iPad as a companion for NSXL.** Turn it on in Settings › Companion, then open the address it shows in your phone's browser (or scan the QR code) and enter the six-digit code. Windows may ask to let NSXL use private networks: say yes.
-- **Games:** your library with cover art; tap one to start it on the PC, game intro and all. See what's playing and close it.
-- **Music:** what's playing (Spotify or any app), with play, pause and skip.
-- **Remote:** a D-pad and A, B, X, Y, L, R, +, −, Home, the quick menu and a screenshot button. Type on your phone to send text to the PC, handy for NSXL Web and search boxes.
+### NSXL Assistant (new, optional)
+- **Your phone or iPad becomes an NSXL Assistant.** Turn it on in Settings › Companion, open the address it shows in Safari or Chrome (or scan the QR code), and enter the six-digit code.
+- **It looks like NSXL Home:** a row of your games with the selection ring and Game glow, a clock and greeting, and the dock. Tap a game, then *Start on PC*, and it launches on your PC with the game intro.
+- **Right now:** the game you're playing (with *Close*) and the music playing, with play, pause and skip.
+- **Remote:** a full controller, with the D-pad and A B X Y laid out like a gamepad when you hold an iPad sideways, plus Home, the quick menu, screenshots and typing to the PC.
 - **PC:** volume, second screen, VPN and sleep.
-- **Private by design:** it's off unless you turn it on, only answers devices on your home network, and only paired devices can control anything. *Paired devices* in Settings lets you forget them all. Add it to your Home Screen from Safari or Chrome to use it like an app.
+- **Private by design:** off unless you turn it on, home network only, and only paired devices can control anything. Windows may ask to let NSXL use private networks: say yes. Add it to your Home Screen to use it like an app.
 
 ### Steam, out of sight
 - **Steam starts quietly in the background.** Steam games need Steam running, so NSXL starts it with NSXL, with no window, and games open faster. Turn it off in Settings › Library › *Start Steam quietly*.
