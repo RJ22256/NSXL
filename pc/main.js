@@ -447,6 +447,8 @@ native.on('pad', m => {
 let otherMusic = false;   // another app is playing (Spotify, a browser…): the page pauses its ambient music
 native.on('media.playing', m => { otherMusic = !!(m && m.playing); js('window.onOtherMusic&&onOtherMusic(' + otherMusic + ')'); });
 native.on('pads', m => { xinputPads = (m && m.count) || 0; js('window.updateStatus&&updateStatus()'); });
+let psPads = 0;   // PlayStation controllers NSXL reads directly (no Steam or DS4Windows needed)
+native.on('pspads', m => { psPads = (m && m.count) || 0; js('window.updateStatus&&updateStatus()'); });
 
 async function screenshot() {
   overlayClose();
@@ -813,7 +815,7 @@ const H = {
   hideHandle: () => {}, stopOverlay: () => {}, requestWriteSettings: () => {},
   menuButton: () => prefs.get('menuButton', 'viewmenu'),
   setMenuButton: (v) => prefs.set('menuButton', v),
-  menuInfo: () => JSON.stringify({ shortcut: menuShortcut, xinput: xinputPads }),
+  menuInfo: () => JSON.stringify({ shortcut: menuShortcut, xinput: xinputPads, ps: psPads }),
 
   // music
   musicState: async (id, withArt) => { try { done(id, await music(withArt)); } catch (e) { fail(id, e); } },
