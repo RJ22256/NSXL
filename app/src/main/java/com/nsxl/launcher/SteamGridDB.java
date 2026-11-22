@@ -44,24 +44,47 @@ final class SteamGridDB {
         return out.toString();
     }
 
-    /** Square covers first; falls back to any static grid (it gets centre-cropped). JSON array literal. */
+    /** Live (animated) covers first, then square ones, then any other static grid (centre-cropped). JSON array literal. */
     static String grids(String key, long gameId) throws Exception {
-        JSONArray data = data(get(API + "/grids/game/" + gameId + "?dimensions=512x512,1024x1024&types=static", key));
-        if (data.length() == 0) data = data(get(API + "/grids/game/" + gameId + "?types=static", key));
         JSONArray out = new JSONArray();
-        for (int i = 0; i < data.length() && out.length() < 40; i++) {
+        try { add(out, data(get(API + "/grids/game/" + gameId + "?types=animated", key)), true, 20); } catch (Exception ignored) { }
+        JSONArray still = data(get(API + "/grids/game/" + gameId + "?dimensions=512x512,1024x1024&types=static", key));
+        if (still.length() == 0) still = data(get(API + "/grids/game/" + gameId + "?types=static", key));
+        add(out, still, false, 60);
+        return out.toString();
+    }
+
+    /** Logos for the launch intro, live ones first. JSON array literal. */
+    static String logos(String key, long gameId) throws Exception {
+        JSONArray out = new JSONArray();
+        try { add(out, data(get(API + "/logos/game/" + gameId + "?types=animated", key)), true, 20); } catch (Exception ignored) { }
+        add(out, data(get(API + "/logos/game/" + gameId + "?types=static", key)), false, 60);
+        return out.toString();
+    }
+
+    /** The first logo for a game found by name, or null. */
+    static String firstLogo(String key, String name) throws Exception {
+        JSONArray found = new JSONArray(search(key, name));
+        if (found.length() == 0) return null;
+        JSONArray l = data(get(API + "/logos/game/" + found.getJSONObject(0).getLong("id") + "?types=static", key));
+        for (int i = 0; i < l.length(); i++) { String u = l.getJSONObject(i).optString("url", ""); if (!u.isEmpty()) return u; }
+        return null;
+    }
+
+    private static void add(JSONArray out, JSONArray data, boolean live, int max) throws Exception {
+        for (int i = 0; i < data.length() && out.length() < max; i++) {
             JSONObject g = data.getJSONObject(i);
             String url = g.optString("url", "");
             if (url.isEmpty()) continue;
             JSONObject o = new JSONObject();
             o.put("url", url);
-            o.put("thumb", g.optString("thumb", url));
+            o.put("thumb", live ? url : g.optString("thumb", url));   // live ones preview moving
             o.put("width", g.optInt("width"));
             o.put("height", g.optInt("height"));
             o.put("style", g.optString("style", ""));
+            o.put("animated", live);
             out.put(o);
         }
-        return out.toString();
     }
 
     static void download(String url, File dest) throws IOException {

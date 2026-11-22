@@ -235,6 +235,14 @@ public class MainActivity extends Activity {
         if (intent != null && Intent.ACTION_MAIN.equals(intent.getAction())) {
             js("window.onHome&&window.onHome()");
         }
+        spotifyReturn(intent, 0);
+    }
+
+    /** Spotify sign-in came back (nsxl://spotify-callback?code=…&state=…): hand it to the page. */
+    void spotifyReturn(Intent intent, long delay) {
+        if (intent == null || intent.getData() == null || !"nsxl".equals(intent.getData().getScheme())) return;
+        final String q = org.json.JSONObject.quote(intent.getData().toString());
+        web.postDelayed(() -> js("window.onSpotifyReturn&&window.onSpotifyReturn(" + q + ")"), delay);
     }
 
     @SuppressWarnings("deprecation")
@@ -293,6 +301,7 @@ public class MainActivity extends Activity {
         });
         root.addView(web, new FrameLayout.LayoutParams(MATCH, MATCH));
         web.loadUrl(ORIGIN + "index.html");
+        spotifyReturn(getIntent(), 3000);   // opened straight from the sign-in page
     }
 
     private void recreateWebView() {
