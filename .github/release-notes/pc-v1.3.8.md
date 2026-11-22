@@ -9,3 +9,6 @@
 
 **New: switch to Xbox mode on command**
 - Power › **Switch to Xbox mode** (and in the quick menu's Power card) jumps into Windows' Xbox mode straight away, without signing out or restarting. Press it again to go back to the desktop. It uses Windows' own Win + F11 shortcut, so Xbox mode needs to be turned on in Windows settings.
+
+**Playing**
+- NSXL now remembers the game you're playing when you switch back to it (keyboard, Alt+Tab or the quick menu). It only counts the game as finished once it has actually closed. So **Close game**, the Power menu and the second screen's Now playing all keep working, and play time counts the whole session.
