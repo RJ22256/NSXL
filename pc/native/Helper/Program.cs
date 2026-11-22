@@ -97,6 +97,7 @@ namespace Nsxl.Native
                 // the game in front
                 case "fg.get": return Foreground.Get();
                 case "fg.set": return Foreground.Bring(Convert.ToInt64(m["hwnd"]));
+                case "win.min": return Foreground.Minimise(Convert.ToInt64(m["hwnd"]));
                 case "proc.kill": Process.GetProcessById(Int(m, "pid")).Kill(); return true;
                 case "proc.killdir": return Procs.KillIn(Str(m, "dir"));
                 case "proc.list": return Procs.ListIn(Str(m, "dir"));
@@ -443,8 +444,12 @@ namespace Nsxl.Native
 
         /// Brings a window (the quick menu) to the front even while a game has focus.
         /// Windows only lets the app with the last input do that; a tap of Alt counts as input.
+        [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hWnd);
+        [DllImport("user32.dll")] static extern bool ShowWindowAsync(IntPtr hWnd, int cmd);
+        public static bool Minimise(long hwnd) { return hwnd != 0 && ShowWindowAsync(new IntPtr(hwnd), 6); }   // SW_MINIMIZE
         public static bool Bring(long hwnd)
         {
+            if (hwnd != 0 && IsIconic(new IntPtr(hwnd))) ShowWindowAsync(new IntPtr(hwnd), 9);   // SW_RESTORE
             keybd_event(0x12, 0, 0, UIntPtr.Zero);
             keybd_event(0x12, 0, 2, UIntPtr.Zero);
             return SetForegroundWindow(new IntPtr(hwnd));
@@ -636,17 +641,27 @@ namespace Nsxl.Native
                     {
                         var buf = new byte[Math.Max(len, 64)];
                         bool ps = false, combo = false;
+                        int lastState = 0;
+                        string pad = "p" + System.Threading.Interlocked.Increment(ref padIds);
+                        try
+                        {
                         while (true)
                         {
                             int n = fs.Read(buf, 0, buf.Length);
                             if (n <= 0) break;
-                            int b1, b2;   // b1: Create/Share 0x10, Options 0x20. b2: PS 0x01
-                            if (!Buttons(path, bt, buf, n, out b1, out b2)) continue;
+                            int b0, b1, b2, lx, ly;   // b0: d-pad + face buttons. b1: Create/Share 0x10, Options 0x20. b2: PS 0x01
+                            if (!Buttons(path, bt, buf, n, out b0, out b1, out b2, out lx, out ly)) continue;
+                            // the whole controller, for NSXL's own menus: Windows stops passing these controllers to
+                            // NSXL's page once a game or Steam switches them to their full reports, so NSXL reads them here
+                            int st = State(b0, b1, b2, lx, ly);
+                            if (st != lastState) { Program.Event("psstate", new Dictionary<string, object> { { "pad", pad }, { "s", st } }); lastState = st; }
                             bool nowPs = (b2 & 0x01) != 0, nowCombo = (b1 & 0x30) == 0x30;
                             if (nowPs && !ps) Program.Event("pad", new Dictionary<string, object> { { "combo", "guide" }, { "ps", true } });
                             if (nowCombo && !combo) Program.Event("pad", new Dictionary<string, object> { { "combo", "viewmenu" }, { "ps", true } });
                             ps = nowPs; combo = nowCombo;
                         }
+                        }
+                        finally { Program.Event("psstate", new Dictionary<string, object> { { "pad", pad }, { "s", 0 } }); }
                     }
                 }
             }
@@ -655,9 +670,31 @@ namespace Nsxl.Native
         }
 
         /// <summary>Where the button bytes sit in each controller's and connection's input report.</summary>
-        static bool Buttons(string path, bool bt, byte[] r, int n, out int b1, out int b2)
+        static int padIds = 0;
+
+        // Bits NSXL's page understands: 0 a, 1 b, 2 x, 3 y, 4 l, 5 r, 6 minus, 7 plus, 8 up, 9 down, 10 left, 11 right, 12 home
+        static int State(int b0, int b1, int b2, int lx, int ly)
         {
-            b1 = b2 = 0;
+            int s = 0;
+            if ((b0 & 0x20) != 0) s |= 1 << 0;   // Cross
+            if ((b0 & 0x40) != 0) s |= 1 << 1;   // Circle
+            if ((b0 & 0x10) != 0) s |= 1 << 2;   // Square
+            if ((b0 & 0x80) != 0) s |= 1 << 3;   // Triangle
+            if ((b1 & 0x01) != 0) s |= 1 << 4;   // L1
+            if ((b1 & 0x02) != 0) s |= 1 << 5;   // R1
+            if ((b1 & 0x10) != 0) s |= 1 << 6;   // Create / Share
+            if ((b1 & 0x20) != 0) s |= 1 << 7;   // Options
+            int hat = b0 & 0x0F;
+            bool up = hat == 7 || hat == 0 || hat == 1 || ly < 50, right = hat >= 1 && hat <= 3 || lx > 205;
+            bool down = hat >= 3 && hat <= 5 || ly > 205, left = hat >= 5 && hat <= 7 || lx < 50;
+            if (up) s |= 1 << 8; if (down) s |= 1 << 9; if (left) s |= 1 << 10; if (right) s |= 1 << 11;
+            if ((b2 & 0x01) != 0) s |= 1 << 12;   // PS
+            return s;
+        }
+
+        static bool Buttons(string path, bool bt, byte[] r, int n, out int b0, out int b1, out int b2, out int lx, out int ly)
+        {
+            b0 = b1 = b2 = 0; lx = ly = 128;
             bool sense = path.IndexOf("pid_0ce6", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("pid_0df2", StringComparison.OrdinalIgnoreCase) >= 0;
             int at;   // index of the byte holding Share/Create + Options; PS is the next byte
             if (r[0] == 0x01 && sense && !bt && n >= 12) at = 9;   // DualSense over USB
@@ -665,7 +702,9 @@ namespace Nsxl.Native
             else if (r[0] == 0x11 && !sense && n >= 10) at = 8;   // DualShock 4 over Bluetooth (full reports)
             else if (r[0] == 0x01 && n >= 8) at = 6;   // DualShock 4 over USB, or either over Bluetooth in simple mode
             else return false;
-            b1 = r[at]; b2 = r[at + 1];
+            b0 = r[at - 1]; b1 = r[at]; b2 = r[at + 1];
+            int stick = sense && at >= 9 ? at - 8 : at - 5;   // left stick X, then Y
+            lx = r[stick]; ly = r[stick + 1];
             return true;
         }
     }

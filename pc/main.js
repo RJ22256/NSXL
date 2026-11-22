@@ -460,6 +460,18 @@ function grabFocus() {
   if (!overlayWin.isFocused()) native.call('fg.set', { hwnd }, 3000).catch(() => {});
   // if Windows still won't hand over focus, the menu reads the controller anyway
   setTimeout(() => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.executeJavaScript(`window.forcePads=${!overlayWin.isFocused()}`).catch(() => {}); }, 600);
+  if (overlayRegrab) return;
+  setTimeout(() => {
+    if (!overlayWin || overlayWin.isDestroyed() || !overlayWin.isVisible()) return;
+    native.call('fg.get', {}, 2000).then(fg => {
+      if (!overlayWin || overlayWin.isDestroyed() || !overlayWin.isVisible()) return;
+      if (fg && fg.pid === process.pid) { log('quick menu is in front'); return; }
+      log('quick menu was kept behind ' + (fg ? fg.name || 'a window' : 'something') + ': minimising the game so it shows');
+      const g = overlayGame && overlayGame.hwnd ? overlayGame.hwnd : fg && fg.hwnd;
+      if (g) { overlayGame = overlayGame || fg; overlayGame.minimised = true; native.call('win.min', { hwnd: g }, 2000).catch(() => {}); }
+      setTimeout(() => { if (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible()) { overlayWin.setAlwaysOnTop(true, 'screen-saver'); overlayWin.show(); overlayWin.focus(); native.call('fg.set', { hwnd: hwndOf(overlayWin) }, 2000).catch(() => {}); } }, 350);
+    }).catch(() => {});
+  }, 700);
 }
 let overlayOpenedAt = 0, overlayRegrab = false;
 const hwndOf = w => { const h = w.getNativeWindowHandle(); return h.length >= 8 ? Number(h.readBigUInt64LE(0)) : h.readUInt32LE(0); };
@@ -484,9 +496,11 @@ function focusHome() {
 let padsAnyway = false;
 setInterval(() => {
   if (!win || win.isDestroyed() || !native.running) return;
-  if (win.isFocused() || !win.isVisible() || win.isMinimized() || (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible())) { setPadsAnyway(false); return; }
+  if (win.isFocused() || !win.isVisible() || win.isMinimized() || (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible())) { setPadsAnyway(false); fgOurs = win.isFocused(); return; }
   native.call('fg.get', {}, 2000).then(fg => {
-    if (!fg || !win || win.isDestroyed() || win.isFocused()) return;
+    if (!fg || !win || win.isDestroyed()) return;
+    fgOurs = fg.pid === process.pid;
+    if (win.isFocused()) return;
     const nobody = !fg.hwnd || (fg.pid === process.pid && fg.hwnd !== hwndOf(win));   // empty foreground, or one of NSXL's hidden windows
     const desktop = /^explorer$/i.test(fg.name || '') && (!fg.title || fg.title === 'Program Manager');
     const gameOn = !!launchWatch || (session && Date.now() - session.start < 90000);   // a game is starting: leave the foreground alone
@@ -494,6 +508,19 @@ setInterval(() => {
     setPadsAnyway(!gameOn && (nobody || desktop));
   }).catch(() => {});
 }, 1500);
+let fgOurs = true;
+// PlayStation controllers as the helper reads them. Once a game or Steam switches one to its full reports,
+// Windows stops passing it to NSXL's page, so the helper's copy drives NSXL's menus whenever NSXL is in front.
+const psState = {};
+native.on('psstate', m => {
+  if (!m || !m.pad) return;
+  if (m.s) psState[m.pad] = m.s; else delete psState[m.pad];
+  let s = 0; for (const k in psState) s |= psState[k];
+  const ov = overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible();
+  const front = !ov && win && !win.isDestroyed() && !win.isMinimized() && (win.isFocused() || fgOurs || padsAnyway);
+  if (ov) overlayWin.webContents.executeJavaScript('window.helperPs=' + psPads + ';window.onHelperPad&&onHelperPad(' + s + ')').catch(() => {});
+  js('window.helperPs=' + psPads + ';window.onHelperPad&&onHelperPad(' + (front ? s : 0) + ')');
+});
 function setPadsAnyway(v) { if (v === padsAnyway) return; padsAnyway = v; js('window.padsAnyway=' + v); }
 function bringHome() {
   overlayClose(false);
@@ -518,7 +545,11 @@ let otherMusic = false;   // another app is playing (Spotify, a browser…): the
 native.on('media.playing', m => { otherMusic = !!(m && m.playing); js('window.onOtherMusic&&onOtherMusic(' + otherMusic + ')'); });
 native.on('pads', m => { const n = (m && m.count) || 0; if (n !== xinputPads) log('Xbox-style controllers: ' + n); xinputPads = n; js('window.updateStatus&&updateStatus()'); });
 let psPads = 0;   // PlayStation controllers NSXL reads directly (no Steam or DS4Windows needed)
-native.on('pspads', m => { const n = (m && m.count) || 0; if (n !== psPads) log('PlayStation controllers read directly: ' + n); psPads = n; js('window.updateStatus&&updateStatus()'); });
+native.on('pspads', m => {
+  const n = (m && m.count) || 0; if (n !== psPads) log('PlayStation controllers read directly: ' + n); psPads = n;
+  js('window.helperPs=' + n + ';window.updateStatus&&updateStatus()');
+  if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.executeJavaScript('window.helperPs=' + n).catch(() => {});
+});
 
 async function screenshot() {
   overlayClose();
@@ -543,6 +574,37 @@ async function screenshot() {
 // ------------------------------------------------------------------ Xbox mode home app (full screen experience)
 
 let fse = { installed: false, checked: false };
+
+// Apps that open alongside NSXL in Xbox mode: iCUE (found automatically) and any you add
+const ICUE_PATHS = [
+  'C:\\Program Files\\Corsair\\Corsair iCUE5 Software\\iCUE.exe',
+  'C:\\Program Files\\Corsair\\CORSAIR iCUE 5 Software\\iCUE.exe',
+  'C:\\Program Files\\Corsair\\CORSAIR iCUE 4 Software\\iCUE.exe',
+  'C:\\Program Files (x86)\\Corsair\\CORSAIR iCUE Software\\iCUE.exe',
+];
+function icuePath() {
+  for (const f of ICUE_PATHS) if (fs.existsSync(f)) return f;
+  for (const root of ['C:\\Program Files\\Corsair', 'C:\\Program Files (x86)\\Corsair']) {
+    let dirs = []; try { dirs = fs.readdirSync(root); } catch (e) { continue; }
+    for (const d of dirs) { const f = path.join(root, d, 'iCUE.exe'); if (fs.existsSync(f)) return f; }
+  }
+  return null;
+}
+function fseAppList() {
+  const list = [], icue = icuePath();
+  if (icue && prefs.get('fseIcue', true)) list.push({ exe: icue, args: ['--autorun'] });   // --autorun: starts in the tray
+  for (const f of prefs.get('fseApps', []) || []) if (fs.existsSync(f)) list.push({ exe: f, args: [] });
+  return list;
+}
+async function fseApps() {
+  for (const a of fseAppList()) {
+    const name = path.basename(a.exe);
+    const running = await new Promise(r => exec('tasklist /FI "IMAGENAME eq ' + name + '" /NH', { windowsHide: true }, (e, out) => r(!e && String(out).toLowerCase().includes(name.toLowerCase()))));
+    if (running) { log(path.basename(a.exe) + ' is already open'); continue; }
+    try { spawn(a.exe, a.args, { detached: true, stdio: 'ignore', cwd: path.dirname(a.exe) }).unref(); log('Xbox mode: opened ' + a.exe); }
+    catch (e) { log("Xbox mode: couldn't open " + a.exe + ': ' + e.message); }
+  }
+}
 function fseCheck() {
   exec('powershell -NoProfile -Command "(Get-AppxPackage -Name NSXL.HomeApp) -ne $null"', { windowsHide: true }, (e, out) => {
     fse = { installed: /True/i.test(String(out)), checked: true };
@@ -956,6 +1018,15 @@ const H = {
   fseState: () => JSON.stringify(fse),
   fseInstall: () => fseRun('Install'),
   fseRemove: () => fseRun('Remove'),
+  fseAppsState: () => JSON.stringify({ icue: !!icuePath(), icueOn: prefs.get('fseIcue', true), apps: (prefs.get('fseApps', []) || []).map(f => ({ f, name: path.basename(f, '.exe') })) }),
+  setFseIcue: (v) => prefs.set('fseIcue', !!v),
+  fseAppAdd: async () => {
+    const r = await dialog.showOpenDialog(win, { title: 'Choose an app to open with Xbox mode', properties: ['openFile'], filters: [{ name: 'Programs', extensions: ['exe'] }] });
+    if (r.canceled) return;
+    const l = prefs.get('fseApps', []) || []; if (!l.includes(r.filePaths[0])) l.push(r.filePaths[0]); prefs.set('fseApps', l);
+    js('window.onFseApps&&onFseApps()');
+  },
+  fseAppRemove: (f) => prefs.set('fseApps', (prefs.get('fseApps', []) || []).filter(x => x !== f)),
 
   // PC only
   addGame: async () => {
@@ -1171,6 +1242,7 @@ function createWindow() {
   });
   win.setMenuBarVisibility(false);
   win.once('ready-to-show', () => win.show());
+  win.on('blur', () => { fgOurs = false; });   // until the focus check sees NSXL in front again
   win.loadURL('nsxl://app/index.html');
 
   // keep the launcher on its own page; links open in your browser
@@ -1186,7 +1258,7 @@ function createWindow() {
   win.on('closed', () => { win = null; app.quit(); });
 }
 
-app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
+app.on('second-instance', (e, argv) => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } if ((argv || []).includes('--fse')) fseApps(); });
 app.whenReady().then(() => {
   protocol.handle('nsxl', req => handle(req).catch(() => notFound()));
   browserProtocol();
@@ -1201,6 +1273,7 @@ app.whenReady().then(() => {
   pia.watch();
   pia.refresh().then(() => { if (prefs.get('vpnOnStart', false) && pia.state.connection !== 'Connected') pia.connect().catch(() => {}); }).catch(() => {});
   fseCheck();
+  if (process.argv.includes('--fse')) setTimeout(fseApps, 1500);
   setTimeout(steamQuietStart, 2500);
   companionSync();
   { const { screen } = require('electron'); ['display-added', 'display-removed', 'display-metrics-changed'].forEach(ev => screen.on(ev, () => setTimeout(secondSync, 400))); }

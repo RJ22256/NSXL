@@ -523,12 +523,17 @@ if (PC) {   // keyboard and controllers on Windows (the menu has focus while it'
   document.addEventListener('keydown', e => { if (K[e.key]) { e.preventDefault(); window.onPad(K[e.key]); } });
   const MAP = { 0: 'a', 1: 'b', 2: 'x', 3: 'y', 4: 'l', 5: 'r', 8: 'minus', 9: 'plus', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 16: 'b' };
   const held = {}, next = {};
-  let swallow = true;
+  let swallow = true, hpState = 0;
+  const HP_BITS = ['a', 'b', 'x', 'y', 'l', 'r', 'minus', 'plus', 'up', 'down', 'left', 'right', 'b'];
+  window.onHelperPad = s => { hpState = s | 0; };   // PlayStation controllers as NSXL's helper reads them
+  const isPs = id => /054c|dualsense|dualshock|playstation|wireless controller/i.test(id);
   (function poll() {
     requestAnimationFrame(poll);
-    if ((!document.hasFocus() && !window.forcePads) || !document.body.classList.contains('open')) { for (const k in held) delete held[k]; return; }
+    if ((!document.hasFocus() && !window.forcePads && !hpState) || !document.body.classList.contains('open')) { for (const k in held) delete held[k]; return; }
     const down = {}, now = performance.now();
+    HP_BITS.forEach((b, i) => { if (hpState & (1 << i)) down[b] = 1; });
     for (const p of (navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [])) {
+      if (window.helperPs > 0 && isPs(p.id)) continue;
       p.buttons.forEach((bt, i) => { if (MAP[i] && bt.pressed) down[MAP[i]] = 1; });
       const x = p.axes[0] || 0, y = p.axes[1] || 0;
       if (x < -.55) down.left = 1; else if (x > .55) down.right = 1;
@@ -543,6 +548,7 @@ if (PC) {   // keyboard and controllers on Windows (the menu has focus while it'
     for (const b in held) if (!down[b]) delete held[b];
   })();
   window.addEventListener('focus', () => { swallow = true; window.forcePads = false; });
+  { const o = window.onOpen; window.onOpen = (...a) => { swallow = true; return o && o(...a); }; }   // the buttons that opened it are still held
 }
 function makeMock() {
   document.getElementById('demoGame').style.display = 'block';
