@@ -391,6 +391,7 @@ function paintCard() {
   updateHints();
 }
 function placeCard() {
+  if (!dockEls[idx]) return;
   const card = $('#card'), r = dockEls[idx].getBoundingClientRect(), w = card.offsetWidth, m = 24;
   card.style.left = clamp(r.left + r.width / 2 - w / 2, m, window.innerWidth - w - m) + 'px';
 }
@@ -518,7 +519,7 @@ window.onPad = (b, rep, fromTouch) => {
 let toastT = 0;
 function toast(m) { const t = $('#toast'); t.textContent = m; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2000); }
 window.toast = toast;
-window.addEventListener('resize', () => paint(false));
+window.addEventListener('resize', () => { if (dockEls[idx]) paint(false); });   // not before the menu has been built
 setInterval(() => { if (document.body.classList.contains('open')) { refresh(); } }, 5000);
 
 if (PC) {   // keyboard and controllers on Windows (the menu has focus while it's open)
