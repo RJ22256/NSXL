@@ -102,6 +102,25 @@ function playStart(pkg) {
   session = { pkg, start: Date.now(), left: false };
   if (typeof secondNowPlaying === 'function') secondNowPlaying();
 }
+/** Back on NSXL: the game counts as finished only once its processes have gone, so it can still be closed from NSXL. */
+let playWatch = null;
+function playCheck() {
+  if (!session || !session.left) return;
+  const a = byPkg[session.pkg];
+  if (!a || !a.dir) return playFinish();
+  const still = () => native.call('proc.list', { dir: a.dir }, 5000).then(l => Array.isArray(l) && l.length > 0).catch(() => false);
+  const pkg = session.pkg;
+  still().then(on => {
+    if (!session || session.pkg !== pkg) return;
+    if (!on) return playFinish();
+    log(a.label + ' is still running');
+    clearInterval(playWatch);
+    playWatch = setInterval(() => {
+      if (!session || session.pkg !== pkg) { clearInterval(playWatch); playWatch = null; return; }
+      still().then(on => { if (!on && session && session.pkg === pkg) { clearInterval(playWatch); playWatch = null; session.left = true; log(a.label + ' has closed'); playFinish(); js('window.onGameEnded&&window.onGameEnded()'); } });
+    }, 5000);
+  });
+}
 function playFinish() {
   if (!session || !session.left) return;
   const ms = Date.now() - session.start, pkg = session.pkg;
@@ -1292,7 +1311,7 @@ function createWindow() {
 
   // games take the focus; coming back to NSXL is the "back from the game" moment
   win.on('blur', () => { if (session) session.left = true; js('window.onPauseApp&&window.onPauseApp()'); });
-  win.on('focus', () => { playFinish(); js('window.onResumeApp&&window.onResumeApp()'); });
+  win.on('focus', () => { playCheck(); js('window.onResumeApp&&window.onResumeApp()'); });
   win.on('closed', () => { win = null; app.quit(); });
 }
 
