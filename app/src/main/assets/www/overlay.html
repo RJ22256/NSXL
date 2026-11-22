@@ -29,6 +29,8 @@ svg { display: block; }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; margin: 0; }
 .ic { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
+#backdrop { position: fixed; inset: -24px; background: #101014 center / cover no-repeat; filter: blur(14px) brightness(.72) saturate(1.1); opacity: 0; transition: opacity .2s; display: none; }
+html.pc #backdrop { display: block; opacity: 1; transition: none; }
 #shade { position: fixed; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.28) 0%, rgba(0,0,0,.42) 50%, rgba(0,0,0,.78) 100%); opacity: 0; transition: opacity .25s; }
 body.open #shade { opacity: 1; }
 
@@ -126,6 +128,7 @@ html.touchmode .btn { display: none !important; }
 </head>
 <body>
 <div id="demoGame"></div>
+<div id="backdrop"></div>
 <div id="shade"></div>
 <header id="top"><div id="title"><i></i>Quick Menu</div><div id="status"><span id="clock"><span id="hm">--:--</span><span id="ampm"></span></span><span id="bat"></span></div></header>
 <section id="card" aria-live="polite"><h2 id="cardTitle"></h2><div id="rows"></div></section>
@@ -519,6 +522,9 @@ window.addEventListener('resize', () => paint(false));
 setInterval(() => { if (document.body.classList.contains('open')) { refresh(); } }, 5000);
 
 if (PC) {   // keyboard and controllers on Windows (the menu has focus while it's open)
+  document.documentElement.classList.add('pc');
+  // Windows draws the menu as a normal window, so the game behind it is a picture taken as it opens
+  window.setBackdrop = url => { const b = document.getElementById('backdrop'); b.style.backgroundImage = url ? 'url(' + JSON.stringify(url) + ')' : ''; };
   const K = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b' };
   document.addEventListener('keydown', e => { if (K[e.key]) { e.preventDefault(); window.onPad(K[e.key]); } });
   const MAP = { 0: 'a', 1: 'b', 2: 'x', 3: 'y', 4: 'l', 5: 'r', 8: 'minus', 9: 'plus', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 16: 'b' };
