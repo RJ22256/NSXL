@@ -315,6 +315,8 @@ final class LauncherBridge {
                 if (!Storage.saveSquareImage(a, Album.uri((long) shot), Storage.coverFile(a, pkg), 720)) throw new java.io.IOException("Couldn't read that screenshot");
                 //noinspection ResultOfMethodCallIgnored
                 Storage.coverVideoFile(a, pkg).delete();
+                //noinspection ResultOfMethodCallIgnored
+                Storage.coverAnimFile(a, pkg).delete();
                 a.server.invalidate(pkg);
                 a.asyncResult(id, "true");
             } catch (Exception e) { a.asyncError(id, e); }
@@ -366,7 +368,7 @@ final class LauncherBridge {
                 SteamGridDB.download(url, tmp);
                 boolean ok = Storage.saveSquareImage(a, Uri.fromFile(tmp), Storage.coverFile(a, pkg), 720);
                 //noinspection ResultOfMethodCallIgnored
-                if (ok) Storage.coverVideoFile(a, pkg).delete();
+                if (ok) { Storage.coverVideoFile(a, pkg).delete(); Storage.coverAnimFile(a, pkg).delete(); }
                 if (!ok) throw new java.io.IOException("Couldn't read that image");
                 a.server.invalidate(pkg);
                 a.asyncResult(id, "true");
@@ -378,6 +380,81 @@ final class LauncherBridge {
             }
         }, "sgdb").start();
     }
+
+    /** A live (animated) SteamGridDB cover, kept as it came so it keeps moving. */
+    @JavascriptInterface
+    public void sgdbApplyLive(final String id, final String pkg, final String url) {
+        new Thread(() -> {
+            java.io.File out = Storage.coverAnimFile(a, pkg), tmp = new java.io.File(out.getPath() + ".tmp");
+            try {
+                if (!url.startsWith("https://")) throw new java.io.IOException("Bad image address");
+                SteamGridDB.download(url, tmp);
+                if ("image/jpeg".equals(Storage.sniffImage(tmp))) throw new java.io.IOException("That one isn't animated");
+                //noinspection ResultOfMethodCallIgnored
+                out.delete();
+                if (!tmp.renameTo(out)) throw new java.io.IOException("Couldn't save it");
+                //noinspection ResultOfMethodCallIgnored
+                Storage.coverVideoFile(a, pkg).delete();
+                a.server.invalidate(pkg);
+                a.asyncResult(id, "true");
+            } catch (Exception e) {
+                //noinspection ResultOfMethodCallIgnored
+                tmp.delete();
+                a.asyncError(id, e);
+            }
+        }, "sgdb").start();
+    }
+
+    // ---------------------------------------------------------------- game logos (for the launch intro)
+
+    @JavascriptInterface
+    public void sgdbLogos(final String id, final String key, final double gameId) {
+        new Thread(() -> {
+            try { a.asyncResult(id, SteamGridDB.logos(key, (long) gameId)); } catch (Exception e) { a.asyncError(id, e); }
+        }, "sgdb").start();
+    }
+
+    @JavascriptInterface
+    public void logoApply(final String id, final String pkg, final String url) {
+        new Thread(() -> {
+            try {
+                if (!url.startsWith("https://")) throw new java.io.IOException("Bad image address");
+                SteamGridDB.download(url, Storage.logoFile(a, pkg));
+                a.asyncResult(id, "true");
+            } catch (Exception e) { a.asyncError(id, e); }
+        }, "sgdb").start();
+    }
+
+    @JavascriptInterface
+    public boolean logoHas(String pkg) { return Storage.logoFile(a, pkg).exists(); }
+
+    @JavascriptInterface
+    public void logoRemove(String pkg) {
+        //noinspection ResultOfMethodCallIgnored
+        Storage.logoFile(a, pkg).delete();
+    }
+
+    /** Fetches a logo by the game's name the first time it's needed (quietly; nothing happens without a key). */
+    @JavascriptInterface
+    public void logoAuto(final String pkg, final String name, final String key) {
+        if (key == null || key.isEmpty() || Storage.logoFile(a, pkg).exists()) return;
+        new Thread(() -> {
+            try { String u = SteamGridDB.firstLogo(key, name); if (u != null) SteamGridDB.download(u, Storage.logoFile(a, pkg)); }
+            catch (Exception ignored) { }
+        }, "sgdb-logo").start();
+    }
+
+    // ---------------------------------------------------------------- what's playing (any app) and its controls
+
+    /** The media session to show, as JSON (needs notification access), or "null". */
+    @JavascriptInterface
+    public String mediaNow(boolean withArt) {
+        try { org.json.JSONObject o = a.mediaWatch == null ? null : a.mediaWatch.now(withArt); return o == null ? "null" : o.toString(); }
+        catch (Exception e) { return "null"; }
+    }
+
+    @JavascriptInterface
+    public void mediaCmd(final String c) { a.runOnUiThread(() -> { if (a.mediaWatch != null) a.mediaWatch.command(c); }); }
 
     @JavascriptInterface
     public void setVideoBlur(final int radius) {
@@ -400,6 +477,8 @@ final class LauncherBridge {
         Storage.coverFile(a, pkg).delete();
         //noinspection ResultOfMethodCallIgnored
         Storage.coverVideoFile(a, pkg).delete();
+        //noinspection ResultOfMethodCallIgnored
+        Storage.coverAnimFile(a, pkg).delete();
         a.server.invalidate(pkg);
     }
 

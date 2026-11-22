@@ -40,6 +40,34 @@ final class Storage {
         return new File(dir, safe + ".jpg");
     }
 
+    /** A live tile from SteamGridDB: an animated WebP/PNG/GIF kept exactly as it came, so it keeps moving. */
+    static File coverAnimFile(Context c, String pkg) {
+        File dir = new File(c.getFilesDir(), "covers");
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        String safe = (pkg == null ? "_" : pkg).replaceAll("[^A-Za-z0-9._]", "_");
+        return new File(dir, safe + ".anim");
+    }
+
+    /** The game's logo, shown by the launch intro. */
+    static File logoFile(Context c, String pkg) {
+        File dir = new File(c.getFilesDir(), "logos");
+        //noinspection ResultOfMethodCallIgnored
+        dir.mkdirs();
+        String safe = (pkg == null ? "_" : pkg).replaceAll("[^A-Za-z0-9._]", "_");
+        return new File(dir, safe + ".img");
+    }
+
+    /** Picture type from the first bytes of a file. */
+    static String sniffImage(File f) {
+        byte[] m = new byte[12];
+        try (java.io.FileInputStream in = new java.io.FileInputStream(f)) { if (in.read(m) < 12) return "image/jpeg"; } catch (Exception e) { return "image/jpeg"; }
+        if ((m[0] & 0xff) == 0x89 && m[1] == 'P') return "image/png";
+        if (m[0] == 'G' && m[1] == 'I') return "image/gif";
+        if (m[0] == 'R' && m[1] == 'I' && m[8] == 'W' && m[9] == 'E') return "image/webp";
+        return "image/jpeg";
+    }
+
     /** A moving tile: a video the user chose for this game. Shown instead of the cover picture. */
     static File coverVideoFile(Context c, String pkg) {
         File dir = new File(c.getFilesDir(), "covers");

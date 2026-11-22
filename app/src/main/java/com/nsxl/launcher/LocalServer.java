@@ -54,7 +54,14 @@ final class LocalServer {
         if (path == null || path.isEmpty() || "/".equals(path)) path = "/index.html";
         try {
             if (path.startsWith("/art/")) {
+                File live = Storage.coverAnimFile(ctx, path.substring(5));   // a live cover is served as it came
+                if (live.exists()) return new WebResourceResponse(Storage.sniffImage(live), null, 200, "OK", headers(), new FileInputStream(live));
                 return image(art(path.substring(5), size(uri, 512)), "image/jpeg");
+            }
+            if (path.startsWith("/logo/")) {
+                File f = Storage.logoFile(ctx, path.substring(6));
+                if (!f.exists()) return notFound();
+                return new WebResourceResponse(Storage.sniffImage(f), null, 200, "OK", headers(), new FileInputStream(f));
             }
             if (path.startsWith("/artvideo/")) {
                 return video(Storage.coverVideoFile(ctx, path.substring(10)), request);

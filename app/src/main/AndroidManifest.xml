@@ -63,6 +63,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- Spotify sign-in returns here (nsxl://spotify-callback) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="nsxl" android:host="spotify-callback" />
+            </intent-filter>
+
             <!-- Can be chosen as the Home app -->
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

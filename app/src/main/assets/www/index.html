@@ -1593,7 +1593,9 @@ function updateTitle() {
   if (changed) { retrigger(t, 'swap'); fitTitle(); }
   glowFor(it);
   if (PC) secondFor(it);
+  else if (NATIVE && it && it.type === 'app' && cfg.sgdbKey && !logoAsked.has(it.pkg)) { logoAsked.add(it.pkg); nb('logoAuto', it.pkg, BY[it.pkg] ? BY[it.pkg].label : '', cfg.sgdbKey); }   // logo for the launch intro
 }
+const logoAsked = new Set();
 let secondT = null, secondLast = '';
 function secondFor(it) {
   if (!it) return;
@@ -1708,7 +1710,7 @@ function launchIntro(pkg, node) {
   const shade = el('div', 'lfxShade');
   const title = el('div', 'lfxTitle');
   const name = el('div', 'lfxName', esc(a.label));
-  if (PC) {   // the game's logo when NSXL has one (yours, Steam's or SteamGridDB's), else its name
+  if (NATIVE) {   // the game's logo when NSXL has one (yours, Steam's or SteamGridDB's), else its name
     const logo = el('img', 'lfxLogo'); logo.alt = a.label;
     logo.addEventListener('error', () => { logo.remove(); title.prepend(name); }, { once: true });
     logo.src = '/logo/' + encodeURIComponent(pkg);
@@ -2081,7 +2083,7 @@ async function sgdbPickKind(pkg, game, kind) {
   const what = kind === 'logo' ? 'logos' : 'banners';
   showToast('Loading ' + what + '…', 15000);
   try {
-    const list = await nbAsync(kind === 'logo' ? 'sgdbLogos' : 'sgdbHeroes', cfg.sgdbKey, game.id);
+    const list = await nbAsync(kind === 'logo' ? 'sgdbLogos' : 'sgdbHeroes', cfg.sgdbKey, game.id);   // the phone has logos (for the intro) but no banners
     hideToast();
     if (!list.length) { toast('No ' + what + ' for ' + game.name + ' yet'); return; }
     openCoverPicker(pkg, game.name, list, kind);
@@ -2090,7 +2092,7 @@ async function sgdbPickKind(pkg, game, kind) {
 async function sgdbApply(pkg, url, animated) {
   showToast('Downloading cover…', 20000);
   try {
-    await (PC ? nbAsync('sgdbApply', pkg, url, !!animated) : nbAsync('sgdbApply', pkg, url));
+    await (PC ? nbAsync('sgdbApply', pkg, url, !!animated) : nbAsync(animated ? 'sgdbApplyLive' : 'sgdbApply', pkg, url));
     if (BY[pkg]) { BY[pkg].cover = true; BY[pkg].coverVideo = false; } bumpCover(pkg); showToast('Cover art updated', 2000);
   } catch (e) { hideToast(); sgdbError(e); }
 }
@@ -2119,8 +2121,8 @@ function openCoverPicker(pkg, name, grids, kind) {
     const g = grids[sel]; if (!g) return; Snd.select(); popOverlay(true);
     if (!kind) { sgdbApply(pkg, g.url, g.animated); return; }
     showToast(kind === 'logo' ? 'Downloading logo…' : 'Downloading banner…', 30000);
-    nbAsync(kind === 'logo' ? 'secondLogoApply' : 'secondApply', pkg, g.url)
-      .then(() => showToast(kind === 'logo' ? 'Second screen logo set' : 'Second screen artwork set', 2000)).catch(e => { hideToast(); sgdbError(e); });
+    nbAsync(kind === 'logo' ? (PC ? 'secondLogoApply' : 'logoApply') : 'secondApply', pkg, g.url)
+      .then(() => showToast(kind === 'logo' ? (PC ? 'Second screen logo set' : 'Logo set') : 'Second screen artwork set', 2000)).catch(e => { hideToast(); sgdbError(e); });
   };
   pushOverlay({
     el: ov, full: true,
@@ -2693,6 +2695,8 @@ function appOptions(pkg, start) {
           PC ? paneRow(pane, 'Find a logo on SteamGridDB', { desc: 'The logo that sits over the second screen artwork.', run: () => { popOverlay(true); sgdbFind(pkg, null, 'logo'); } }) : null,
           PC ? paneRow(pane, 'Use your own logo', { desc: 'A PNG with a see-through background looks best.', run: () => nb('secondLogoPick', pkg) }) : null,
           PC && nb('secondLogoHas', pkg) ? paneRow(pane, 'Reset second screen logo', { run: () => { nb('secondLogoRemove', pkg); toast('Logo reset'); sheet.refresh(); } }) : null,
+          !PC && NATIVE ? paneRow(pane, 'Find a logo on SteamGridDB', { desc: 'Shown when the game starts. NSXL fetches one by itself if you have a key.', run: () => { popOverlay(true); sgdbFind(pkg, null, 'logo'); } }) : null,
+          !PC && NATIVE && nb('logoHas', pkg) ? paneRow(pane, 'Remove logo', { run: () => { nb('logoRemove', pkg); logoAsked.add(pkg); toast('Logo removed'); sheet.refresh(); } }) : null,
         ];
       } },
       { name: 'Play Activity', build(pane) {
@@ -3995,6 +3999,85 @@ function pcControllers() {
    playlists, shuffle, repeat, volume and devices
    ========================================================= */
 const fmtTime = s => { s = Math.max(0, Math.round(s || 0)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+/* Spotify on the phone: the Web API, signed in with your own Client ID (PKCE, no secret). Same features as on PC. */
+const SpotifyJS = {
+  REDIRECT: 'nsxl://spotify-callback',
+  SCOPES: 'user-read-playback-state user-modify-playback-state user-read-currently-playing playlist-read-private playlist-read-collaborative user-library-read',
+  access: null, expires: 0,
+  get clientId() { return store.get('spotifyClientId', ''); },
+  get connected() { return !!store.get('spotifyRefresh', null); },
+  b64(bytes) { let s = ''; new Uint8Array(bytes).forEach(b => { s += String.fromCharCode(b); }); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); },
+  async login() {
+    if (!this.clientId) throw new Error('Add your Spotify Client ID first');
+    const verifier = this.b64(crypto.getRandomValues(new Uint8Array(48))), state = this.b64(crypto.getRandomValues(new Uint8Array(12)));
+    const challenge = this.b64(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier)));
+    store.set('spotifyPkce', { verifier, state });
+    const q = new URLSearchParams({ client_id: this.clientId, response_type: 'code', redirect_uri: this.REDIRECT, scope: this.SCOPES, state, code_challenge_method: 'S256', code_challenge: challenge });
+    nb('openUrl', 'https://accounts.spotify.com/authorize?' + q, '');
+  },
+  async finish(url) {
+    const u = new URL(url), p = store.get('spotifyPkce', null);
+    if (!p || u.searchParams.get('state') !== p.state || !u.searchParams.get('code')) throw new Error(u.searchParams.get('error') ? 'Spotify sign-in was cancelled' : "Spotify sign-in didn't finish");
+    await this.token({ grant_type: 'authorization_code', code: u.searchParams.get('code'), redirect_uri: this.REDIRECT, code_verifier: p.verifier });
+    store.set('spotifyPkce', null);
+  },
+  logout() { store.set('spotifyRefresh', null); this.access = null; },
+  async token(params) {
+    const r = await fetch('https://accounts.spotify.com/api/token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ client_id: this.clientId, ...params }).toString() });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { if (j.error === 'invalid_grant' && params.grant_type === 'refresh_token') this.logout(); throw new Error(j.error_description || j.error || 'Spotify sign-in failed (' + r.status + ')'); }
+    this.access = j.access_token; this.expires = Date.now() + (j.expires_in - 60) * 1000;
+    if (j.refresh_token) store.set('spotifyRefresh', j.refresh_token);
+  },
+  async api(method, path, body) {
+    if (!this.connected) throw new Error('Connect Spotify in Settings › Music');
+    if (!this.access || Date.now() > this.expires) await this.token({ grant_type: 'refresh_token', refresh_token: store.get('spotifyRefresh', '') });
+    const r = await fetch('https://api.spotify.com/v1' + path, { method, headers: Object.assign({ Authorization: 'Bearer ' + this.access }, body ? { 'Content-Type': 'application/json' } : {}), body: body ? JSON.stringify(body) : undefined });
+    if (r.status === 204 || r.status === 202) return null;
+    const j = await r.json().catch(() => null);
+    if (!r.ok) {
+      const reason = String(j && j.error && (j.error.reason || j.error.message) || '');
+      if (r.status === 403 && /PREMIUM/i.test(reason)) throw new Error('Controlling playback needs Spotify Premium');
+      if (r.status === 404 && /NO_ACTIVE_DEVICE/i.test(reason)) throw new Error('Open Spotify on a device first, then try again');
+      throw new Error(reason || 'Spotify error ' + r.status);
+    }
+    return j;
+  },
+  async player() {
+    const p = await this.api('GET', '/me/player?additional_types=episode'); if (!p) return null;
+    const it = p.item || {};
+    return { playing: p.is_playing, shuffle: p.shuffle_state, repeat: p.repeat_state, progress: p.progress_ms, duration: it.duration_ms,
+      title: it.name, artist: (it.artists || []).map(a => a.name).join(', ') || (it.show && it.show.name) || '', album: it.album ? it.album.name : '',
+      art: ((it.album || it).images || [])[0] ? (it.album || it).images[0].url : null,
+      device: p.device ? { id: p.device.id, name: p.device.name, type: p.device.type, volume: p.device.volume_percent } : null };
+  },
+  async playlists() { const j = await this.api('GET', '/me/playlists?limit=50'); return (j.items || []).filter(Boolean).map(p => ({ uri: p.uri, name: p.name, art: (p.images || [])[0] ? p.images[0].url : null })); },
+  async devices() { const j = await this.api('GET', '/me/player/devices'); return (j.devices || []).map(d => ({ id: d.id, name: d.name, type: d.type, active: d.is_active, volume: d.volume_percent })); },
+  async cmd(c, a) {
+    if (c === 'toggle') { const p = await this.player(); return this.api('PUT', p && p.playing ? '/me/player/pause' : '/me/player/play'); }
+    if (c === 'next') return this.api('POST', '/me/player/next');
+    if (c === 'prev') return this.api('POST', '/me/player/previous');
+    if (c === 'shuffle') return this.api('PUT', '/me/player/shuffle?state=' + (a ? 'true' : 'false'));
+    if (c === 'repeat') return this.api('PUT', '/me/player/repeat?state=' + encodeURIComponent(a));
+    if (c === 'volume') return this.api('PUT', '/me/player/volume?volume_percent=' + Math.max(0, Math.min(100, Math.round(a))));
+    if (c === 'seek') return this.api('PUT', '/me/player/seek?position_ms=' + Math.max(0, Math.round(a)));
+    if (c === 'play') return this.api('PUT', '/me/player/play', a ? { context_uri: a } : undefined);
+    if (c === 'transfer') return this.api('PUT', '/me/player', { device_ids: [a], play: true });
+    if (c === 'liked') { const j = await this.api('GET', '/me/tracks?limit=50'); return this.api('PUT', '/me/player/play', { uris: (j.items || []).map(i => i.track && i.track.uri).filter(Boolean) }); }
+  },
+};
+window.onSpotifyReturn = url => SpotifyJS.finish(url).then(() => { toast('Spotify connected'); refreshOverlays(); }).catch(e => toast(String(e.message || e)));
+const MusicIO = PC ? {
+  state: w => nbAsync('musicState', w), cmd: (...a) => nbAsync('spotifyCmd', ...a), lists: () => nbAsync('spotifyLists'), devices: () => nbAsync('spotifyDevices'), media: c => nb('media', c),
+} : {
+  async state(w) {
+    let session = null; try { session = JSON.parse(nb('mediaNow', !!w) || 'null'); } catch (e) { }
+    const out = { connected: SpotifyJS.connected, hasClientId: !!SpotifyJS.clientId, session, spotify: null, error: null, access: !!nb('mediaAccess') };
+    if (out.connected) { try { out.spotify = await SpotifyJS.player(); } catch (e) { out.error = e.message; } }
+    return out;
+  },
+  cmd: (...a) => SpotifyJS.cmd(...a), lists: () => SpotifyJS.playlists(), devices: () => SpotifyJS.devices(), media: c => nb('mediaCmd', c),
+};
 function openMusic() {
   const ov = el('section', 'ov full mus');
   ov.innerHTML = `<div class="ovTitle">${svg('music')}<span>Music</span></div><div class="ovRule"></div><div class="ovRule bottom"></div>
@@ -4007,17 +4090,17 @@ function openMusic() {
   const now = () => {
     const s = sp(), w = state && state.session;
     if (s && s.title) return { title: s.title, artist: s.artist, art: s.art, playing: s.playing, pos: (s.progress || 0) / 1000, dur: (s.duration || 0) / 1000, src: 'Spotify · ' + (s.device ? s.device.name : '') };
-    if (w && w.title) { const app = /spotify/i.test(w.app || '') ? 'Spotify' : (w.app || '').replace(/\.exe$/i, '').split(/[!\\]/).pop(); return { title: w.title, artist: w.artist, art: w.art, playing: w.playing, pos: w.position, dur: w.duration, src: app }; }
+    if (w && w.title) { const app = /spotify/i.test(w.app || '') ? 'Spotify' : (w.app || '').replace(/\.exe$/i, '').split(/[!\\]/).pop(); return { title: w.title, artist: w.artist, art: w.art, playing: w.playing, pos: w.position, dur: w.duration, src: app, pkg: w.pkg }; }
     return null;
   };
   const cmd = c => {
-    if (sp()) nbAsync('spotifyCmd', c).then(() => setTimeout(poll, 350)).catch(e => toast(String(e)));
-    else { nb('media', c === 'toggle' ? 'play' : c); setTimeout(poll, 400); }
+    if (sp()) MusicIO.cmd(c).then(() => setTimeout(poll, 350)).catch(e => toast(String(e)));
+    else { MusicIO.media(c === 'toggle' ? 'play' : c); setTimeout(poll, 400); }
   };
   function build() {
     const n = now(), s = sp(), conn = state && state.connected;
     $('.musT', ov).textContent = n ? n.title : 'Nothing playing';
-    $('.musA', ov).textContent = n ? n.artist || '' : (conn ? 'Start something in Spotify, or pick a playlist.' : 'Play music in Spotify or any app.');
+    $('.musA', ov).textContent = n ? n.artist || '' : (conn ? 'Start something in Spotify, or pick a playlist.' : !PC && state && state.access === false ? 'Allow Music detection in Settings › Music to see what’s playing.' : 'Play music in Spotify or any app.');
     $('.musSrc', ov).textContent = n ? n.src : '';
     const art = n && n.art ? n.art : '';
     if (art !== img.getAttribute('src')) { img.classList.remove('ok'); if (art) img.src = art; else img.removeAttribute('src'); }
@@ -4036,11 +4119,16 @@ function openMusic() {
     ]);
     if (s) {
       const vol = el('div', 'musVol g', `${svg('sound')}<i><b style="width:${s.device.volume || 0}%"></b></i><span>${s.device.volume || 0}%</span>`);
-      vol._adjust = d => { const v = Math.max(0, Math.min(100, (s.device.volume || 0) + d * 5)); s.device.volume = v; build(); clearTimeout(vol._t); vol._t = setTimeout(() => nbAsync('spotifyCmd', 'volume', v).catch(e => toast(String(e))), 250); };
-      onPress(vol, e => { const r = vol.querySelector('i').getBoundingClientRect(); const v = Math.round(clamp((e.clientX - r.left) / r.width, 0, 1) * 100); s.device.volume = v; build(); nbAsync('spotifyCmd', 'volume', v).catch(x => toast(String(x))); });
+      vol._adjust = d => { const v = Math.max(0, Math.min(100, (s.device.volume || 0) + d * 5)); s.device.volume = v; build(); clearTimeout(vol._t); vol._t = setTimeout(() => MusicIO.cmd('volume', v).catch(e => toast(String(e))), 250); };
+      onPress(vol, e => { const r = vol.querySelector('i').getBoundingClientRect(); const v = Math.round(clamp((e.clientX - r.left) / r.width, 0, 1) * 100); s.device.volume = v; build(); MusicIO.cmd('volume', v).catch(x => toast(String(x))); });
       const dev = el('div', 'musDev g', `${svg('sound')}<span>Playing on <b>${esc(s.device.name)}</b></span><em>Change</em>`);
       dev._run = devices; onPress(dev, () => { Snd.select(); devices(); });
       row('one', [vol]); row('one', [dev]);
+    }
+    if (!PC && n && n.pkg && BY[n.pkg]) {   // on the phone, jump into the app that's playing
+      const o = el('div', 'musDev g', `${svg('music')}<span>Open <b>${esc(BY[n.pkg].label)}</b></span><em>Open</em>`);
+      o._run = () => launch(n.pkg, null); onPress(o, () => { Snd.select(); o._run(); });
+      row('one', [o]);
     }
     if (!conn) {
       const c = el('div', 'musConnect g', `<b>Connect Spotify</b><span>See your playlists and use shuffle, repeat, volume and devices.</span>`);
@@ -4053,7 +4141,7 @@ function openMusic() {
       const tiles = [{ name: 'Liked Songs', liked: true }].concat(lists || []).map(p => {
         const t = el('div', 'musP g');
         t.innerHTML = `<span class="pa">${p.liked ? svg('heart') : p.art ? `<img alt="" src="${esc(p.art)}">` : svg('music')}</span><span class="pn">${esc(p.name)}</span>`;
-        t._run = () => { (p.liked ? nbAsync('spotifyCmd', 'liked') : nbAsync('spotifyCmd', 'play', p.uri)).then(() => { toast('Playing ' + p.name); setTimeout(poll, 600); }).catch(e => toast(String(e))); };
+        t._run = () => { (p.liked ? MusicIO.cmd('liked') : MusicIO.cmd('play', p.uri)).then(() => { toast('Playing ' + p.name); setTimeout(poll, 600); }).catch(e => toast(String(e))); };
         onPress(t, () => { Snd.select(); t._run(); });
         grid.appendChild(t); return t;
       });
@@ -4068,10 +4156,10 @@ function openMusic() {
     }
     paint(true);
   }
-  const cmd2 = (c, v) => nbAsync('spotifyCmd', c, v).then(() => setTimeout(poll, 300)).catch(e => toast(String(e)));
+  const cmd2 = (c, v) => MusicIO.cmd(c, v).then(() => setTimeout(poll, 300)).catch(e => toast(String(e)));
   const need = () => toast('Connect Spotify in Settings › Music for shuffle and repeat');
   function devices() {
-    nbAsync('spotifyDevices').then(ds => {
+    MusicIO.devices().then(ds => {
       if (!ds.length) { toast('Open Spotify on a device first'); return; }
       openMenu('Play on…', ds.map(d => ({ label: d.name + (d.active ? ' ✓' : ''), run: () => cmd2('transfer', d.id) })));
     }).catch(e => toast(String(e)));
@@ -4086,10 +4174,10 @@ function openMusic() {
     if (closed || busy) return; busy = true;
     try {
       const key = state ? JSON.stringify([state.session && state.session.title, state.spotify && state.spotify.title]) : '';
-      const next = await nbAsync('musicState', !state || key !== lastKey);
+      const next = await MusicIO.state(!state || key !== lastKey);
       if (state && next.session && !next.session.art && state.session && next.session.title === state.session.title) next.session.art = state.session.art;
       state = next; lastKey = JSON.stringify([state.session && state.session.title, state.spotify && state.spotify.title]);
-      if (state.connected && lists == null) nbAsync('spotifyLists').then(l => { lists = l; build(); }).catch(() => { lists = []; build(); });
+      if (state.connected && lists == null) MusicIO.lists().then(l => { lists = l; build(); }).catch(() => { lists = []; build(); });
       const sel = rowsEl[focus.r] && rowsEl[focus.r][focus.c];
       build();
     } catch (e) { } finally { busy = false; }
@@ -4123,6 +4211,21 @@ function pcPower() {
     { label: 'Restart PC', run: () => sure('Restart PC?', 'Your PC restarts straight away. Save anything open first.', 'restart') },
     { label: 'Shut down', run: () => sure('Shut down?', 'Your PC turns off straight away. Save anything open first.', 'shutdown') },
   ]);
+}
+if (!PC && NATIVE) {
+  const mu = DOCK_ALL.find(d => d.id === 'music'); if (mu) { delete mu.cat; mu.run = () => openMusic(); }
+  SETTINGS.splice(SETTINGS.findIndex(c => c.name === 'Sound') + 1, 0, { name: 'Music', rows: () => [
+    { type: 'info', label: 'Spotify', value: () => SpotifyJS.connected ? 'Connected ✓' : SpotifyJS.clientId ? 'Not connected' : 'Not set up' },
+    { type: 'action', label: 'Spotify Client ID', desc: 'Create a free app at developer.spotify.com › Dashboard, add the redirect URI below, then paste its Client ID here.',
+      value: () => SpotifyJS.clientId ? 'Set ✓' : 'Add', run: () => openPrompt('Spotify Client ID', SpotifyJS.clientId, 'Paste the Client ID', v => { store.set('spotifyClientId', v.trim()); SpotifyJS.logout(); refreshOverlays(); toast(v.trim() ? 'Client ID saved. Now choose Connect.' : 'Client ID removed'); }) },
+    { type: 'info', label: 'Redirect URI', value: () => SpotifyJS.REDIRECT },
+    { type: 'action', label: 'Copy redirect URI', value: () => 'Copy', run: () => { nb('copyText', SpotifyJS.REDIRECT); toast('Copied'); } },
+    SpotifyJS.connected ? { type: 'action', label: 'Disconnect Spotify', value: () => '', run: () => { SpotifyJS.logout(); refreshOverlays(); toast('Spotify disconnected'); } }
+      : { type: 'action', label: 'Connect Spotify', desc: 'Signs in through your browser, then comes back to NSXL. Controlling playback needs Spotify Premium.', value: () => 'Connect',
+          run: () => SpotifyJS.login().then(() => toast('Finish signing in, then come back to NSXL')).catch(e => toast(String(e.message || e))) },
+    { type: 'action', label: 'Music detection', desc: 'Lets NSXL show and control what any app is playing. NSXL never reads your notifications.',
+      value: () => nb('mediaAccess') ? 'Allowed' : 'Allow', run: () => nb('openMediaAccess') },
+  ] });
 }
 if (PC) {
   document.documentElement.classList.add('pc');
