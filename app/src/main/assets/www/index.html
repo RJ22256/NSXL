@@ -4378,17 +4378,35 @@ if (PC) {
       value: () => fse().installed ? 'Set up ✓' : 'Set up', run: () => fse().installed
         ? openMenu('Xbox mode', [{ label: 'Open Windows gaming settings', run: () => nb('openUrl', 'ms-settings:gaming') }, { label: 'Remove NSXL from Xbox mode', run: () => nb('fseRemove') }])
         : nb('fseInstall') },
+    { type: 'action', label: 'Open with Xbox mode', desc: 'Apps that start alongside NSXL when Windows opens it in Xbox mode, like iCUE for your lighting.',
+      value: () => { try { const st = JSON.parse(nb('fseAppsState')); const n = (st.icue && st.icueOn ? 1 : 0) + st.apps.length; return n ? n + (n === 1 ? ' app' : ' apps') : 'None'; } catch (e) { return ''; } },
+      run: () => fseAppsMenu() },
     { type: 'toggle', label: 'Start NSXL with Windows', desc: 'Opens NSXL when you sign in, like a console.', key: '_autostart', get: () => !!nb('autoStart'), set: v => nb('setAutoStart', v) },
     { type: 'toggle', label: 'Full screen', desc: 'F11 also switches it.', key: '_full', get: () => !!nb('isFullscreen'), set: v => nb('setFullscreen', v) },
     { type: 'action', label: 'Windows settings', value: () => '', run: () => nb('openSettings', 'system') },
     { type: 'info', label: 'Version', value: () => 'NSXL for Windows ' + (nb('version') || '') },
   ];
 
+  const refreshSettings = () => {};   // the row’s count updates next time Settings opens
+  function fseAppsMenu() {
+    let st; try { st = JSON.parse(nb('fseAppsState')); } catch (e) { return; }
+    const items = [];
+    if (st.icue) items.push({ label: (st.icueOn ? '✓ ' : '') + 'iCUE', run: () => { nb('setFseIcue', !st.icueOn); toast(st.icueOn ? 'iCUE won’t open with Xbox mode' : 'iCUE opens with Xbox mode'); refreshSettings(); } });
+    st.apps.forEach(a => items.push({ label: '✓ ' + a.name, run: () => openMenu(a.name, [{ label: 'Stop opening it with Xbox mode', run: () => { nb('fseAppRemove', a.f); refreshSettings(); } }]) }));
+    items.push({ label: 'Add an app…', run: () => nb('fseAppAdd') });
+    openMenu('Open with Xbox mode', items);
+  }
+  window.onFseApps = () => { refreshSettings(); toast('It will open with Xbox mode'); };
   // Controllers: read through the Gamepad API (standard mapping), only while NSXL has focus
   const MAP = { 0: 'a', 1: 'b', 2: 'x', 3: 'y', 4: 'l', 5: 'r', 8: 'minus', 9: 'plus', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 16: 'home' };
   const famOf = id => /054c|dualsense|dualshock|playstation|wireless controller/i.test(id) ? 'ps' : /057e|pro controller|joy-con|nintendo/i.test(id) ? 'nintendo' : /xbox|xinput|045e/i.test(id) ? 'xbox' : 'generic';
   const held = {}, next = {};
   let lastId = '';
+  // PlayStation controllers as NSXL's helper reads them (they keep working after a game switches them to full reports)
+  const HP_BITS = ['a', 'b', 'x', 'y', 'l', 'r', 'minus', 'plus', 'up', 'down', 'left', 'right', 'home'];
+  const HP_PAD = { id: 'PlayStation controller (NSXL)' };
+  let hpState = 0;
+  window.onHelperPad = s => { hpState = s | 0; };
   const fire = (b, rep) => {
     if (b === 'home') { if (!rep && window.onHome) window.onHome(); return; }
     if (cfg.swapAB) b = { a: 'b', b: 'a', x: 'y', y: 'x' }[b] || b;
@@ -4398,13 +4416,16 @@ if (PC) {
     requestAnimationFrame(poll);
     const focused = document.hasFocus();
     // not focused, but nothing else is either (Windows left the desktop in front): a press brings NSXL back
-    if (!focused && !window.padsAnyway) { for (const k in held) delete held[k]; return; }
-    const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+    // the helper only sends a PlayStation controller's buttons while NSXL is the window in front
+    if (!focused && !window.padsAnyway && !hpState) { for (const k in held) delete held[k]; return; }
+    const helperPs = window.helperPs > 0;
+    const pads = (navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : []).filter(p => !(helperPs && famOf(p.id) === 'ps'));
     if (!focused) {
-      if (pads.some(p => p.buttons.some(bt => bt.pressed))) { window.padsAnyway = false; nb('takeFocus'); }
-      return;
+      if (hpState || pads.some(p => p.buttons.some(bt => bt.pressed))) { window.padsAnyway = false; nb('takeFocus'); }
+      if (!hpState) return;
     }
     const now = performance.now(), down = {};
+    HP_BITS.forEach((b, i) => { if (hpState & (1 << i)) down[b] = HP_PAD; });
     for (const p of pads) {
       p.buttons.forEach((bt, i) => { const b = MAP[i]; if (b && (bt.pressed || bt.value > .5)) down[b] = p; });
       const x = p.axes[0] || 0, y = p.axes[1] || 0;
