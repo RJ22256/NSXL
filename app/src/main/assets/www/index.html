@@ -922,6 +922,9 @@ html.gameglow #bgfx i:nth-child(2) { right: -28vmax; top: 4vh; }
 .qrBox img { width: calc(var(--u) * 26); height: calc(var(--u) * 26); border-radius: calc(var(--u) * 1); background: #fff; margin: calc(var(--u) * 1.2) auto; display: block; image-rendering: pixelated; }
 .qrUrl { font-size: calc(var(--u) * 1.6); font-weight: 600; }
 .qrCode { font-size: calc(var(--u) * 1.4); color: var(--fg2); margin-top: calc(var(--u) * .4); letter-spacing: .08em; }
+
+html.away *, html.away *::before, html.away *::after { animation-play-state: paused !important; }
+html.away #bgfx { visibility: hidden; }
 </style>
 </head>
 <body>
@@ -2637,6 +2640,23 @@ function openUserPage() {
 /* =========================================================
    Software menu: press + (Options) on a game
    ========================================================= */
+/* PC: close the game that's running, from its options or the Power menu */
+function closeGameAsk() {
+  const pkg = nb('runningGame'), name = pkg && BY[pkg] ? BY[pkg].label : 'the game';
+  openDialog('Close ' + name + '?', 'Anything you haven\'t saved will be lost.', [{ label: 'Cancel', cancel: true }, { label: 'Close game', primary: true, run: () => { closeAll(); nb('closeGame'); } }]);
+}
+/* PC: run a game's real .exe so its own launcher never appears */
+function skipLauncherMenu(pkg, done) {
+  const a = BY[pkg]; if (!a) return;
+  let list = []; try { list = JSON.parse(nb('directSuggest', pkg) || '[]'); } catch (e) { }
+  const cur = nb('directGet', pkg);
+  const mb = n => n > 0 ? (n / 1048576 >= 1 ? Math.round(n / 1048576) + ' MB' : Math.round(n / 1024) + ' KB') : '';
+  const items = list.map((f, i) => ({ label: (cur && cur.toLowerCase() === f.path.toLowerCase() ? '✓  ' : '') + f.rel + '  ·  ' + mb(f.size) + (i === 0 && !f.launcher ? '  (best guess)' : f.launcher ? '  (a launcher)' : ''),
+    run: () => { if (nb('directSet', pkg, f.path)) { toast(a.label + ' will skip its launcher'); done && done(); } } }));
+  items.push({ label: 'Find the .exe myself…', run: () => nb('directPick', pkg) });
+  if (cur) items.push({ label: 'Turn off (use the launcher again)', run: () => { nb('directClear', pkg); toast(a.label + ' starts normally again'); done && done(); } });
+  openMenu(list.length ? 'Which one is the game?' : 'Skip the launcher', items);
+}
 function appOptions(pkg, start) {
   const a = BY[pkg]; if (!a) return;
   const head = el('div', 'swHead');
@@ -2667,14 +2687,17 @@ function appOptions(pkg, start) {
       { name: 'Manage Software', build(pane) {
         const onHome = homeList().includes(pkg);
         return [
+          PC && nb('runningGame') === pkg ? paneRow(pane, 'Close game', { desc: 'Quits it straight away. Anything you haven\'t saved is lost.', run: () => closeGameAsk() }) : null,
           onHome ? paneRow(pane, 'Remove from Home', { desc: 'It stays in All Software.', run: () => { setOnHome(pkg, false); toast('Removed from Home'); sheet.refresh(); } })
                  : inFolders().has(pkg) ? null : paneRow(pane, 'Add to Home', { run: () => { setOnHome(pkg, true); toast('Added to Home'); sheet.refresh(); } }),
           onHome && homeKeys().includes(pkg) ? paneRow(pane, 'Move on Home', { desc: 'Put it where you want it on the Home row.', run: () => startHomeMove(pkg) }) : null,
           paneRow(pane, 'Folders', { desc: 'Group it with other games.', val: (n => n ? n + (n === 1 ? ' folder' : ' folders') : 'None')(folders().filter(f => f.apps.includes(pkg)).length) + ' <span class="chev">›</span>',
             run: () => folderPicker(pkg, () => sheet.refresh()) }),
-          PC && a.source === 'steam' ? paneRow(pane, 'Launch directly', { desc: 'Runs the game\'s .exe instead of asking Steam. Games that need Steam still use it, just quietly.',
-            val: (nb('directGet', pkg) ? 'On' : 'Off') + ' <span class="chev">›</span>',
-            run: () => nb('directGet', pkg) ? openMenu('Launch directly', [{ label: 'Choose a different .exe', run: () => nb('directPick', pkg) }, { label: 'Turn off', run: () => { nb('directClear', pkg); toast('Launching through Steam'); sheet.refresh(); } }]) : nb('directPick', pkg) }) : null,
+          PC && (a.source === 'steam' || a.source === 'epic') ? paneRow(pane, 'Skip the game\'s launcher', { desc: 'Starts the game itself instead of its own launcher (the window with a Play button some games show first), and skips asking ' + (a.source === 'steam' ? 'Steam' : 'Epic') + '.',
+            val: (nb('directGet', pkg) ? 'On' : 'Off') + ' <span class="chev">›</span>', run: () => skipLauncherMenu(pkg, () => sheet.refresh()) }) : null,
+          PC && nb('directGet', pkg) ? paneRow(pane, 'Launch options', { desc: 'Extra words passed to the game when it starts, like -skipintro. Leave empty if unsure.',
+            val: esc(nb('directArgs', pkg) || 'None') + ' <span class="chev">›</span>',
+            run: () => openPrompt('Launch options', nb('directArgs', pkg) || '', 'For example -skipintro', v => { nb('setDirectArgs', pkg, v); sheet.refresh(); }) }) : null,
           paneRow(pane, 'Rename', { val: esc(a.label), run: () => { popOverlay(true); renameApp(pkg); } }),
           a.label !== a.orig ? paneRow(pane, 'Use original name', { val: esc(a.orig), run: () => { const n = store.get('names', {}); delete n[pkg]; store.set('names', n); popOverlay(true); reloadApps(); } }) : null,
           PC ? paneRow(pane, pkg.startsWith('steam:') ? 'Show in Steam' : 'Open install folder', { val: '<span class="chev">›</span>', run: () => nb('appInfo', pkg) })
@@ -4203,6 +4226,7 @@ function openMusic() {
 function pcPower() {
   const sure = (title, msg, kind) => openDialog(title, msg, [{ label: 'Cancel', cancel: true }, { label: title.replace('?', ''), primary: true, run: () => nb('power', kind) }]);
   openMenu('Power', [
+    nb('runningGame') ? { label: 'Close ' + ((BY[nb('runningGame')] || {}).label || 'game'), run: () => closeGameAsk() } : null,
     { label: 'Quick menu', run: () => setTimeout(() => nb('overlayTest'), 250) },
     { label: 'Sleep', run: () => nb('power', 'sleep') },
     { label: 'Exit to desktop', run: () => nb('power', 'minimize') },
@@ -4229,6 +4253,24 @@ if (!PC && NATIVE) {
 }
 if (PC) {
   document.documentElement.classList.add('pc');
+  {   // a second way to open the quick menu: the controller as NSXL itself sees it (works for any controller Chromium knows)
+    const prev = {};
+    setInterval(() => {
+      if (document.hasFocus() || !navigator.getGamepads) return;   // on NSXL, its own controls apply
+      for (const g of navigator.getGamepads()) {
+        if (!g || g.mapping !== 'standard') continue;
+        const b = i => !!(g.buttons[i] && g.buttons[i].pressed);
+        const was = prev[g.index] || {}, now = { view: b(8) && b(9), guide: b(16) };
+        if (now.guide && !was.guide) nb('padCombo', 'guide');
+        else if (now.view && !was.view) nb('padCombo', 'viewmenu');
+        prev[g.index] = now;
+      }
+    }, 120);
+    // while a game is in front, NSXL stops its animations so the game gets the GPU
+    let awayT = 0;
+    addEventListener('blur', () => { clearTimeout(awayT); awayT = setTimeout(() => document.documentElement.classList.add('away'), 1500); });
+    addEventListener('focus', () => { clearTimeout(awayT); document.documentElement.classList.remove('away'); });
+  }
   if (!store.get('pcEntOn')) { cfg.entTab = true; saveCfg(); store.set('pcEntOn', true); }   // Entertainment used to be hidden on PC
   openPower = pcPower;
   const st = DOCK_ALL.find(d => d.id === 'store'); if (st) { st.label = 'Steam Store'; }
@@ -4323,6 +4365,11 @@ if (PC) {
         const pads = [m.xinput ? m.xinput + ' Xbox' : '', m.ps ? m.ps + ' PlayStation' : ''].filter(Boolean).join(' and ');
         return (m.shortcut ? 'Keyboard: ' + m.shortcut + '. ' : 'No keyboard shortcut was free. ') + (pads ? pads + ' controller' + ((m.xinput || 0) + (m.ps || 0) > 1 ? 's' : '') + ' found.' : 'No controller found. Switch controllers need Steam open, or use the keyboard.'); })(),
       value: () => 'Open', run: () => nb('overlayTest') },
+    { type: 'action', label: 'Quick menu check', desc: (() => { let m = {}; try { m = JSON.parse(nb('menuStatus') || '{}'); } catch (e) { }
+        return (m.helper ? 'The controller helper is running. ' : 'The controller helper isn\'t running, so controllers can\'t open the menu: your antivirus may have blocked nsxl-native.exe. ')
+          + (m.ago >= 0 ? 'Last button press seen ' + (m.ago < 60 ? m.ago + 's' : Math.round(m.ago / 60) + ' min') + ' ago (' + (m.lastCombo === 'guide' ? 'Xbox/PS button' : 'View + Menu') + ').' : 'No quick menu button press seen yet.')
+          + ' Games in exclusive full screen can hide it: pick borderless or windowed full screen in the game.'; })(),
+      value: () => 'Open the log', run: () => nb('openLog') },
   ]); }
   const sys = SETTINGS.find(c => c.name === 'System');
   const fse = () => { try { return JSON.parse(nb('fseState') || '{}'); } catch (e) { return {}; } };

@@ -25,15 +25,28 @@ const custom = new lib.Custom(path.join(DATA, 'library.json'));
 protocol.registerSchemesAsPrivileged([{ scheme: 'nsxl', privileges: { standard: true, secure: true, supportFetchAPI: true, stream: true, corsEnabled: true } }]);
 
 if (!app.requestSingleInstanceLock()) { app.quit(); }
+// NSXL keeps watching the controller while a game covers it, so Windows mustn't treat it as hidden
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 let win = null;
 
 // Windows extras ship in resources/ (built by native/build.ps1)
 const RES = app.isPackaged ? process.resourcesPath : path.join(__dirname, 'resources');
 const native = new Native(path.join(RES, 'native', 'nsxl-native.exe'));
+native.log = m => log(m);
+/** Splits launch options the way a command line would ("quoted parts" stay together). */
+function splitArgs(str) { const out = []; String(str || '').replace(/"([^"]*)"|(\S+)/g, (m, q, w) => { out.push(q != null ? q : w); return ''; }); return out; }
 
 // ------------------------------------------------------------------ small stores
 
+// A small log for troubleshooting (Settings › Controls › Open the log).
+const LOG = path.join(DATA, 'nsxl.log');
+function log(msg) {
+  try {
+    if (fs.existsSync(LOG) && fs.statSync(LOG).size > 1024 * 1024) fs.renameSync(LOG, LOG + '.old');
+    fs.appendFileSync(LOG, new Date().toISOString() + '  ' + msg + '\n');
+  } catch (e) { }
+}
 function readJson(file, dflt) { try { return JSON.parse(fs.readFileSync(path.join(DATA, file), 'utf8')); } catch (e) { return dflt; } }
 function writeJson(file, v) { fs.mkdirSync(DATA, { recursive: true }); fs.writeFileSync(path.join(DATA, file), JSON.stringify(v)); }
 const prefs = { get: (k, d) => { const p = readJson('prefs.json', {}); return k in p ? p[k] : d; }, set: (k, v) => { const p = readJson('prefs.json', {}); p[k] = v; writeJson('prefs.json', p); } };
@@ -85,11 +98,15 @@ function iconSource(a) {
 // ------------------------------------------------------------------ play time (same rules as Android)
 
 let session = null;
-function playStart(pkg) { session = { pkg, start: Date.now(), left: false }; }
+function playStart(pkg) {
+  session = { pkg, start: Date.now(), left: false };
+  if (typeof secondNowPlaying === 'function') secondNowPlaying();
+}
 function playFinish() {
   if (!session || !session.left) return;
   const ms = Date.now() - session.start, pkg = session.pkg;
   session = null;
+  if (typeof secondNowPlaying === 'function') secondNowPlaying();
   if (ms < 5000 || ms > 12 * 3600e3) return;
   const all = readJson('playtime.json', {});
   const o = all[pkg] || { ms: 0, n: 0, first: Date.now() - ms };
@@ -356,16 +373,20 @@ function secondSync() {
   secondWin.webContents.once('did-finish-load', () => { if (!secondWin) return; secondWin.showInactive(); secondPush(); });
   secondWin.on('closed', () => { secondWin = null; });
 }
-/** Sends the selected game's artwork to the second screen. */
+/** While a game is running the second screen shows it, whatever is selected on Home. */
+function secondNowPlaying() { secondPush(); }
+/** Sends the selected (or playing) game's artwork to the second screen. */
 function secondPush() {
-  if (!secondWin || secondWin.isDestroyed() || !second.pkg) return;
-  const pkg = second.pkg, e = encodeURIComponent(pkg), a = byPkg[pkg];
+  const pkg = session && byPkg[session.pkg] ? session.pkg : second.pkg;
+  if (!secondWin || secondWin.isDestroyed() || !pkg) return;
+  const e = encodeURIComponent(pkg), a = byPkg[pkg];
   const own = secondOwn(pkg), steam = a && a.source === 'steam';
   const hasHero = fs.existsSync(heroFile(pkg)) || !!(steam && lib.steamImage(a.appid, 'hero'));
   const hasLogo = !!ownLogo(pkg) || fs.existsSync(logoFile(pkg)) || !!(steam && lib.steamImage(a.appid, 'logo'));
   const cv = coverVideo(pkg);
   const data = {
-    pkg, label: second.label || (a && a.label) || '',
+    pkg, label: (a && a.label) || second.label || '',
+    playing: session && session.pkg === pkg ? { since: session.start } : null,
     media: own ? { url: '/second/' + e + '?v=' + mtime(own), video: isVideo(own) }
       : hasHero ? { url: '/hero/' + e + '?v=' + mtime(heroFile(pkg)), video: false } : null,
     logo: prefs.get('secondLogo', true) && hasLogo ? '/logo/' + e + '?v=' + (mtime(ownLogo(pkg) || '') || mtime(logoFile(pkg))) : null,
@@ -393,7 +414,7 @@ async function secondFetch(pkg, needHero, needLogo) {
     };
     if (needHero) await grab('heroes', heroFile(pkg)).catch(() => {});
     if (needLogo && prefs.get('secondLogo', true)) await grab('logos', logoFile(pkg)).catch(() => {});
-    if (second.pkg === pkg) secondPush();
+    secondPush();
   } catch (e) { }
 }
 
@@ -402,6 +423,7 @@ async function secondFetch(pkg, needHero, needLogo) {
 let overlayWin = null, overlayGame = null, overlayFocused = false, xinputPads = 0, menuShortcut = '';
 function overlayOpen() {
   if (overlayWin && overlayWin.isVisible()) { overlayClose(); return; }
+  log('opening the quick menu');
   native.call('fg.get', {}, 3000).catch(() => null).then(fg => {
     overlayGame = fg && fg.pid && fg.pid !== process.pid && !/^(NSXL|electron)$/i.test(fg.name || '') ? fg : overlayGame;
     const { screen } = require('electron');
@@ -440,10 +462,19 @@ function bringHome() {
   if (win.isMinimized()) win.restore();
   win.show(); win.setAlwaysOnTop(true); win.focus(); win.setAlwaysOnTop(false);
 }
-native.on('pad', m => {
+let lastCombo = 0, lastComboAt = 0;
+/** A quick-menu button press, from the helper (Xbox and PlayStation pads) or from NSXL's own controller reading. */
+function padCombo(combo, from) {
   const want = prefs.get('menuButton', 'viewmenu');
-  if (m.combo === want || (want === 'both' && (m.combo === 'guide' || m.combo === 'viewmenu'))) overlayOpen();
-});
+  lastCombo = combo; lastComboAt = Date.now();
+  const hit = combo === want || (want === 'both' && (combo === 'guide' || combo === 'viewmenu'));
+  log('button ' + combo + ' from ' + from + (hit ? ' → quick menu' : ' (quick menu is set to ' + want + ')'));
+  if (!hit) return;
+  if (Date.now() - (padCombo.at || 0) < 700) return;   // the same press seen twice
+  padCombo.at = Date.now();
+  overlayOpen();
+}
+native.on('pad', m => padCombo(m.combo, m.ps ? 'PlayStation controller' : 'Xbox controller'));
 let otherMusic = false;   // another app is playing (Spotify, a browser…): the page pauses its ambient music
 native.on('media.playing', m => { otherMusic = !!(m && m.playing); js('window.onOtherMusic&&onOtherMusic(' + otherMusic + ')'); });
 native.on('pads', m => { xinputPads = (m && m.count) || 0; js('window.updateStatus&&updateStatus()'); });
@@ -511,10 +542,12 @@ const H = {
     const a = byPkg[pkg];
     if (!a) { toast("Can't find that game any more"); return; }
     try {
-      const direct = a.source === 'steam' && (prefs.get('directExe', {}) || {})[pkg];
+      const direct = (a.source === 'steam' || a.source === 'epic') && (prefs.get('directExe', {}) || {})[pkg];
       if (direct && fs.existsSync(direct)) {
-        // straight to the game's .exe; telling it its Steam id lets it use the (quietly running) Steam without restarting through it
-        const child = spawn(direct, [], { cwd: path.dirname(direct), detached: true, stdio: 'ignore', env: Object.assign({}, process.env, { SteamAppId: String(a.appid), SteamGameId: String(a.appid) }) });
+        // straight to the game's .exe, past its own launcher; a Steam game is told its id so it uses the (quietly running) Steam without restarting through it
+        const env = a.source === 'steam' ? Object.assign({}, process.env, { SteamAppId: String(a.appid), SteamGameId: String(a.appid) }) : process.env;
+        const child = spawn(direct, splitArgs((prefs.get('directArgs', {}) || {})[pkg] || ''), { cwd: path.dirname(direct), detached: true, stdio: 'ignore', env });
+        log('launching ' + a.label + ' directly: ' + direct);
         child.on('error', () => toast("Couldn't start " + a.label));
         child.unref();
       } else if (a.source === 'steam') shell.openExternal('steam://rungameid/' + a.appid);
@@ -535,6 +568,26 @@ const H = {
   steamOpts: () => JSON.stringify({ found: !!steamExe(), quiet: prefs.get('steamQuiet', true), cover: prefs.get('steamCover', true) }),
   setSteamOpt: (k, v) => { if (k === 'quiet' || k === 'cover') prefs.set(k === 'quiet' ? 'steamQuiet' : 'steamCover', !!v); if (k === 'quiet' && v) steamQuietStart(); },
   directGet: (pkg) => { const f = (prefs.get('directExe', {}) || {})[pkg]; return f && fs.existsSync(f) ? f : ''; },
+  directArgs: (pkg) => (prefs.get('directArgs', {}) || {})[pkg] || '',
+  setDirectArgs: (pkg, v) => { const all = prefs.get('directArgs', {}) || {}; if (String(v || '').trim()) all[pkg] = String(v).trim(); else delete all[pkg]; prefs.set('directArgs', all); },
+  /** The game's real .exe, guessed: the biggest program in its folder that isn't a launcher, installer or helper. */
+  directSuggest: (pkg) => {
+    const a = byPkg[pkg]; if (!a || !a.dir || !fs.existsSync(a.dir)) return '[]';
+    const skip = /launch|setup|install|unins|redist|vc_?redist|dxsetup|crash|report|helper|update|patch|config|settings|anticheat|easyanticheat|battleye|eac|ue4prereq|prereq|cefprocess|webhelper|uplay|ubisoft|origin|eadesktop|socialclub|rockstar|bink|benchmark/i;
+    const found = [];
+    const walk = (dir, depth) => {
+      let list; try { list = fs.readdirSync(dir, { withFileTypes: true }); } catch (e) { return; }
+      for (const d of list) {
+        const f = path.join(dir, d.name);
+        if (d.isDirectory()) { if (depth < 4 && !/^(_commonredist|redist|directx|vcredist|support|tools|engine\\extras)$/i.test(d.name)) walk(f, depth + 1); }
+        else if (/\.exe$/i.test(d.name)) { let size = 0; try { size = fs.statSync(f).size; } catch (e) { } found.push({ path: f, name: d.name, rel: path.relative(a.dir, f), size, launcher: skip.test(d.name) }); }
+      }
+    };
+    walk(a.dir, 0);
+    found.sort((x, y) => (x.launcher - y.launcher) || (y.size - x.size));
+    return JSON.stringify(found.slice(0, 8));
+  },
+  directSet: (pkg, f) => { if (!f || !fs.existsSync(f)) return false; const all = prefs.get('directExe', {}) || {}; all[pkg] = f; prefs.set('directExe', all); return true; },
   directPick: async (pkg) => {
     const a = byPkg[pkg]; if (!a) return;
     const r = await dialog.showOpenDialog(win, { title: 'Choose ' + a.label + "'s .exe", defaultPath: a.dir || undefined, properties: ['openFile'], filters: [{ name: 'Programs', extensions: ['exe'] }] });
@@ -805,8 +858,18 @@ const H = {
   screenshot: () => { screenshot().catch(e => toast("Couldn't take a screenshot: " + e.message)); },
   closeGame: () => {
     overlayClose();
-    if (overlayGame && overlayGame.pid) native.call('proc.kill', { pid: overlayGame.pid }).then(() => { overlayGame = null; bringHome(); }).catch(e => toast("Couldn't close it: " + e.message));
+    const a = session && byPkg[session.pkg];
+    log('closing ' + (a ? a.label : overlayGame ? overlayGame.name : 'the game'));
+    // the game's own folder catches every process it started; the window in front is the fallback
+    const byDir = a && a.dir ? native.call('proc.killdir', { dir: a.dir }, 8000).catch(() => 0) : Promise.resolve(0);
+    byDir.then(n => n ? n : (overlayGame && overlayGame.pid ? native.call('proc.kill', { pid: overlayGame.pid }).then(() => 1) : 0))
+      .then(n => { if (n) { overlayGame = null; if (session) session.left = true; playFinish(); bringHome(); toast((a ? a.label : 'The game') + ' closed'); } else toast("Couldn't find the game to close"); })
+      .catch(e => toast("Couldn't close it: " + e.message));
   },
+  runningGame: () => (session && byPkg[session.pkg] ? session.pkg : ''),
+  padCombo: (c) => { if (c === 'guide' || c === 'viewmenu') padCombo(c, 'NSXL'); },
+  menuStatus: () => JSON.stringify({ helper: native.running, restarts: native.restarts, lastCombo, ago: lastComboAt ? Math.round((Date.now() - lastComboAt) / 1000) : -1 }),
+  openLog: () => { if (fs.existsSync(LOG)) shell.openPath(LOG); else toast('Nothing logged yet'); },
   gameName: () => (overlayGame ? (overlayGame.title || overlayGame.name || '') : ''),
   openPanel: (kind) => { overlayClose(); H.openSettings(kind === 'volume' ? 'sound' : kind); },
   openControllersHome: () => { bringHome(); js('window.openControllers&&openControllers()'); },

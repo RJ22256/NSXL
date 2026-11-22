@@ -95,6 +95,8 @@ namespace Nsxl.Native
                 case "fg.get": return Foreground.Get();
                 case "fg.set": return Foreground.Bring(Convert.ToInt64(m["hwnd"]));
                 case "proc.kill": Process.GetProcessById(Int(m, "pid")).Kill(); return true;
+                case "proc.killdir": return Procs.KillIn(Str(m, "dir"));
+                case "proc.list": return Procs.ListIn(Str(m, "dir"));
                 default: throw new Exception("Unknown command " + cmd);
             }
         }
@@ -636,6 +638,40 @@ namespace Nsxl.Native
             else return false;
             b1 = r[at]; b2 = r[at + 1];
             return true;
+        }
+    }
+
+    /// <summary>Finds and closes a game's processes by the folder it's installed in (works for 32- and 64-bit games).</summary>
+    internal static class Procs
+    {
+        [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, int flags, StringBuilder name, ref int size);
+        [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+
+        static string PathOf(int pid)
+        {
+            IntPtr h = OpenProcess(0x1000, false, pid);   // PROCESS_QUERY_LIMITED_INFORMATION
+            if (h == IntPtr.Zero) return null;
+            try { var sb = new StringBuilder(1024); int n = sb.Capacity; return QueryFullProcessImageName(h, 0, sb, ref n) ? sb.ToString() : null; }
+            finally { CloseHandle(h); }
+        }
+        static IEnumerable<Process> In(string dir)
+        {
+            if (string.IsNullOrEmpty(dir)) yield break;
+            string root = Path.GetFullPath(dir).TrimEnd('\\') + "\\";
+            foreach (var p in Process.GetProcesses())
+            {
+                string f = null;
+                try { f = PathOf(p.Id); } catch { }
+                if (f != null && f.StartsWith(root, StringComparison.OrdinalIgnoreCase)) yield return p;
+            }
+        }
+        public static object ListIn(string dir) { return In(dir).Select(p => (object)p.Id).ToList(); }
+        public static object KillIn(string dir)
+        {
+            int n = 0;
+            foreach (var p in In(dir).ToList()) { try { p.Kill(); n++; } catch { } }
+            return n;
         }
     }
 }
