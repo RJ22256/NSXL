@@ -24,6 +24,11 @@ img.media { animation: drift 34s ease-in-out infinite alternate; }
   box-shadow: 0 3vh 9vh rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.08); animation: rise 1s cubic-bezier(.2,.8,.2,1) both; }
 .tile > * { width: 100%; height: 100%; object-fit: cover; display: block; }
 .card .title { position: static; animation-delay: .15s; }
+.now { position: absolute; left: 5vw; top: 6vh; display: flex; align-items: center; gap: 1.2vh; padding: 1.1vh 2.2vh 1.1vh 1.6vh; border-radius: 99vh;
+  background: rgba(0,0,0,.45); backdrop-filter: blur(16px); font-size: 2.1vh; font-weight: 700; letter-spacing: .04em; animation: rise .9s cubic-bezier(.2,.8,.2,1) .3s both; }
+.now i { width: 1.2vh; height: 1.2vh; border-radius: 50%; background: #3ddc84; box-shadow: 0 0 0 .5vh rgba(61,220,132,.25); animation: pulse 2s ease-in-out infinite; }
+.now span { color: rgba(255,255,255,.7); font-weight: 600; font-variant-numeric: tabular-nums; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .4; } }
 @keyframes rise { from { opacity: 0; transform: translateY(2.4vh); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { img.media, .logo, .title, .tile { animation: none !important; } .layer { transition-duration: .2s; } }
 </style>
@@ -66,10 +71,17 @@ img.media { animation: drift 34s ease-in-out infinite alternate; }
         layer.append(logo);
       } else layer.append(el('div', 'title', d.label));
     } else fallback(layer, d);
+    if (d.playing) {   // the game you're playing: a live "Now playing" badge with how long
+      const chip = el('div', 'now'), t = el('span');
+      chip.append(el('i'), document.createTextNode('NOW PLAYING'), t);
+      const tick = () => { const m = Math.max(0, Math.floor((Date.now() - d.playing.since) / 60000)); t.textContent = m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + (m % 60) + ' min'; };
+      tick(); layer._t = setInterval(tick, 30000);
+      layer.append(chip);
+    }
     stage.append(layer);
     requestAnimationFrame(() => requestAnimationFrame(() => layer.classList.add('on')));
     const old = cur; cur = layer;
-    if (old) { old.classList.remove('on'); setTimeout(() => old.remove(), 1000); }
+    if (old) { old.classList.remove('on'); clearInterval(old._t); setTimeout(() => old.remove(), 1000); }
   };
 })();
 </script>
