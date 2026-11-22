@@ -421,21 +421,36 @@ async function secondFetch(pkg, needHero, needLogo) {
 // ------------------------------------------------------------------ the quick menu (over games)
 
 let overlayWin = null, overlayGame = null, overlayFocused = false, xinputPads = 0, menuShortcut = '';
-function overlayOpen() {
-  if (overlayWin && overlayWin.isVisible()) { overlayClose(); return; }
+let overlayOpening = false;
+/** A dimmed picture of the screen to sit behind the menu (Windows wouldn't show a see-through window over games). */
+async function overlayBackdrop(d) {
+  try {
+    const { desktopCapturer } = require('electron');
+    const size = { width: Math.round(d.size.width / 2), height: Math.round(d.size.height / 2) };
+    const sources = await Promise.race([desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size }), new Promise((_, no) => setTimeout(() => no(new Error('slow')), 1500))]);
+    const src = sources.find(x => String(x.display_id) === String(d.id)) || sources[0];
+    return src && !src.thumbnail.isEmpty() ? 'data:image/jpeg;base64,' + src.thumbnail.toJPEG(72).toString('base64') : null;
+  } catch (e) { return null; }
+}
+async function overlayOpen() {
+  if (overlayOpening) return;
+  if (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible()) { overlayClose(); return; }
+  overlayOpening = true; overlayOpenedAt = Date.now();
   log('opening the quick menu');
-  native.call('fg.get', {}, 3000).catch(() => null).then(fg => {
+  try {
+    const fg = await native.call('fg.get', {}, 3000).catch(() => null);
     overlayGame = fg && fg.pid && fg.pid !== process.pid && !/^(NSXL|electron)$/i.test(fg.name || '') ? fg : overlayGame;
     const { screen } = require('electron');
     const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const backdrop = await overlayBackdrop(d);
     if (!overlayWin || overlayWin.isDestroyed()) {
+      // an ordinary (not see-through) window: those always draw, over games too
       overlayWin = new BrowserWindow({
-        ...d.bounds, show: false, frame: false, transparent: true, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false,
-        backgroundColor: '#00000000', title: 'NSXL quick menu',
+        ...d.bounds, show: false, frame: false, transparent: false, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false,
+        backgroundColor: '#000000', title: 'NSXL quick menu',
         webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false },
       });
       overlayWin.setAlwaysOnTop(true, 'screen-saver');
-      overlayWin.loadURL('nsxl://app/overlay.html');
       overlayWin.on('focus', () => { overlayFocused = true; });
       overlayWin.on('blur', () => {
         if (!overlayFocused || !overlayWin || !overlayWin.isVisible()) return;
@@ -444,14 +459,16 @@ function overlayOpen() {
         if (Date.now() - overlayOpenedAt < 2500) { if (!overlayRegrab) { overlayRegrab = true; setTimeout(() => { if (overlayWin && overlayWin.isVisible()) grabFocus(); }, 80); } return; }
         overlayClose(false);
       });
-      overlayWin.webContents.once('did-finish-load', () => { overlayOpenedAt = Date.now(); overlayRegrab = false; overlayWin.show(); grabFocus(); overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {}); });
-      return;
+      await overlayWin.loadURL('nsxl://app/overlay.html').catch(e => log('quick menu page failed to load: ' + e.message));
     }
     overlayWin.setBounds(d.bounds);
+    await overlayWin.webContents.executeJavaScript('window.helperPs=' + psPads + ';window.setBackdrop&&setBackdrop(' + JSON.stringify(backdrop) + ')').catch(() => {});
     overlayOpenedAt = Date.now(); overlayRegrab = false;
-    overlayWin.show(); grabFocus();
+    overlayWin.show(); overlayWin.moveTop(); grabFocus();
     overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {});
-  });
+    log('quick menu shown' + (backdrop ? '' : ' (no backdrop picture)'));
+  } catch (e) { log('quick menu failed: ' + e.message); }
+  finally { overlayOpening = false; }
 }
 function grabFocus() {
   overlayFocused = false;
@@ -604,8 +621,12 @@ async function fseApps() {
     const name = path.basename(a.exe);
     const running = await new Promise(r => exec('tasklist /FI "IMAGENAME eq ' + name + '" /NH', { windowsHide: true }, (e, out) => r(!e && String(out).toLowerCase().includes(name.toLowerCase()))));
     if (running) { log(path.basename(a.exe) + ' is already open'); continue; }
-    try { spawn(a.exe, a.args, { detached: true, stdio: 'ignore', cwd: path.dirname(a.exe) }).unref(); log('Xbox mode: opened ' + a.exe); }
-    catch (e) { log("Xbox mode: couldn't open " + a.exe + ': ' + e.message); }
+    const go = args => new Promise(r => exec('start "" /d "' + path.dirname(a.exe) + '" "' + a.exe + '"' + (args.length ? ' ' + args.join(' ') : ''), { windowsHide: true }, e => r(e)));
+    const isUp = () => new Promise(r => exec('tasklist /FI "IMAGENAME eq ' + name + '" /NH', { windowsHide: true }, (e, out) => r(!e && String(out).toLowerCase().includes(name.toLowerCase()))));
+    let err = await go(a.args);
+    await new Promise(r => setTimeout(r, 8000));
+    if (!(await isUp()) && a.args.length) { log('Xbox mode: ' + name + " didn't start with " + a.args.join(' ') + ', trying again plainly'); err = await go([]); await new Promise(r => setTimeout(r, 8000)); }
+    log('Xbox mode: ' + name + ((await isUp()) ? ' is running' : " didn't start" + (err ? ' (' + err.message.trim() + ')' : '')));
   }
 }
 function fseCheck() {
@@ -972,7 +993,11 @@ const H = {
   },
   runningGame: () => (session && byPkg[session.pkg] ? session.pkg : ''),
   padCombo: (c) => { if (c === 'guide' || c === 'viewmenu') padCombo(c, 'NSXL'); },
-  takeFocus: () => { log('controller pressed while NSXL was behind: bringing it forward'); focusHome(); },
+  takeFocus: () => {
+    // not while the quick menu is opening or open: that press was for the menu
+    if (overlayOpening || Date.now() - overlayOpenedAt < 3000 || (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible())) return;
+    log('controller pressed while NSXL was behind: bringing it forward'); focusHome();
+  },
   menuStatus: () => JSON.stringify({ helper: native.running, restarts: native.restarts, lastCombo, ago: lastComboAt ? Math.round((Date.now() - lastComboAt) / 1000) : -1 }),
   openLog: () => { if (fs.existsSync(LOG)) shell.openPath(LOG); else toast('Nothing logged yet'); },
   gameName: () => (overlayGame ? (overlayGame.title || overlayGame.name || '') : ''),
