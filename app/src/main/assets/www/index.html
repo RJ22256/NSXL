@@ -4396,8 +4396,14 @@ if (PC) {
   };
   (function poll() {
     requestAnimationFrame(poll);
-    if (!document.hasFocus()) { for (const k in held) delete held[k]; return; }
+    const focused = document.hasFocus();
+    // not focused, but nothing else is either (Windows left the desktop in front): a press brings NSXL back
+    if (!focused && !window.padsAnyway) { for (const k in held) delete held[k]; return; }
     const pads = navigator.getGamepads ? [...navigator.getGamepads()].filter(Boolean) : [];
+    if (!focused) {
+      if (pads.some(p => p.buttons.some(bt => bt.pressed))) { window.padsAnyway = false; nb('takeFocus'); }
+      return;
+    }
     const now = performance.now(), down = {};
     for (const p of pads) {
       p.buttons.forEach((bt, i) => { const b = MAP[i]; if (b && (bt.pressed || bt.value > .5)) down[b] = p; });
