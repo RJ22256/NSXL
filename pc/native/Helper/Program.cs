@@ -35,8 +35,11 @@ namespace Nsxl.Native
 
         static void Main()
         {
-            Console.OutputEncoding = new UTF8Encoding(false);
-            Console.InputEncoding = new UTF8Encoding(false);
+            // a windowless app (no console for Windows to close under it): talk over the pipes NSXL gave us
+            var utf8 = new UTF8Encoding(false);
+            Console.SetOut(new StreamWriter(Console.OpenStandardOutput(), utf8) { AutoFlush = true });
+            Console.SetError(new StreamWriter(Console.OpenStandardError(), utf8) { AutoFlush = true });
+            Console.SetIn(new StreamReader(Console.OpenStandardInput(), utf8));
             // anything that slips through is written to NSXL's log instead of silently ending the helper
             AppDomain.CurrentDomain.UnhandledException += (s, e) => { try { Console.Error.WriteLine("crash: " + e.ExceptionObject); } catch { } };
             TaskScheduler.UnobservedTaskException += (s, e) => { try { Console.Error.WriteLine("task error: " + e.Exception.GetBaseException().Message); } catch { } e.SetObserved(); };

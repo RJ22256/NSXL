@@ -25,7 +25,10 @@ class Native {
       // it watches the controllers, so bring it straight back (more slowly if it keeps failing)
       if (!this.stopping) { this.restarts++; setTimeout(() => this.start(), Date.now() - this.lastStart < 10000 ? 5000 : 500); }
     });
-    this.proc.on('error', e => { this.log('helper failed to start: ' + e.message); this.proc = null; });
+    this.proc.on('error', e => {
+      this.log('helper failed to start: ' + e.message); this.proc = null;
+      if (!this.stopping) setTimeout(() => this.start(), 5000);
+    });
     readline.createInterface({ input: this.proc.stdout }).on('line', line => {
       let m; try { m = JSON.parse(line); } catch (e) { return; }
       if (m.event) { (this.handlers[m.event] || []).forEach(f => { try { f(m); } catch (e) { } }); return; }

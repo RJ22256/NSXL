@@ -5,7 +5,7 @@
     NSXL starts it and talks to it with one JSON message per line on stdin/stdout.
   -->
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net48</TargetFramework>
     <LangVersion>latest</LangVersion>
     <AssemblyName>nsxl-native</AssemblyName>

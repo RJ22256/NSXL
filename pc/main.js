@@ -440,7 +440,8 @@ function overlayOpen() {
       overlayWin.on('blur', () => {
         if (!overlayFocused || !overlayWin || !overlayWin.isVisible()) return;
         // a game often grabs focus straight back as the menu opens: take it again once instead of closing
-        if (Date.now() - overlayOpenedAt < 1500 && !overlayRegrab) { overlayRegrab = true; setTimeout(() => { if (overlayWin && overlayWin.isVisible()) grabFocus(); }, 80); return; }
+        // (for the first moments it never closes: if the game won't let go, the check in grabFocus minimises it)
+        if (Date.now() - overlayOpenedAt < 2500) { if (!overlayRegrab) { overlayRegrab = true; setTimeout(() => { if (overlayWin && overlayWin.isVisible()) grabFocus(); }, 80); } return; }
         overlayClose(false);
       });
       overlayWin.webContents.once('did-finish-load', () => { overlayOpenedAt = Date.now(); overlayRegrab = false; overlayWin.show(); grabFocus(); overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {}); });
@@ -460,8 +461,10 @@ function grabFocus() {
   if (!overlayWin.isFocused()) native.call('fg.set', { hwnd }, 3000).catch(() => {});
   // if Windows still won't hand over focus, the menu reads the controller anyway
   setTimeout(() => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.executeJavaScript(`window.forcePads=${!overlayWin.isFocused()}`).catch(() => {}); }, 600);
-  if (overlayRegrab) return;
+  if (grabFocus.checking) return;
+  grabFocus.checking = true;
   setTimeout(() => {
+    grabFocus.checking = false;
     if (!overlayWin || overlayWin.isDestroyed() || !overlayWin.isVisible()) return;
     native.call('fg.get', {}, 2000).then(fg => {
       if (!overlayWin || overlayWin.isDestroyed() || !overlayWin.isVisible()) return;
