@@ -38,6 +38,7 @@ namespace Nsxl.Native
             Console.OutputEncoding = new UTF8Encoding(false);
             Console.InputEncoding = new UTF8Encoding(false);
             Pads.Start();
+            PsPads.Start();
             Media.Watch();
             string line;
             while ((line = Console.In.ReadLine()) != null)
@@ -514,6 +515,127 @@ namespace Nsxl.Native
                 if (mode >= 3) return;   // no XInput on this PC
                 Thread.Sleep(connected.Any(c => c) ? 30 : 500);
             }
+        }
+    }
+
+    /// <summary>
+    /// PlayStation controllers (DualShock 4, DualSense, DualSense Edge) read straight from HID, so the quick-menu
+    /// buttons work without Steam or DS4Windows: PS = the "guide" combo, Create/Share + Options = the "viewmenu" combo.
+    /// Reads are shared, so games, Steam and NSXL's own Gamepad API keep working alongside.
+    /// </summary>
+    internal static class PsPads
+    {
+        static readonly ushort[] Pids = { 0x05C4, 0x09CC, 0x0BA0, 0x0CE6, 0x0DF2 };   // DS4 v1, DS4 v2, DS4 dongle, DualSense, DualSense Edge
+        static readonly HashSet<string> open = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        static readonly object gate = new object();
+
+        [StructLayout(LayoutKind.Sequential)] struct SP_DEVICE_INTERFACE_DATA { public int cbSize; public Guid InterfaceClassGuid; public int Flags; public IntPtr Reserved; }
+        [StructLayout(LayoutKind.Sequential)] struct HIDP_CAPS { public ushort Usage, UsagePage, InputReportByteLength, OutputReportByteLength, FeatureReportByteLength; [MarshalAs(UnmanagedType.ByValArray, SizeConst = 17)] public ushort[] Reserved; public ushort a, b, c, d, e, f, g, h, i, j; }
+        [DllImport("hid.dll")] static extern void HidD_GetHidGuid(out Guid g);
+        [DllImport("hid.dll")] static extern bool HidD_GetPreparsedData(Microsoft.Win32.SafeHandles.SafeFileHandle h, out IntPtr data);
+        [DllImport("hid.dll")] static extern bool HidD_FreePreparsedData(IntPtr data);
+        [DllImport("hid.dll")] static extern int HidP_GetCaps(IntPtr data, out HIDP_CAPS caps);
+        [DllImport("setupapi.dll", SetLastError = true)] static extern IntPtr SetupDiGetClassDevs(ref Guid g, IntPtr e, IntPtr w, int flags);
+        [DllImport("setupapi.dll", SetLastError = true)] static extern bool SetupDiEnumDeviceInterfaces(IntPtr set, IntPtr info, ref Guid g, int i, ref SP_DEVICE_INTERFACE_DATA d);
+        [DllImport("setupapi.dll", SetLastError = true, CharSet = CharSet.Unicode)] static extern bool SetupDiGetDeviceInterfaceDetail(IntPtr set, ref SP_DEVICE_INTERFACE_DATA d, IntPtr detail, int size, out int need, IntPtr info);
+        [DllImport("setupapi.dll")] static extern bool SetupDiDestroyDeviceInfoList(IntPtr set);
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)] static extern Microsoft.Win32.SafeHandles.SafeFileHandle CreateFile(string name, uint access, uint share, IntPtr sec, uint disp, uint flags, IntPtr tpl);
+
+        public static int Count { get { lock (gate) return open.Count; } }
+
+        public static void Start()
+        {
+            new Thread(() => { while (true) { try { Scan(); } catch { } Thread.Sleep(2500); } }) { IsBackground = true, Name = "ps-scan" }.Start();
+        }
+
+        static IEnumerable<string> Paths()
+        {
+            Guid g; HidD_GetHidGuid(out g);
+            IntPtr set = SetupDiGetClassDevs(ref g, IntPtr.Zero, IntPtr.Zero, 0x12);   // DIGCF_PRESENT | DIGCF_DEVICEINTERFACE
+            if (set == IntPtr.Zero || set == new IntPtr(-1)) yield break;
+            try
+            {
+                for (int i = 0; ; i++)
+                {
+                    var d = new SP_DEVICE_INTERFACE_DATA { cbSize = Marshal.SizeOf(typeof(SP_DEVICE_INTERFACE_DATA)) };
+                    if (!SetupDiEnumDeviceInterfaces(set, IntPtr.Zero, ref g, i, ref d)) break;
+                    int need;
+                    SetupDiGetDeviceInterfaceDetail(set, ref d, IntPtr.Zero, 0, out need, IntPtr.Zero);
+                    if (need <= 0) continue;
+                    IntPtr buf = Marshal.AllocHGlobal(need);
+                    try
+                    {
+                        Marshal.WriteInt32(buf, IntPtr.Size == 8 ? 8 : 6);   // cbSize of SP_DEVICE_INTERFACE_DETAIL_DATA_W
+                        if (SetupDiGetDeviceInterfaceDetail(set, ref d, buf, need, out need, IntPtr.Zero))
+                            yield return Marshal.PtrToStringUni(buf + 4);
+                    }
+                    finally { Marshal.FreeHGlobal(buf); }
+                }
+            }
+            finally { SetupDiDestroyDeviceInfoList(set); }
+        }
+
+        static void Scan()
+        {
+            foreach (var p in Paths())
+            {
+                string low = p.ToLowerInvariant();
+                if (low.IndexOf("vid_054c", StringComparison.Ordinal) < 0) continue;
+                if (!Pids.Any(id => low.Contains("pid_" + id.ToString("x4")))) continue;
+                lock (gate) { if (open.Contains(p)) continue; open.Add(p); }
+                Changed();
+                var path = p;
+                new Thread(() => Read(path)) { IsBackground = true, Name = "ps-read" }.Start();
+            }
+        }
+
+        static void Changed() { Program.Event("pspads", new Dictionary<string, object> { { "count", Count } }); }
+
+        static void Read(string path)
+        {
+            try
+            {
+                using (var h = CreateFile(path, 0x80000000, 0x3, IntPtr.Zero, 3, 0, IntPtr.Zero))   // GENERIC_READ, share read+write, OPEN_EXISTING
+                {
+                    if (h.IsInvalid) return;
+                    int len = 64;
+                    IntPtr pre;
+                    if (HidD_GetPreparsedData(h, out pre)) { HIDP_CAPS caps; if (HidP_GetCaps(pre, out caps) >= 0 && caps.InputReportByteLength > 0) len = caps.InputReportByteLength; HidD_FreePreparsedData(pre); }
+                    using (var fs = new FileStream(h, FileAccess.Read, 1, false))   // unbuffered: one read = one report
+                    {
+                        var buf = new byte[Math.Max(len, 64)];
+                        bool ps = false, combo = false;
+                        while (true)
+                        {
+                            int n = fs.Read(buf, 0, buf.Length);
+                            if (n <= 0) break;
+                            int b1, b2;   // b1: Create/Share 0x10, Options 0x20. b2: PS 0x01
+                            if (!Buttons(path, buf, n, out b1, out b2)) continue;
+                            bool nowPs = (b2 & 0x01) != 0, nowCombo = (b1 & 0x30) == 0x30;
+                            if (nowPs && !ps) Program.Event("pad", new Dictionary<string, object> { { "combo", "guide" }, { "ps", true } });
+                            if (nowCombo && !combo) Program.Event("pad", new Dictionary<string, object> { { "combo", "viewmenu" }, { "ps", true } });
+                            ps = nowPs; combo = nowCombo;
+                        }
+                    }
+                }
+            }
+            catch { }   // unplugged, or Windows wouldn't share it
+            finally { lock (gate) open.Remove(path); Changed(); }
+        }
+
+        /// <summary>Where the button bytes sit in each controller's and connection's input report.</summary>
+        static bool Buttons(string path, byte[] r, int n, out int b1, out int b2)
+        {
+            b1 = b2 = 0;
+            bool sense = path.IndexOf("pid_0ce6", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("pid_0df2", StringComparison.OrdinalIgnoreCase) >= 0;
+            int at;   // index of the byte holding Share/Create + Options; PS is the next byte
+            if (r[0] == 0x01 && sense && n >= 11 && n > 20) at = 9;   // DualSense over USB
+            else if (r[0] == 0x31 && sense && n >= 12) at = 10;   // DualSense over Bluetooth (full reports)
+            else if (r[0] == 0x11 && !sense && n >= 10) at = 8;   // DualShock 4 over Bluetooth (full reports)
+            else if (r[0] == 0x01 && n >= 8) at = 6;   // DualShock 4 over USB, or either over Bluetooth in simple mode
+            else return false;
+            b1 = r[at]; b2 = r[at + 1];
+            return true;
         }
     }
 }
