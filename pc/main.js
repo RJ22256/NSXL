@@ -594,6 +594,8 @@ async function screenshot() {
 // ------------------------------------------------------------------ Xbox mode home app (full screen experience)
 
 let fse = { installed: false, checked: false };
+let fseLaunched = process.argv.includes('--fse');   // Windows opened NSXL as its Xbox mode home app
+const xboxModeNow = () => fseLaunched;
 
 // Apps that open alongside NSXL in Xbox mode: iCUE (found automatically) and any you add
 const ICUE_PATHS = [
@@ -1046,6 +1048,14 @@ const H = {
   fseState: () => JSON.stringify(fse),
   fseInstall: () => fseRun('Install'),
   fseRemove: () => fseRun('Remove'),
+  inXboxMode: () => xboxModeNow(),
+  xboxMode: () => {
+    const entering = !xboxModeNow();
+    log(entering ? 'switching to Xbox mode' : 'switching to the Windows desktop');
+    overlayClose(false);
+    // Windows then reopens its home app (NSXL, if it's set up), which also starts the Xbox mode apps
+    native.call('keys.xboxmode', {}, 3000).then(() => { fseLaunched = entering; }).catch(e => toast("Couldn't switch: " + e.message));
+  },
   fseAppsState: () => JSON.stringify({ icue: !!icuePath(), icueOn: prefs.get('fseIcue', true), apps: (prefs.get('fseApps', []) || []).map(f => ({ f, name: path.basename(f, '.exe') })) }),
   setFseIcue: (v) => prefs.set('fseIcue', !!v),
   fseAppAdd: async () => {
@@ -1286,7 +1296,7 @@ function createWindow() {
   win.on('closed', () => { win = null; app.quit(); });
 }
 
-app.on('second-instance', (e, argv) => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } if ((argv || []).includes('--fse')) fseApps(); });
+app.on('second-instance', (e, argv) => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } if ((argv || []).includes('--fse')) { fseLaunched = true; fseApps(); } });
 app.whenReady().then(() => {
   protocol.handle('nsxl', req => handle(req).catch(() => notFound()));
   browserProtocol();

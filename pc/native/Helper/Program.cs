@@ -101,6 +101,7 @@ namespace Nsxl.Native
                 case "fg.get": return Foreground.Get();
                 case "fg.set": return Foreground.Bring(Convert.ToInt64(m["hwnd"]));
                 case "win.min": return Foreground.Minimise(Convert.ToInt64(m["hwnd"]));
+                case "keys.xboxmode": return Foreground.XboxMode();
                 case "proc.kill": Process.GetProcessById(Int(m, "pid")).Kill(); return true;
                 case "proc.killdir": return Procs.KillIn(Str(m, "dir"));
                 case "proc.list": return Procs.ListIn(Str(m, "dir"));
@@ -449,6 +450,16 @@ namespace Nsxl.Native
         /// Windows only lets the app with the last input do that; a tap of Alt counts as input.
         [DllImport("user32.dll")] static extern bool IsIconic(IntPtr hWnd);
         [DllImport("user32.dll")] static extern bool ShowWindowAsync(IntPtr hWnd, int cmd);
+        /// Win + F11: Windows' own shortcut that switches between Xbox mode and the desktop, no restart needed.
+        public static bool XboxMode()
+        {
+            keybd_event(0x5B, 0, 0, UIntPtr.Zero);   // left Windows key
+            keybd_event(0x7A, 0, 0, UIntPtr.Zero);   // F11
+            Thread.Sleep(40);
+            keybd_event(0x7A, 0, 2, UIntPtr.Zero);
+            keybd_event(0x5B, 0, 2, UIntPtr.Zero);
+            return true;
+        }
         public static bool Minimise(long hwnd) { return hwnd != 0 && ShowWindowAsync(new IntPtr(hwnd), 6); }   // SW_MINIMIZE
         public static bool Bring(long hwnd)
         {

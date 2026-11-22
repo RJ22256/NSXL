@@ -276,6 +276,7 @@ function pcCards(id) {
     { type: 'button', icon: 'back', label: 'Back to game', run: close },
     { type: 'button', icon: 'home', label: 'Go to NSXL Home', run: () => go('goHome') },
     g ? { type: 'button', icon: 'off', label: 'Close ' + g, sub: 'Press A twice. Unsaved progress is lost.', run: () => { if (Date.now() - closeArmed < 3000) go('closeGame'); else { closeArmed = Date.now(); toast('Press A again to close it'); } } } : null,
+    { type: 'button', icon: 'home', label: nb('inXboxMode') ? 'Switch to Windows desktop' : 'Switch to Xbox mode', sub: 'No restart needed', run: () => go('xboxMode') },
     { type: 'button', icon: 'moon', label: 'Sleep', sub: 'Puts the PC to sleep', run: () => go('sleep') },
   ].filter(Boolean) }; }
   return null;

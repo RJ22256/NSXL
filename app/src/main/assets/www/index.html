@@ -4228,6 +4228,7 @@ function pcPower() {
   openMenu('Power', [
     nb('runningGame') ? { label: 'Close ' + ((BY[nb('runningGame')] || {}).label || 'game'), run: () => closeGameAsk() } : null,
     { label: 'Quick menu', run: () => setTimeout(() => nb('overlayTest'), 250) },
+    { label: nb('inXboxMode') ? 'Switch to Windows desktop' : 'Switch to Xbox mode', run: () => nb('xboxMode') },
     { label: 'Sleep', run: () => nb('power', 'sleep') },
     { label: 'Exit to desktop', run: () => nb('power', 'minimize') },
     { label: 'Restart NSXL', run: () => nb('reload') },
@@ -4376,7 +4377,7 @@ if (PC) {
   if (sys) sys.rows = () => [
     { type: 'action', label: 'Xbox mode home app', desc: 'Lets Windows open NSXL instead of the Xbox app in Xbox mode (full screen experience). Needs Windows 11 24H2 or later; Windows asks for permission once.',
       value: () => fse().installed ? 'Set up ✓' : 'Set up', run: () => fse().installed
-        ? openMenu('Xbox mode', [{ label: 'Open Windows gaming settings', run: () => nb('openUrl', 'ms-settings:gaming') }, { label: 'Remove NSXL from Xbox mode', run: () => nb('fseRemove') }])
+        ? openMenu('Xbox mode', [{ label: nb('inXboxMode') ? 'Switch to Windows desktop now' : 'Switch to Xbox mode now', run: () => nb('xboxMode') }, { label: 'Open Windows gaming settings', run: () => nb('openUrl', 'ms-settings:gaming') }, { label: 'Remove NSXL from Xbox mode', run: () => nb('fseRemove') }])
         : nb('fseInstall') },
     { type: 'action', label: 'Open with Xbox mode', desc: 'Apps that start alongside NSXL when Windows opens it in Xbox mode, like iCUE for your lighting.',
       value: () => { try { const st = JSON.parse(nb('fseAppsState')); const n = (st.icue && st.icueOn ? 1 : 0) + st.apps.length; return n ? n + (n === 1 ? ' app' : ' apps') : 'None'; } catch (e) { return ''; } },
