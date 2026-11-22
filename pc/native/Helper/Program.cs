@@ -37,6 +37,9 @@ namespace Nsxl.Native
         {
             Console.OutputEncoding = new UTF8Encoding(false);
             Console.InputEncoding = new UTF8Encoding(false);
+            // anything that slips through is written to NSXL's log instead of silently ending the helper
+            AppDomain.CurrentDomain.UnhandledException += (s, e) => { try { Console.Error.WriteLine("crash: " + e.ExceptionObject); } catch { } };
+            TaskScheduler.UnobservedTaskException += (s, e) => { try { Console.Error.WriteLine("task error: " + e.Exception.GetBaseException().Message); } catch { } e.SetObserved(); };
             Pads.Start();
             PsPads.Start();
             Media.Watch();
@@ -501,6 +504,8 @@ namespace Nsxl.Native
             var connected = new bool[4];
             while (true)
             {
+                try
+                {
                 for (int i = 0; i < 4; i++)
                 {
                     XInputState s;
@@ -514,7 +519,9 @@ namespace Nsxl.Native
                     if (combo && !wasCombo) Program.Event("pad", new Dictionary<string, object> { { "combo", "viewmenu" } });
                     last[i] = b;
                 }
-                if (mode >= 3) return;   // no XInput on this PC
+                }
+                catch (Exception e) { Console.Error.WriteLine("xinput read failed: " + e.Message); Thread.Sleep(1000); }
+                if (mode >= 3) { Console.Error.WriteLine("xinput: none on this PC"); return; }
                 Thread.Sleep(connected.Any(c => c) ? 30 : 500);
             }
         }
@@ -577,29 +584,51 @@ namespace Nsxl.Native
             finally { SetupDiDestroyDeviceInfoList(set); }
         }
 
+        static readonly HashSet<string> trying = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        static readonly Dictionary<string, DateTime> retryAt = new Dictionary<string, DateTime>(StringComparer.OrdinalIgnoreCase);
+
+        /// USB: vid_054c&pid_0ce6. Bluetooth: {00001124-...}_vid&0002054c_pid&0ce6.
+        static bool IsSony(string low) { return low.Contains("vid_054c") || low.Contains("vid&0002054c") || low.Contains("vid&0001054c"); }
+        static bool IsBluetooth(string low) { return low.Contains("00001124-0000-1000-8000-00805f9b34fb") || low.Contains("vid&0002") || low.Contains("bthenum"); }
+
         static void Scan()
         {
             foreach (var p in Paths())
             {
                 string low = p.ToLowerInvariant();
-                if (low.IndexOf("vid_054c", StringComparison.Ordinal) < 0) continue;
-                if (!Pids.Any(id => low.Contains("pid_" + id.ToString("x4")))) continue;
-                lock (gate) { if (open.Contains(p)) continue; open.Add(p); }
-                Changed();
+                if (!IsSony(low)) continue;
+                if (!Pids.Any(id => low.Contains("pid_" + id.ToString("x4")) || low.Contains("pid&" + id.ToString("x4")))) continue;
+                lock (gate)
+                {
+                    if (open.Contains(p) || trying.Contains(p)) continue;
+                    DateTime t; if (retryAt.TryGetValue(p, out t) && DateTime.UtcNow < t) continue;
+                    trying.Add(p);
+                }
                 var path = p;
-                new Thread(() => Read(path)) { IsBackground = true, Name = "ps-read" }.Start();
+                new Thread(() => Read(path, IsBluetooth(low))) { IsBackground = true, Name = "ps-read" }.Start();
             }
         }
 
         static void Changed() { Program.Event("pspads", new Dictionary<string, object> { { "count", Count } }); }
 
-        static void Read(string path)
+        static void Read(string path, bool bt)
         {
+            bool opened = false;
             try
             {
                 using (var h = CreateFile(path, 0x80000000, 0x3, IntPtr.Zero, 3, 0, IntPtr.Zero))   // GENERIC_READ, share read+write, OPEN_EXISTING
                 {
-                    if (h.IsInvalid) return;
+                    if (h.IsInvalid)
+                    {
+                        int err = Marshal.GetLastWin32Error();
+                        bool first; lock (gate) { first = !retryAt.ContainsKey(path); retryAt[path] = DateTime.UtcNow.AddSeconds(20); }
+                        if (first) Console.Error.WriteLine("PlayStation controller (" + (bt ? "Bluetooth" : "USB") + ") couldn't be read, error " + err + (err == 5 || err == 32 ? ": another app (DS4Windows/HidHide?) has it to itself" : ""));
+                        return;
+                    }
+                    opened = true;
+                    lock (gate) { open.Add(path); retryAt.Remove(path); }
+                    Changed();
+                    Console.Error.WriteLine("PlayStation controller connected over " + (bt ? "Bluetooth" : "USB"));
                     int len = 64;
                     IntPtr pre;
                     if (HidD_GetPreparsedData(h, out pre)) { HIDP_CAPS caps; if (HidP_GetCaps(pre, out caps) >= 0 && caps.InputReportByteLength > 0) len = caps.InputReportByteLength; HidD_FreePreparsedData(pre); }
@@ -612,7 +641,7 @@ namespace Nsxl.Native
                             int n = fs.Read(buf, 0, buf.Length);
                             if (n <= 0) break;
                             int b1, b2;   // b1: Create/Share 0x10, Options 0x20. b2: PS 0x01
-                            if (!Buttons(path, buf, n, out b1, out b2)) continue;
+                            if (!Buttons(path, bt, buf, n, out b1, out b2)) continue;
                             bool nowPs = (b2 & 0x01) != 0, nowCombo = (b1 & 0x30) == 0x30;
                             if (nowPs && !ps) Program.Event("pad", new Dictionary<string, object> { { "combo", "guide" }, { "ps", true } });
                             if (nowCombo && !combo) Program.Event("pad", new Dictionary<string, object> { { "combo", "viewmenu" }, { "ps", true } });
@@ -621,17 +650,17 @@ namespace Nsxl.Native
                     }
                 }
             }
-            catch { }   // unplugged, or Windows wouldn't share it
-            finally { lock (gate) open.Remove(path); Changed(); }
+            catch (Exception e) { if (opened) Console.Error.WriteLine("PlayStation controller disconnected (" + e.Message + ")"); }   // unplugged
+            finally { bool was; lock (gate) { trying.Remove(path); was = open.Remove(path); } if (was) Changed(); }
         }
 
         /// <summary>Where the button bytes sit in each controller's and connection's input report.</summary>
-        static bool Buttons(string path, byte[] r, int n, out int b1, out int b2)
+        static bool Buttons(string path, bool bt, byte[] r, int n, out int b1, out int b2)
         {
             b1 = b2 = 0;
             bool sense = path.IndexOf("pid_0ce6", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("pid_0df2", StringComparison.OrdinalIgnoreCase) >= 0;
             int at;   // index of the byte holding Share/Create + Options; PS is the next byte
-            if (r[0] == 0x01 && sense && n >= 11 && n > 20) at = 9;   // DualSense over USB
+            if (r[0] == 0x01 && sense && !bt && n >= 12) at = 9;   // DualSense over USB
             else if (r[0] == 0x31 && sense && n >= 12) at = 10;   // DualSense over Bluetooth (full reports)
             else if (r[0] == 0x11 && !sense && n >= 10) at = 8;   // DualShock 4 over Bluetooth (full reports)
             else if (r[0] == 0x01 && n >= 8) at = 6;   // DualShock 4 over USB, or either over Bluetooth in simple mode
@@ -670,7 +699,13 @@ namespace Nsxl.Native
         public static object KillIn(string dir)
         {
             int n = 0;
-            foreach (var p in In(dir).ToList()) { try { p.Kill(); n++; } catch { } }
+            int me = Process.GetCurrentProcess().Id;
+            foreach (var p in In(dir).ToList())
+            {
+                string nm = ""; try { nm = p.ProcessName; } catch { }
+                if (p.Id == me || nm.Equals("NSXL", StringComparison.OrdinalIgnoreCase) || nm.StartsWith("nsxl-", StringComparison.OrdinalIgnoreCase)) continue;
+                try { p.Kill(); n++; } catch { }
+            }
             return n;
         }
     }

@@ -437,11 +437,17 @@ function overlayOpen() {
       overlayWin.setAlwaysOnTop(true, 'screen-saver');
       overlayWin.loadURL('nsxl://app/overlay.html');
       overlayWin.on('focus', () => { overlayFocused = true; });
-      overlayWin.on('blur', () => { if (overlayFocused && overlayWin && overlayWin.isVisible()) overlayClose(); });
-      overlayWin.webContents.once('did-finish-load', () => { overlayWin.show(); grabFocus(); overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {}); });
+      overlayWin.on('blur', () => {
+        if (!overlayFocused || !overlayWin || !overlayWin.isVisible()) return;
+        // a game often grabs focus straight back as the menu opens: take it again once instead of closing
+        if (Date.now() - overlayOpenedAt < 1500 && !overlayRegrab) { overlayRegrab = true; setTimeout(() => { if (overlayWin && overlayWin.isVisible()) grabFocus(); }, 80); return; }
+        overlayClose(false);
+      });
+      overlayWin.webContents.once('did-finish-load', () => { overlayOpenedAt = Date.now(); overlayRegrab = false; overlayWin.show(); grabFocus(); overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {}); });
       return;
     }
     overlayWin.setBounds(d.bounds);
+    overlayOpenedAt = Date.now(); overlayRegrab = false;
     overlayWin.show(); grabFocus();
     overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {});
   });
@@ -455,9 +461,42 @@ function grabFocus() {
   // if Windows still won't hand over focus, the menu reads the controller anyway
   setTimeout(() => { if (overlayWin && !overlayWin.isDestroyed()) overlayWin.webContents.executeJavaScript(`window.forcePads=${!overlayWin.isFocused()}`).catch(() => {}); }, 600);
 }
-function overlayClose() { overlayFocused = false; if (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible()) overlayWin.hide(); }
+let overlayOpenedAt = 0, overlayRegrab = false;
+const hwndOf = w => { const h = w.getNativeWindowHandle(); return h.length >= 8 ? Number(h.readBigUInt64LE(0)) : h.readUInt32LE(0); };
+/** Hides the quick menu and hands focus back to whatever was in front (the game, or NSXL), so the controller keeps working there. */
+function overlayClose(refocus = true) {
+  overlayFocused = false;
+  if (!overlayWin || overlayWin.isDestroyed() || !overlayWin.isVisible()) return;
+  overlayWin.hide();
+  if (!refocus) return;
+  if (overlayGame && overlayGame.hwnd) native.call('fg.set', { hwnd: overlayGame.hwnd }, 3000).catch(() => {});
+  else focusHome();
+}
+/** Puts NSXL in front with real keyboard and controller focus, even when Windows is reluctant. */
+function focusHome() {
+  if (!win || win.isDestroyed()) return;
+  if (win.isMinimized()) win.restore();
+  win.show(); win.focus();
+  setTimeout(() => { if (win && !win.isDestroyed() && !win.isFocused()) native.call('fg.set', { hwnd: hwndOf(win) }, 3000).catch(() => {}); }, 120);
+}
+// Windows sometimes leaves no window in front (after a menu or cover hides, or a game quits). NSXL then
+// looks focused but isn't, and stops hearing the controller. Notice that and take focus back.
+let padsAnyway = false;
+setInterval(() => {
+  if (!win || win.isDestroyed() || !native.running) return;
+  if (win.isFocused() || !win.isVisible() || win.isMinimized() || (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible())) { setPadsAnyway(false); return; }
+  native.call('fg.get', {}, 2000).then(fg => {
+    if (!fg || !win || win.isDestroyed() || win.isFocused()) return;
+    const nobody = !fg.hwnd || (fg.pid === process.pid && fg.hwnd !== hwndOf(win));   // empty foreground, or one of NSXL's hidden windows
+    const desktop = /^explorer$/i.test(fg.name || '') && (!fg.title || fg.title === 'Program Manager');
+    const gameOn = !!launchWatch || (session && Date.now() - session.start < 90000);   // a game is starting: leave the foreground alone
+    if (nobody && !gameOn) { log('focus was lost to ' + (fg.hwnd ? 'a hidden NSXL window' : 'nothing') + ': taking it back'); focusHome(); }
+    setPadsAnyway(!gameOn && (nobody || desktop));
+  }).catch(() => {});
+}, 1500);
+function setPadsAnyway(v) { if (v === padsAnyway) return; padsAnyway = v; js('window.padsAnyway=' + v); }
 function bringHome() {
-  overlayClose();
+  overlayClose(false);
   if (!win) return;
   if (win.isMinimized()) win.restore();
   win.show(); win.setAlwaysOnTop(true); win.focus(); win.setAlwaysOnTop(false);
@@ -477,9 +516,9 @@ function padCombo(combo, from) {
 native.on('pad', m => padCombo(m.combo, m.ps ? 'PlayStation controller' : 'Xbox controller'));
 let otherMusic = false;   // another app is playing (Spotify, a browser…): the page pauses its ambient music
 native.on('media.playing', m => { otherMusic = !!(m && m.playing); js('window.onOtherMusic&&onOtherMusic(' + otherMusic + ')'); });
-native.on('pads', m => { xinputPads = (m && m.count) || 0; js('window.updateStatus&&updateStatus()'); });
+native.on('pads', m => { const n = (m && m.count) || 0; if (n !== xinputPads) log('Xbox-style controllers: ' + n); xinputPads = n; js('window.updateStatus&&updateStatus()'); });
 let psPads = 0;   // PlayStation controllers NSXL reads directly (no Steam or DS4Windows needed)
-native.on('pspads', m => { psPads = (m && m.count) || 0; js('window.updateStatus&&updateStatus()'); });
+native.on('pspads', m => { const n = (m && m.count) || 0; if (n !== psPads) log('PlayStation controllers read directly: ' + n); psPads = n; js('window.updateStatus&&updateStatus()'); });
 
 async function screenshot() {
   overlayClose();
@@ -857,7 +896,7 @@ const H = {
   goHome: () => bringHome(),
   screenshot: () => { screenshot().catch(e => toast("Couldn't take a screenshot: " + e.message)); },
   closeGame: () => {
-    overlayClose();
+    overlayClose(false);
     const a = session && byPkg[session.pkg];
     log('closing ' + (a ? a.label : overlayGame ? overlayGame.name : 'the game'));
     // the game's own folder catches every process it started; the window in front is the fallback
@@ -868,10 +907,11 @@ const H = {
   },
   runningGame: () => (session && byPkg[session.pkg] ? session.pkg : ''),
   padCombo: (c) => { if (c === 'guide' || c === 'viewmenu') padCombo(c, 'NSXL'); },
+  takeFocus: () => { log('controller pressed while NSXL was behind: bringing it forward'); focusHome(); },
   menuStatus: () => JSON.stringify({ helper: native.running, restarts: native.restarts, lastCombo, ago: lastComboAt ? Math.round((Date.now() - lastComboAt) / 1000) : -1 }),
   openLog: () => { if (fs.existsSync(LOG)) shell.openPath(LOG); else toast('Nothing logged yet'); },
   gameName: () => (overlayGame ? (overlayGame.title || overlayGame.name || '') : ''),
-  openPanel: (kind) => { overlayClose(); H.openSettings(kind === 'volume' ? 'sound' : kind); },
+  openPanel: (kind) => { overlayClose(false); H.openSettings(kind === 'volume' ? 'sound' : kind); },
   openControllersHome: () => { bringHome(); js('window.openControllers&&openControllers()'); },
   openMusicHome: () => { bringHome(); js('window.openMusic&&openMusic()'); },
   sleep: () => H.power('sleep'),
