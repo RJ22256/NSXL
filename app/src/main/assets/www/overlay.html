@@ -534,7 +534,7 @@ if (PC) {   // keyboard and controllers on Windows (the menu has focus while it'
     document.documentElement.classList.toggle('snap', !!url);
     n.style.transition = 'none'; document.body.classList.remove('open');
     b.style.backgroundImage = n.style.backgroundImage = url ? 'url(' + JSON.stringify(url) + ')' : '';
-    if (url) { const i = new Image(); i.src = url; try { await i.decode(); } catch (e) { } }
+    if (url) { const i = new Image(); i.src = url; await Promise.race([i.decode().catch(() => {}), new Promise(r => setTimeout(r, 600))]); }
     void n.offsetWidth; n.style.transition = '';
     return true;
   };

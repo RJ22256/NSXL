@@ -441,6 +441,8 @@ async function secondFetch(pkg, needHero, needLogo) {
 
 let overlayWin = null, overlayGame = null, overlayFocused = false, xinputPads = 0, menuShortcut = '';
 let overlayOpening = false;
+// nothing NSXL waits on while opening the menu may hold it up: a hidden window's page can stall
+const within = (p, ms, fallback) => Promise.race([Promise.resolve(p).catch(() => fallback), new Promise(r => setTimeout(() => r(fallback), ms))]);
 /** A dimmed picture of the screen to sit behind the menu (Windows wouldn't show a see-through window over games). */
 async function overlayBackdrop(d) {
   try {
@@ -452,12 +454,12 @@ async function overlayBackdrop(d) {
   } catch (e) { return null; }
 }
 async function overlayOpen() {
-  if (overlayOpening) return;
+  if (overlayOpening && Date.now() - overlayOpenedAt < 4000) return;
   if (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible()) { overlayClose(); return; }
   overlayOpening = true; overlayOpenedAt = Date.now();
   log('opening the quick menu');
   try {
-    const fg = await native.call('fg.get', {}, 3000).catch(() => null);
+    const fg = await within(native.call('fg.get', {}, 1500), 1600, null);
     overlayGame = fg && fg.pid && fg.pid !== process.pid && !/^(NSXL|electron|explorer|ShellHost|ShellExperienceHost)$/i.test(fg.name || '') ? fg : null;
     const { screen } = require('electron');
     // the screen the game (or NSXL) is on, never wherever the mouse was left, which may be the second screen
@@ -475,7 +477,7 @@ async function overlayOpen() {
       overlayWin = new BrowserWindow({
         ...d.bounds, show: false, frame: false, transparent: false, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false,
         backgroundColor: '#000000', title: 'NSXL quick menu', roundedCorners: false, thickFrame: false,
-        webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false },
+        webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false, backgroundThrottling: false },
       });
       overlayWin.setAlwaysOnTop(true, 'screen-saver');
       overlayWin.on('focus', () => { overlayFocused = true; });
@@ -487,17 +489,14 @@ async function overlayOpen() {
         overlayClose(false);
       });
       native.call('win.flat', { hwnd: hwndOf(overlayWin) }, 2000).catch(() => {});
-      await overlayWin.loadURL('nsxl://app/overlay.html').catch(e => log('quick menu page failed to load: ' + e.message));
+      await within(overlayWin.loadURL('nsxl://app/overlay.html').catch(e => log('quick menu page failed to load: ' + e.message)), 5000);
     }
     overlayWin.setBounds(d.bounds);
-    await overlayWin.webContents.executeJavaScript('window.helperPs=' + psPads + ';window.setBackdrop&&setBackdrop(' + JSON.stringify(backdrop) + ')').catch(() => {});
+    const ready = await within(overlayWin.webContents.executeJavaScript('window.helperPs=' + psPads + ';window.setBackdrop&&setBackdrop(' + JSON.stringify(backdrop) + ')'), 900, false);
+    if (!ready) log('quick menu backdrop was slow; showing anyway');
     await new Promise(r => setTimeout(r, 16));
     overlayOpenedAt = Date.now(); overlayRegrab = false;
-    // shown invisibly first so Windows paints the new picture, then revealed: no flash of the last one
-    overlayWin.setOpacity(0);
     overlayWin.show(); overlayWin.moveTop(); grabFocus();
-    await new Promise(r => setTimeout(r, 60));
-    if (!overlayWin.isDestroyed()) overlayWin.setOpacity(1);
     overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {});
     log('quick menu shown' + (backdrop ? '' : ' (no backdrop picture)'));
   } catch (e) { log('quick menu failed: ' + e.message); }
@@ -536,7 +535,7 @@ function overlayClose(refocus = true, animate = true) {
   if (!overlayWin || overlayWin.isDestroyed() || !overlayWin.isVisible() || overlayClosing) return;
   if (animate) {
     overlayClosing = true;
-    overlayWin.webContents.executeJavaScript('window.animateOut?animateOut():0').catch(() => 0).then(ms => {
+    within(overlayWin.webContents.executeJavaScript('window.animateOut?animateOut():0'), 300, 0).then(ms => {
       setTimeout(() => { overlayClosing = false; overlayClose(refocus, false); }, Math.min(Number(ms) || 0, 400));
     });
     return;
