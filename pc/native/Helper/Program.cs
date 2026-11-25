@@ -102,6 +102,7 @@ namespace Nsxl.Native
                 case "fg.set": return Foreground.Bring(Convert.ToInt64(m["hwnd"]));
                 case "win.min": return Foreground.Minimise(Convert.ToInt64(m["hwnd"]));
                 case "keys.xboxmode": return Foreground.XboxMode();
+                case "win.flat": return Foreground.Flat(Convert.ToInt64(m["hwnd"]));
                 case "proc.kill": Process.GetProcessById(Int(m, "pid")).Kill(); return true;
                 case "proc.killdir": return Procs.KillIn(Str(m, "dir"));
                 case "proc.list": return Procs.ListIn(Str(m, "dir"));
@@ -460,6 +461,17 @@ namespace Nsxl.Native
             Thread.Sleep(40);
             keybd_event(0x7A, 0, 2, UIntPtr.Zero);
             keybd_event(0x5B, 0, 2, UIntPtr.Zero);
+            return true;
+        }
+        [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
+        /// Square corners, no border line and no Windows show/hide animation, so the quick menu sits flush on the screen.
+        public static bool Flat(long hwnd)
+        {
+            var h = new IntPtr(hwnd);
+            int off = 1, square = 1, none = unchecked((int)0xFFFFFFFE);
+            DwmSetWindowAttribute(h, 3, ref off, 4);      // DWMWA_TRANSITIONS_FORCEDISABLED
+            DwmSetWindowAttribute(h, 33, ref square, 4);  // DWMWA_WINDOW_CORNER_PREFERENCE: do not round
+            DwmSetWindowAttribute(h, 34, ref none, 4);    // DWMWA_BORDER_COLOR: none
             return true;
         }
         public static bool Minimise(long hwnd) { return hwnd != 0 && ShowWindowAsync(new IntPtr(hwnd), 6); }   // SW_MINIMIZE
