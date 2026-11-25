@@ -671,7 +671,7 @@ namespace Nsxl.Native
                     {
                         var buf = new byte[Math.Max(len, 64)];
                         bool ps = false, combo = false;
-                        int lastState = 0;
+                        int lastState = 0, lastReport = -1;
                         string pad = "p" + System.Threading.Interlocked.Increment(ref padIds);
                         try
                         {
@@ -680,6 +680,7 @@ namespace Nsxl.Native
                             int n = fs.Read(buf, 0, buf.Length);
                             if (n <= 0) break;
                             int b0, b1, b2, lx, ly;   // b0: d-pad + face buttons. b1: Create/Share 0x10, Options 0x20. b2: PS 0x01
+                            if (buf[0] != lastReport) { Console.Error.WriteLine("PlayStation controller now sending report 0x" + buf[0].ToString("x2") + " (" + n + " bytes)"); lastReport = buf[0]; }
                             if (!Buttons(path, bt, buf, n, out b0, out b1, out b2, out lx, out ly)) continue;
                             // the whole controller, for NSXL's own menus: Windows stops passing these controllers to
                             // NSXL's page once a game or Steam switches them to their full reports, so NSXL reads them here
@@ -725,7 +726,9 @@ namespace Nsxl.Native
         static bool Buttons(string path, bool bt, byte[] r, int n, out int b0, out int b1, out int b2, out int lx, out int ly)
         {
             b0 = b1 = b2 = 0; lx = ly = 128;
-            bool sense = path.IndexOf("pid_0ce6", StringComparison.OrdinalIgnoreCase) >= 0 || path.IndexOf("pid_0df2", StringComparison.OrdinalIgnoreCase) >= 0;
+            // DualSense / DualSense Edge. USB paths say pid_0ce6, Bluetooth ones pid&0ce6
+            string low = path.ToLowerInvariant();
+            bool sense = low.Contains("pid_0ce6") || low.Contains("pid&0ce6") || low.Contains("pid_0df2") || low.Contains("pid&0df2");
             int at;   // index of the byte holding Share/Create + Options; PS is the next byte
             if (r[0] == 0x01 && sense && !bt && n >= 12) at = 9;   // DualSense over USB
             else if (r[0] == 0x31 && sense && n >= 12) at = 10;   // DualSense over Bluetooth (full reports)
