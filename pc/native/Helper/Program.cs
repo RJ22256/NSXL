@@ -444,6 +444,8 @@ namespace Nsxl.Native
         [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr hWnd, StringBuilder s, int n);
 
         [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr hWnd);
+        [StructLayout(LayoutKind.Sequential)] struct RECT { public int Left, Top, Right, Bottom; }
+        [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr hWnd, out RECT r);
         [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
 
         /// Brings a window (the quick menu) to the front even while a game has focus.
@@ -476,7 +478,9 @@ namespace Nsxl.Native
             var sb = new StringBuilder(256); GetWindowText(h, sb, 256);
             string name = "", path = "";
             try { var p = Process.GetProcessById((int)pid); name = p.ProcessName; try { path = p.MainModule.FileName; } catch { } } catch { }
-            return new Dictionary<string, object> { { "pid", (int)pid }, { "name", name }, { "path", path }, { "title", sb.ToString() }, { "hwnd", h.ToInt64() } };
+            RECT r; GetWindowRect(h, out r);
+            return new Dictionary<string, object> { { "pid", (int)pid }, { "name", name }, { "path", path }, { "title", sb.ToString() }, { "hwnd", h.ToInt64() },
+                { "x", r.Left }, { "y", r.Top }, { "w", r.Right - r.Left }, { "h", r.Bottom - r.Top } };
         }
     }
 

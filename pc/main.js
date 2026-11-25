@@ -458,9 +458,17 @@ async function overlayOpen() {
   log('opening the quick menu');
   try {
     const fg = await native.call('fg.get', {}, 3000).catch(() => null);
-    overlayGame = fg && fg.pid && fg.pid !== process.pid && !/^(NSXL|electron)$/i.test(fg.name || '') ? fg : overlayGame;
+    overlayGame = fg && fg.pid && fg.pid !== process.pid && !/^(NSXL|electron|explorer|ShellHost|ShellExperienceHost)$/i.test(fg.name || '') ? fg : null;
     const { screen } = require('electron');
-    const d = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    // the screen the game (or NSXL) is on, never wherever the mouse was left, which may be the second screen
+    let d = null;
+    if (fg && fg.w > 0 && fg.pid !== process.pid) {
+      const c = screen.screenToDipPoint({ x: fg.x + fg.w / 2, y: fg.y + fg.h / 2 });
+      d = screen.getDisplayNearestPoint({ x: Math.round(c.x), y: Math.round(c.y) });
+    }
+    if (!d && win && !win.isDestroyed()) d = screen.getDisplayMatching(win.getBounds());
+    if (!d) d = screen.getPrimaryDisplay();
+    log('quick menu on screen ' + (screen.getAllDisplays().findIndex(x => x.id === d.id) + 1) + ' of ' + screen.getAllDisplays().length + (fg ? ' (in front: ' + (fg.name || '?') + ')' : ''));
     const backdrop = await overlayBackdrop(d);
     if (!overlayWin || overlayWin.isDestroyed()) {
       // an ordinary (not see-through) window: those always draw, over games too
@@ -506,7 +514,8 @@ function grabFocus() {
       if (!overlayWin || overlayWin.isDestroyed() || !overlayWin.isVisible()) return;
       if (fg && fg.pid === process.pid) { log('quick menu is in front'); return; }
       log('quick menu was kept behind ' + (fg ? fg.name || 'a window' : 'something') + ': minimising the game so it shows');
-      const g = overlayGame && overlayGame.hwnd ? overlayGame.hwnd : fg && fg.hwnd;
+      const shell = x => x && /^(explorer|ShellHost|ShellExperienceHost|StartMenuExperienceHost|SearchHost|XboxPcApp|GameBar)$/i.test(x.name || '');
+      const g = overlayGame && overlayGame.hwnd && !shell(overlayGame) ? overlayGame.hwnd : fg && !shell(fg) ? fg.hwnd : 0;
       if (g) { overlayGame = overlayGame || fg; overlayGame.minimised = true; native.call('win.min', { hwnd: g }, 2000).catch(() => {}); }
       setTimeout(() => { if (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible()) { overlayWin.setAlwaysOnTop(true, 'screen-saver'); overlayWin.show(); overlayWin.focus(); native.call('fg.set', { hwnd: hwndOf(overlayWin) }, 2000).catch(() => {}); } }, 350);
     }).catch(() => {});
@@ -532,7 +541,7 @@ function focusHome() {
 }
 // Windows sometimes leaves no window in front (after a menu or cover hides, or a game quits). NSXL then
 // looks focused but isn't, and stops hearing the controller. Notice that and take focus back.
-let padsAnyway = false;
+let padsAnyway = false, focusTries = 0, focusPause = 0;
 setInterval(() => {
   if (!win || win.isDestroyed() || !native.running) return;
   if (win.isFocused() || !win.isVisible() || win.isMinimized() || (overlayWin && !overlayWin.isDestroyed() && overlayWin.isVisible())) { setPadsAnyway(false); fgOurs = win.isFocused(); return; }
@@ -543,7 +552,10 @@ setInterval(() => {
     const nobody = !fg.hwnd || (fg.pid === process.pid && fg.hwnd !== hwndOf(win));   // empty foreground, or one of NSXL's hidden windows
     const desktop = /^explorer$/i.test(fg.name || '') && (!fg.title || fg.title === 'Program Manager');
     const gameOn = !!launchWatch || (session && Date.now() - session.start < 90000);   // a game is starting: leave the foreground alone
-    if (nobody && !gameOn) { log('focus was lost to ' + (fg.hwnd ? 'a hidden NSXL window' : 'nothing') + ': taking it back'); focusHome(); }
+    if (nobody && !gameOn && Date.now() > focusPause) {
+      if (++focusTries > 3) { focusTries = 0; focusPause = Date.now() + 60000; log("couldn't take focus back, leaving it for a minute"); }
+      else { log('focus was lost to ' + (fg.hwnd ? 'a hidden NSXL window' : 'nothing') + ': taking it back'); focusHome(); }
+    } else if (!nobody) focusTries = 0;
     setPadsAnyway(!gameOn && (nobody || desktop));
   }).catch(() => {});
 }, 1500);
