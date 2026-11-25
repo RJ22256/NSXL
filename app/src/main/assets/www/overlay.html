@@ -29,9 +29,12 @@ svg { display: block; }
 button { font: inherit; color: inherit; border: 0; background: none; padding: 0; margin: 0; }
 .ic { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-#backdrop { position: fixed; inset: -24px; background: #101014 center / cover no-repeat; filter: blur(14px) brightness(.72) saturate(1.1); opacity: 0; transition: opacity .2s; display: none; }
-html.pc #backdrop { display: block; opacity: 1; transition: none; }
-#shade { position: fixed; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.28) 0%, rgba(0,0,0,.42) 50%, rgba(0,0,0,.78) 100%); opacity: 0; transition: opacity .25s; }
+#backdrop { position: fixed; inset: -48px; background: #101014 center / cover no-repeat; filter: blur(16px) brightness(.72) saturate(1.1); display: none; }
+/* the screen exactly as it was: it fades out to reveal the blur, and back in as the menu closes, so the change is seamless */
+#snap { position: fixed; inset: 0; background: #000 0 0 / 100% 100% no-repeat; display: none; opacity: 1; transition: opacity .34s cubic-bezier(.4,0,.2,1); }
+html.pc #backdrop, html.pc.snap #snap { display: block; }
+body.open #snap { opacity: 0; }
+#shade { position: fixed; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,.28) 0%, rgba(0,0,0,.42) 50%, rgba(0,0,0,.78) 100%); opacity: 0; transition: opacity .34s cubic-bezier(.4,0,.2,1); }
 body.open #shade { opacity: 1; }
 
 #top { position: fixed; top: calc(var(--u) * 3.4); left: calc(var(--u) * 4); right: calc(var(--u) * 4); display: flex; justify-content: space-between; align-items: center; opacity: 0; transform: translateY(calc(var(--u) * -1.5)); transition: opacity .25s, transform .35s cubic-bezier(.2,.8,.2,1); text-shadow: 0 1px 4px rgba(0,0,0,.5); }
@@ -128,7 +131,7 @@ html.touchmode .btn { display: none !important; }
 </head>
 <body>
 <div id="demoGame"></div>
-<div id="backdrop"></div>
+<div id="backdrop"></div><div id="snap"></div>
 <div id="shade"></div>
 <header id="top"><div id="title"><i></i>Quick Menu</div><div id="status"><span id="clock"><span id="hm">--:--</span><span id="ampm"></span></span><span id="bat"></span></div></header>
 <section id="card" aria-live="polite"><h2 id="cardTitle"></h2><div id="rows"></div></section>
@@ -479,7 +482,7 @@ function sleepAnim() {
 
 /* ---- open / close ---- */
 let closing = false;
-function close() { if (closing) return; closing = true; backS(); document.body.classList.remove('open'); setTimeout(() => { closing = false; nb('close'); }, 230); }
+function close() { if (closing) return; closing = true; backS(); document.body.classList.remove('open'); setTimeout(() => { closing = false; nb('close'); }, 300); }
 function go(method, ...args) { document.body.classList.remove('open'); setTimeout(() => nb(method, ...args), 160); }
 window.onVpn = v => { pcVpn = v; if (document.body.classList.contains('open')) paint(); };
 window.onOpen = () => {
@@ -490,7 +493,7 @@ window.onOpen = () => {
   Object.assign(cfg, store.get('cfg', {})); refreshGlyphs(); setInputMode(Input.mode);
   closing = false; refresh(); focus = 'dock';
   renderDock(); paint(true);
-  requestAnimationFrame(() => { document.body.classList.add('open'); placeCard(); });
+  requestAnimationFrame(() => requestAnimationFrame(() => { document.body.classList.add('open'); placeCard(); }));
   play('menu', .55, () => tone(660, 990, .12, .05));
 };
 $('#shade').addEventListener('click', close);
@@ -526,7 +529,20 @@ setInterval(() => { if (document.body.classList.contains('open')) { refresh(); }
 if (PC) {   // keyboard and controllers on Windows (the menu has focus while it's open)
   document.documentElement.classList.add('pc');
   // Windows draws the menu as a normal window, so the game behind it is a picture taken as it opens
-  window.setBackdrop = url => { const b = document.getElementById('backdrop'); b.style.backgroundImage = url ? 'url(' + JSON.stringify(url) + ')' : ''; };
+  window.setBackdrop = async url => {
+    const b = document.getElementById('backdrop'), n = document.getElementById('snap');
+    document.documentElement.classList.toggle('snap', !!url);
+    n.style.transition = 'none'; document.body.classList.remove('open');
+    b.style.backgroundImage = n.style.backgroundImage = url ? 'url(' + JSON.stringify(url) + ')' : '';
+    if (url) { const i = new Image(); i.src = url; try { await i.decode(); } catch (e) { } }
+    void n.offsetWidth; n.style.transition = '';
+    return true;
+  };
+  // NSXL closing the menu: play the way out, then say how long it takes
+  window.animateOut = () => {
+    if (!document.body.classList.contains('open')) return 0;
+    document.body.classList.remove('open'); backS(); return 300;
+  };
   const K = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down', Enter: 'a', ' ': 'a', Escape: 'b', Backspace: 'b' };
   document.addEventListener('keydown', e => { if (K[e.key]) { e.preventDefault(); window.onPad(K[e.key]); } });
   const MAP = { 0: 'a', 1: 'b', 2: 'x', 3: 'y', 4: 'l', 5: 'r', 8: 'minus', 9: 'plus', 12: 'up', 13: 'down', 14: 'left', 15: 'right', 16: 'b' };

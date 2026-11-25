@@ -445,10 +445,10 @@ let overlayOpening = false;
 async function overlayBackdrop(d) {
   try {
     const { desktopCapturer } = require('electron');
-    const size = { width: Math.round(d.size.width / 2), height: Math.round(d.size.height / 2) };
+    const size = { width: Math.round(d.size.width * d.scaleFactor), height: Math.round(d.size.height * d.scaleFactor) };
     const sources = await Promise.race([desktopCapturer.getSources({ types: ['screen'], thumbnailSize: size }), new Promise((_, no) => setTimeout(() => no(new Error('slow')), 1500))]);
     const src = sources.find(x => String(x.display_id) === String(d.id)) || sources[0];
-    return src && !src.thumbnail.isEmpty() ? 'data:image/jpeg;base64,' + src.thumbnail.toJPEG(72).toString('base64') : null;
+    return src && !src.thumbnail.isEmpty() ? 'data:image/jpeg;base64,' + src.thumbnail.toJPEG(90).toString('base64') : null;
   } catch (e) { return null; }
 }
 async function overlayOpen() {
@@ -474,7 +474,7 @@ async function overlayOpen() {
       // an ordinary (not see-through) window: those always draw, over games too
       overlayWin = new BrowserWindow({
         ...d.bounds, show: false, frame: false, transparent: false, resizable: false, movable: false, skipTaskbar: true, alwaysOnTop: true, hasShadow: false,
-        backgroundColor: '#000000', title: 'NSXL quick menu',
+        backgroundColor: '#000000', title: 'NSXL quick menu', roundedCorners: false, thickFrame: false,
         webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, sandbox: true, nodeIntegration: false },
       });
       overlayWin.setAlwaysOnTop(true, 'screen-saver');
@@ -486,12 +486,18 @@ async function overlayOpen() {
         if (Date.now() - overlayOpenedAt < 2500) { if (!overlayRegrab) { overlayRegrab = true; setTimeout(() => { if (overlayWin && overlayWin.isVisible()) grabFocus(); }, 80); } return; }
         overlayClose(false);
       });
+      native.call('win.flat', { hwnd: hwndOf(overlayWin) }, 2000).catch(() => {});
       await overlayWin.loadURL('nsxl://app/overlay.html').catch(e => log('quick menu page failed to load: ' + e.message));
     }
     overlayWin.setBounds(d.bounds);
     await overlayWin.webContents.executeJavaScript('window.helperPs=' + psPads + ';window.setBackdrop&&setBackdrop(' + JSON.stringify(backdrop) + ')').catch(() => {});
+    await new Promise(r => setTimeout(r, 16));
     overlayOpenedAt = Date.now(); overlayRegrab = false;
+    // shown invisibly first so Windows paints the new picture, then revealed: no flash of the last one
+    overlayWin.setOpacity(0);
     overlayWin.show(); overlayWin.moveTop(); grabFocus();
+    await new Promise(r => setTimeout(r, 60));
+    if (!overlayWin.isDestroyed()) overlayWin.setOpacity(1);
     overlayWin.webContents.executeJavaScript('window.onOpen&&window.onOpen()').catch(() => {});
     log('quick menu shown' + (backdrop ? '' : ' (no backdrop picture)'));
   } catch (e) { log('quick menu failed: ' + e.message); }
@@ -524,9 +530,17 @@ function grabFocus() {
 let overlayOpenedAt = 0, overlayRegrab = false;
 const hwndOf = w => { const h = w.getNativeWindowHandle(); return h.length >= 8 ? Number(h.readBigUInt64LE(0)) : h.readUInt32LE(0); };
 /** Hides the quick menu and hands focus back to whatever was in front (the game, or NSXL), so the controller keeps working there. */
-function overlayClose(refocus = true) {
+let overlayClosing = false;
+function overlayClose(refocus = true, animate = true) {
   overlayFocused = false;
-  if (!overlayWin || overlayWin.isDestroyed() || !overlayWin.isVisible()) return;
+  if (!overlayWin || overlayWin.isDestroyed() || !overlayWin.isVisible() || overlayClosing) return;
+  if (animate) {
+    overlayClosing = true;
+    overlayWin.webContents.executeJavaScript('window.animateOut?animateOut():0').catch(() => 0).then(ms => {
+      setTimeout(() => { overlayClosing = false; overlayClose(refocus, false); }, Math.min(Number(ms) || 0, 400));
+    });
+    return;
+  }
   overlayWin.hide();
   if (!refocus) return;
   if (overlayGame && overlayGame.hwnd) native.call('fg.set', { hwnd: overlayGame.hwnd }, 3000).catch(() => {});
